@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Producto {
+  id          String   @id @default(cuid())
+  nombre      String
+  categoria   String
+  precio      Decimal  @db.Decimal(10, 2)
+  disponible  Boolean  @default(true)
+  descripcion String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       Item[]
+}
+
+model Orden {
+  id            String   @id @default(cuid())
+  numeroMesa    Int
+  mesero        String
+  estado        String   @default("pendiente")
+  observaciones String?
+  total         Decimal  @db.Decimal(10, 2) @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  items         Item[]
+  impresa       Boolean  @default(false)
+}
+
+model Item {
+  id            String   @id @default(cuid())
+  ordenId       String
+  orden         Orden    @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  productoId    String
+  producto      Producto @relation(fields: [productoId], references: [id])
+  cantidad      Int
+  precioUnitario Decimal @db.Decimal(10, 2)
+  subtotal      Decimal  @db.Decimal(10, 2)
+  observaciones String?
+  createdAt     DateTime @default(now())
+}
+
+model Mesa {
+  id          String  @id @default(cuid())
+  numero      Int     @unique
+  capacidad   Int
+  disponible  Boolean @default(true)
+}
+
+model Usuario {
+  id        String   @id @default(cuid())
+  nombre    String
+  rol       String
+  password  String?
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
