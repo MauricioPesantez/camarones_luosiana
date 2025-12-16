@@ -33,7 +33,7 @@ export async function GET() {
       numeroMesa: orden.numeroMesa,
       mesero: orden.mesero,
       total: Number(orden.total),
-      itemsSinStock: (orden.itemsSinStock as ItemSinStock[]) || [],
+      itemsSinStock: (orden.itemsSinStock as unknown as ItemSinStock[]) || [],
       createdAt: orden.createdAt,
       items: orden.items.map(item => ({
         id: item.id,

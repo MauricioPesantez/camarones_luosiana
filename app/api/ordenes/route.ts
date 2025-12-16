@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PrinterService } from '@/lib/printer';
 import { ItemSinStock } from '@/types/stock';
+import { Prisma } from '@prisma/client';
 
 export async function GET(request: Request) {
   try {
@@ -137,7 +138,9 @@ export async function POST(request: Request) {
           total,
           tiempoEstimado,
           estado: estadoInicial,
-          itemsSinStock: hayStockInsuficiente && solicitarAprobacion ? itemsSinStock : null,
+          itemsSinStock: (hayStockInsuficiente && solicitarAprobacion
+            ? (itemsSinStock as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull),
           items: {
             create: itemsData,
           },
