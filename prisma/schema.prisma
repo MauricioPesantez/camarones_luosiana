@@ -8,28 +8,30 @@ datasource db {
 }
 
 model Producto {
-  id          String   @id @default(cuid())
-  nombre      String
-  categoria   String
-  precio      Decimal  @db.Decimal(10, 2)
-  disponible  Boolean  @default(true)
-  descripcion String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  items       Item[]
+  id                String   @id @default(cuid())
+  nombre            String
+  categoria         String
+  precio            Decimal  @db.Decimal(10, 2)
+  disponible        Boolean  @default(true)
+  descripcion       String?
+  tiempoPreparacion Int?     @default(0) // Tiempo en minutos
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  items             Item[]
 }
 
 model Orden {
-  id            String   @id @default(cuid())
-  numeroMesa    Int
-  mesero        String
-  estado        String   @default("pendiente")
-  observaciones String?
-  total         Decimal  @db.Decimal(10, 2) @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  items         Item[]
-  impresa       Boolean  @default(false)
+  id             String   @id @default(cuid())
+  numeroMesa     Int
+  mesero         String
+  estado         String   @default("pendiente")
+  observaciones  String?
+  total          Decimal  @db.Decimal(10, 2) @default(0)
+  tiempoEstimado Int?     @default(0) // Tiempo estimado en minutos
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  items          Item[]
+  impresa        Boolean  @default(false)
 }
 
 model Item {

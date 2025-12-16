@@ -9,7 +9,9 @@ interface Orden {
   mesero: string;
   estado: string;
   total: number;
+  tiempoEstimado: number;
   createdAt: string;
+  updatedAt: string;
   items: {
     cantidad: number;
     producto: {
@@ -64,6 +66,23 @@ export default function AdminPage() {
     );
   }
 
+  // Función para calcular si una orden salió a tiempo
+  const calcularEstadoTiempo = (orden: Orden) => {
+    if (orden.estado !== "completada" || !orden.tiempoEstimado) {
+      return null; // No aplica para órdenes pendientes o sin tiempo estimado
+    }
+
+    const creacion = new Date(orden.createdAt).getTime();
+    const completada = new Date(orden.updatedAt).getTime();
+    const tiempoReal = Math.floor((completada - creacion) / 60000); // en minutos
+
+    return {
+      tiempoReal,
+      tiempoEstimado: orden.tiempoEstimado,
+      aTiempo: tiempoReal <= orden.tiempoEstimado,
+    };
+  };
+
   const totalDelDia = ordenes.reduce(
     (total, orden) => total + Number(orden.total),
     0,
@@ -74,6 +93,14 @@ export default function AdminPage() {
     completada: ordenes.filter((o) => o.estado === "completada").length,
     total: ordenes.length,
   };
+
+  // Calcular estadísticas de tiempo
+  const ordenesCompletadas = ordenes.filter((o) => o.estado === "completada");
+  const ordenesATiempo = ordenesCompletadas.filter((o) => {
+    const estado = calcularEstadoTiempo(o);
+    return estado?.aTiempo;
+  }).length;
+  const ordenesRetrasadas = ordenesCompletadas.length - ordenesATiempo;
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -118,29 +145,41 @@ export default function AdminPage() {
         </div>
 
         {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm text-gray-600 mb-2">Total del Día</h3>
-            <p className="text-3xl font-bold text-green-600">
+            <h3 className="text-xs text-gray-600 mb-2">Total del Día</h3>
+            <p className="text-2xl font-bold text-green-600">
               ${totalDelDia.toFixed(2)}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm text-gray-600 mb-2">Total Órdenes</h3>
-            <p className="text-3xl font-bold text-blue-600">
+            <h3 className="text-xs text-gray-600 mb-2">Total Órdenes</h3>
+            <p className="text-2xl font-bold text-blue-600">
               {ordenesPorEstado.total}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm text-gray-600 mb-2">Completadas</h3>
-            <p className="text-3xl font-bold text-green-600">
+            <h3 className="text-xs text-gray-600 mb-2">Completadas</h3>
+            <p className="text-2xl font-bold text-green-600">
               {ordenesPorEstado.completada}
             </p>
           </div>
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-sm text-gray-600 mb-2">Pendientes</h3>
-            <p className="text-3xl font-bold text-yellow-600">
+            <h3 className="text-xs text-gray-600 mb-2">Pendientes</h3>
+            <p className="text-2xl font-bold text-yellow-600">
               {ordenesPorEstado.pendiente}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-xs text-gray-600 mb-2">A Tiempo ✓</h3>
+            <p className="text-2xl font-bold text-emerald-600">
+              {ordenesATiempo}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-xs text-gray-600 mb-2">Retrasadas ⚠️</h3>
+            <p className="text-2xl font-bold text-red-600">
+              {ordenesRetrasadas}
             </p>
           </div>
         </div>
@@ -178,45 +217,71 @@ export default function AdminPage() {
                       Estado
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Tiempo Entrega
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Total
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {ordenes.map((orden) => (
-                    <tr key={orden.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm">
-                        {new Date(orden.createdAt).toLocaleTimeString("es-EC")}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium">
-                        {orden.numeroMesa}
-                      </td>
-                      <td className="px-6 py-4 text-sm">{orden.mesero}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <div className="space-y-1">
-                          {orden.items.map((item, idx) => (
-                            <div key={idx} className="text-xs">
-                              {item.cantidad}x {item.producto.nombre}
+                  {ordenes.map((orden) => {
+                    const estadoTiempo = calcularEstadoTiempo(orden);
+                    return (
+                      <tr key={orden.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm">
+                          {new Date(orden.createdAt).toLocaleTimeString("es-EC")}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium">
+                          {orden.numeroMesa}
+                        </td>
+                        <td className="px-6 py-4 text-sm">{orden.mesero}</td>
+                        <td className="px-6 py-4 text-sm">
+                          <div className="space-y-1">
+                            {orden.items.map((item, idx) => (
+                              <div key={idx} className="text-xs">
+                                {item.cantidad}x {item.producto.nombre}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                              orden.estado === "completada"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {orden.estado}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          {estadoTiempo ? (
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
+                                  estadoTiempo.aTiempo
+                                    ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                    : "bg-red-100 text-red-800 border border-red-300"
+                                }`}
+                              >
+                                {estadoTiempo.aTiempo ? "✓ A Tiempo" : "⚠️ Retrasada"}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {estadoTiempo.tiempoReal} / {estadoTiempo.tiempoEstimado} min
+                              </span>
                             </div>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                            orden.estado === "completada"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {orden.estado}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-bold">
-                        ${Number(orden.total).toFixed(2)}
-                      </td>
-                    </tr>
-                  ))}
+                          ) : (
+                            <span className="text-xs text-gray-400">N/A</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm font-bold">
+                          ${Number(orden.total).toFixed(2)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

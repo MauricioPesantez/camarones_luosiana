@@ -24,3 +24,47 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Animaciones para las órdenes de cocina */
+@keyframes pulse-soft {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.01);
+  }
+}
+
+@keyframes pulse-medium {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(249, 115, 22, 0);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.4);
+  }
+}
+
+@keyframes pulse-strong {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(220, 38, 38, 0);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 30px rgba(220, 38, 38, 0.6);
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-pulse-medium {
+  animation: pulse-medium 1.5s ease-in-out infinite;
+}
+
+.animate-pulse-strong {
+  animation: pulse-strong 1s ease-in-out infinite;
+}

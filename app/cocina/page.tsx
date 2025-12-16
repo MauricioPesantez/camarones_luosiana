@@ -2,6 +2,19 @@
 
 import { useEffect, useState } from "react";
 import CrearOrden from "@/components/mesero/CrearOrden";
+import OrdenCard from "@/components/cocina/OrdenCard";
+import { useAuth } from "@/lib/auth";
+
+interface Producto {
+  nombre: string;
+  categoria: string;
+}
+
+interface Item {
+  cantidad: number;
+  producto: Producto;
+  observaciones?: string;
+}
 
 interface Orden {
   id: string;
@@ -9,11 +22,10 @@ interface Orden {
   mesero: string;
   estado: string;
   createdAt: string;
-  items: any[];
+  tiempoEstimado: number;
+  items: Item[];
   observaciones?: string;
 }
-
-import { useAuth } from "@/lib/auth";
 
 export default function CocinaPage() {
   const { usuario, loading: authLoading, logout } = useAuth();
@@ -158,46 +170,11 @@ export default function CocinaPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {ordenes.map((orden) => (
-            <div key={orden.id} className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-500">
-                    Mesa {orden.numeroMesa}
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    Mesero: {orden.mesero}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(orden.createdAt).toLocaleTimeString("es-EC")}
-                  </p>
-                </div>
-                <span className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-sm font-bold">
-                  {orden.estado}
-                </span>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                {orden.observaciones && (
-                  <p className="text-sm text-red-600">
-                    ⚠️ {orden.observaciones}
-                  </p>
-                )}
-                {orden.items.map((item, idx) => (
-                  <div key={idx} className="border-b pb-2">
-                    <p className="font-bold text-gray-400">
-                      {item.cantidad}x {item.producto.nombre}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                onClick={() => cambiarEstado(orden.id, "completada")}
-                className="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700"
-              >
-                Marcar como Lista
-              </button>
-            </div>
+            <OrdenCard
+              key={orden.id}
+              orden={orden}
+              onMarcarLista={(id) => cambiarEstado(id, "completada")}
+            />
           ))}
         </div>
 
