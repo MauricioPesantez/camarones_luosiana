@@ -161,7 +161,7 @@ export default function CocinaPage() {
             <div key={orden.id} className="bg-white rounded-lg shadow-lg p-6">
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h2 className="text-2xl font-bold">
+                  <h2 className="text-2xl font-bold text-gray-500">
                     Mesa {orden.numeroMesa}
                   </h2>
                   <p className="text-sm text-gray-600">
@@ -184,7 +184,7 @@ export default function CocinaPage() {
                 )}
                 {orden.items.map((item, idx) => (
                   <div key={idx} className="border-b pb-2">
-                    <p className="font-bold">
+                    <p className="font-bold text-gray-400">
                       {item.cantidad}x {item.producto.nombre}
                     </p>
                   </div>
