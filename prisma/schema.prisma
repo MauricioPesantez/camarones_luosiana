@@ -15,25 +15,32 @@ model Producto {
   disponible        Boolean  @default(true)
   descripcion       String?
   tiempoPreparacion Int?     @default(0) // Tiempo en minutos
+  stock             Int      @default(0) // Cantidad en stock
+  stockMinimo       Int?     @default(5) // Alerta de stock bajo
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   items             Item[]
 }
 
 model Orden {
-  id             String           @id @default(cuid())
-  numeroMesa     Int
-  mesero         String
-  estado         String           @default("pendiente")
-  observaciones  String?
-  total          Decimal          @db.Decimal(10, 2) @default(0)
-  tiempoEstimado Int?             @default(0) // Tiempo estimado en minutos
-  modificada     Boolean          @default(false) // Indica si la orden fue modificada
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  items          Item[]
-  historial      HistorialOrden[]
-  impresa        Boolean          @default(false)
+  id                  String           @id @default(cuid())
+  numeroMesa          Int
+  mesero              String
+  estado              String           @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cancelada"
+  observaciones       String?
+  total               Decimal          @db.Decimal(10, 2) @default(0)
+  tiempoEstimado      Int?             @default(0) // Tiempo estimado en minutos
+  modificada          Boolean          @default(false) // Indica si la orden fue modificada
+  sinStock            Boolean          @default(false) // Indica si fue aprobada sin stock suficiente
+  aprobadaPorId       String?          // Admin que aprobó la orden sin stock
+  aprobadaPor         Usuario?         @relation("OrdenesAprobadas", fields: [aprobadaPorId], references: [id])
+  razonAprobacion     String?          // Razón por la que se aprobó sin stock
+  itemsSinStock       Json?            // Lista de items que no tenían stock: [{productoId, productoNombre, cantidadSolicitada, stockDisponible}]
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  items               Item[]
+  historial           HistorialOrden[]
+  impresa             Boolean          @default(false)
 }
 
 model Item {
@@ -57,12 +64,13 @@ model Mesa {
 }
 
 model Usuario {
-  id        String   @id @default(cuid())
-  nombre    String
-  rol       String
-  password  String?
-  activo    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  nombre            String
+  rol               String
+  password          String?
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  ordenesAprobadas  Orden[]  @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
 }
 
 model HistorialOrden {

@@ -20,6 +20,7 @@ interface Orden {
   observaciones?: string;
   tiempoEstimado: number;
   modificada?: boolean;
+  sinStock?: boolean;
   createdAt: string;
   items: Item[];
 }
@@ -27,6 +28,7 @@ interface Orden {
 interface OrdenCardProps {
   orden: Orden;
   onMarcarLista: (id: string) => void;
+  onEditarOrden?: (orden: Orden) => void;
 }
 
 interface EstadoTiempo {
@@ -38,7 +40,7 @@ interface EstadoTiempo {
   label: string;
 }
 
-export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
+export default function OrdenCard({ orden, onMarcarLista, onEditarOrden }: OrdenCardProps) {
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
 
   useEffect(() => {
@@ -148,6 +150,15 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
         </div>
       )}
 
+      {/* Badge de orden sin stock */}
+      {orden.sinStock && (
+        <div className="mb-3 bg-orange-100 border-l-4 border-orange-500 p-2 rounded">
+          <span className="text-orange-800 text-sm font-bold">
+            ⚠️ Orden Aprobada Sin Stock
+          </span>
+        </div>
+      )}
+
       {/* Header con mesa y mesero */}
       <div className="mb-4">
         <div className="flex items-center justify-between">
@@ -204,13 +215,23 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
         </div>
       )}
 
-      {/* Botón de acción */}
-      <button
-        onClick={() => onMarcarLista(orden.id)}
-        className="w-full bg-gray-800 text-white py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors font-semibold text-lg mt-2"
-      >
-        Marcar como Lista
-      </button>
+      {/* Botones de acción */}
+      <div className="flex gap-2 mt-2">
+        {onEditarOrden && (
+          <button
+            onClick={() => onEditarOrden(orden)}
+            className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg"
+          >
+            ✏️ Editar
+          </button>
+        )}
+        <button
+          onClick={() => onMarcarLista(orden.id)}
+          className="flex-1 bg-gray-800 text-white py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors font-semibold text-lg"
+        >
+          Marcar como Lista
+        </button>
+      </div>
     </div>
   );
 }

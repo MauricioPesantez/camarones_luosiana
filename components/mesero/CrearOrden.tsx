@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ItemSinStock } from "@/types/stock";
 
 interface Producto {
   id: string;
   nombre: string;
   categoria: string;
   precio: string | number;
+  stock: number;
+  stockMinimo: number | null;
 }
 
 interface ItemCarrito {
@@ -27,6 +30,8 @@ export default function CrearOrden() {
   const [observaciones, setObservaciones] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("Todas");
   const [loading, setLoading] = useState(false);
+  const [itemsSinStock, setItemsSinStock] = useState<ItemSinStock[]>([]);
+  const [mostrarModalStock, setMostrarModalStock] = useState(false);
 
   const cargarProductos = async () => {
     try {
@@ -117,7 +122,28 @@ export default function CrearOrden() {
     );
   };
 
-  const enviarOrden = async () => {
+  const validarStock = async () => {
+    try {
+      const res = await fetch("/api/stock/validar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: carrito.map((item) => ({
+            productoId: item.productoId,
+            cantidad: item.cantidad,
+          })),
+        }),
+      });
+
+      const data = await res.json();
+      return data;
+    } catch (error) {
+      console.error("Error al validar stock:", error);
+      return { hayStock: false, itemsSinStock: [], mensaje: "Error al validar stock" };
+    }
+  };
+
+  const enviarOrden = async (solicitarAprobacion = false) => {
     if (!numeroMesa || carrito.length === 0) {
       alert("Por favor completa todos los campos");
       return;
@@ -126,6 +152,17 @@ export default function CrearOrden() {
     setLoading(true);
 
     try {
+      // Validar stock primero
+      const validacion = await validarStock();
+
+      if (!validacion.hayStock && !solicitarAprobacion) {
+        // Hay items sin stock, mostrar modal
+        setItemsSinStock(validacion.itemsSinStock);
+        setMostrarModalStock(true);
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/ordenes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -134,13 +171,18 @@ export default function CrearOrden() {
           mesero: usuario?.nombre || "Desconocido",
           observaciones,
           items: carrito,
+          solicitarAprobacion: solicitarAprobacion,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        if (data.impresion.success) {
+        if (solicitarAprobacion && data.pendienteAprobacion) {
+          alert(
+            "Orden creada y enviada para aprobación del administrador.\nSerá procesada una vez aprobada."
+          );
+        } else if (data.impresion.success) {
           alert("¡Orden enviada e impresa exitosamente!");
         } else {
           alert("Orden guardada pero falló la impresión");
@@ -149,6 +191,10 @@ export default function CrearOrden() {
         setCarrito([]);
         setNumeroMesa("");
         setObservaciones("");
+        setMostrarModalStock(false);
+        setItemsSinStock([]);
+        // Recargar productos para actualizar stock
+        await cargarProductos();
       } else {
         alert("Error al enviar orden");
       }
@@ -158,6 +204,27 @@ export default function CrearOrden() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getStockColor = (producto: Producto) => {
+    if (producto.stock === 0) return "text-red-600";
+    if (producto.stockMinimo && producto.stock <= producto.stockMinimo)
+      return "text-yellow-600";
+    return "text-green-600";
+  };
+
+  const getStockBadge = (producto: Producto) => {
+    if (producto.stock === 0)
+      return (
+        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Sin Stock</span>
+      );
+    if (producto.stockMinimo && producto.stock <= producto.stockMinimo)
+      return (
+        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+          Stock Bajo
+        </span>
+      );
+    return null;
   };
 
   return (
@@ -224,14 +291,20 @@ export default function CrearOrden() {
                 <button
                   key={producto.id}
                   onClick={() => agregarAlCarrito(producto)}
-                  className="bg-linear-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg"
+                  className="bg-linear-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg relative"
                 >
                   <div className="font-semibold text-sm mb-2">
                     {producto.nombre}
                   </div>
-                  <div className="text-lg font-bold">
+                  <div className="text-lg font-bold mb-1">
                     ${Number(producto.precio).toFixed(2)}
                   </div>
+                  <div className={`text-xs font-semibold ${getStockColor(producto)}`}>
+                    Stock: {producto.stock}
+                  </div>
+                  {getStockBadge(producto) && (
+                    <div className="absolute top-2 right-2">{getStockBadge(producto)}</div>
+                  )}
                 </button>
               ))}
             </div>
@@ -302,7 +375,7 @@ export default function CrearOrden() {
             </div>
 
             <button
-              onClick={enviarOrden}
+              onClick={() => enviarOrden(false)}
               disabled={loading || carrito.length === 0 || !numeroMesa}
               className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
@@ -310,6 +383,61 @@ export default function CrearOrden() {
             </button>
           </div>
         </div>
+
+        {/* Modal de Stock Insuficiente */}
+        {mostrarModalStock && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-xl font-bold mb-4 text-red-600">
+                ⚠️ Stock Insuficiente
+              </h3>
+              <p className="text-gray-700 mb-4">
+                Los siguientes productos no tienen suficiente stock:
+              </p>
+              <div className="mb-4 space-y-2 max-h-60 overflow-y-auto">
+                {itemsSinStock.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-red-50 border border-red-200 rounded p-3"
+                  >
+                    <p className="font-semibold text-gray-800">
+                      {item.productoNombre}
+                    </p>
+                    <div className="text-sm text-gray-600 flex justify-between">
+                      <span>Solicitado: {item.cantidadSolicitada}</span>
+                      <span className="text-red-600 font-semibold">
+                        Disponible: {item.stockDisponible}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Puedes solicitar la aprobación del administrador para crear la
+                orden de todas formas.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => enviarOrden(true)}
+                  disabled={loading}
+                  className="flex-1 bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 font-semibold disabled:bg-gray-300"
+                >
+                  Solicitar Aprobación
+                </button>
+                <button
+                  onClick={() => {
+                    setMostrarModalStock(false);
+                    setItemsSinStock([]);
+                    setLoading(false);
+                  }}
+                  className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import OrdenCard from "@/components/cocina/OrdenCard";
+import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
 import { useAuth } from "@/lib/auth";
 
 interface Producto {
@@ -21,16 +22,20 @@ interface Orden {
   numeroMesa: number;
   mesero: string;
   estado: string;
+  total: number;
   createdAt: string;
   tiempoEstimado: number;
   items: Item[];
   observaciones?: string;
+  modificada?: boolean;
+  sinStock?: boolean;
 }
 
 export default function CocinaPage() {
   const { usuario, loading: authLoading, logout } = useAuth();
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [vistaActiva, setVistaActiva] = useState<"cocina" | "mesero">("cocina");
+  const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
 
   useEffect(() => {
     const cargarOrdenes = async () => {
@@ -174,6 +179,7 @@ export default function CocinaPage() {
               key={orden.id}
               orden={orden}
               onMarcarLista={(id) => cambiarEstado(id, "completada")}
+              onEditarOrden={usuario.rol === "cocina" ? (orden) => setOrdenEditar(orden as any) : undefined}
             />
           ))}
         </div>
@@ -182,6 +188,23 @@ export default function CocinaPage() {
           <div className="text-center text-white text-2xl mt-20">
             No hay órdenes pendientes
           </div>
+        )}
+
+        {/* Modal de edición usando el componente EditarOrdenModal */}
+        {ordenEditar && usuario && (
+          <EditarOrdenModal
+            orden={ordenEditar as any}
+            usuario={usuario}
+            onClose={() => setOrdenEditar(null)}
+            onSuccess={() => {
+              setOrdenEditar(null);
+              // Recargar órdenes
+              fetch("/api/ordenes?estado=pendiente")
+                .then((res) => res.json())
+                .then((data) => setOrdenes(data))
+                .catch((error) => console.error("Error al cargar órdenes:", error));
+            }}
+          />
         )}
       </div>
     </div>
