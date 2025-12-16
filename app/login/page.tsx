@@ -38,7 +38,7 @@ export default function LoginPage() {
         }
 
         if (Array.isArray(data)) {
-          setUsuarios(data.filter((u: Usuario) => u.activo));
+          setUsuarios(data); // Ya vienen filtrados por activo desde el backend
         } else {
           console.error("Data is not an array:", data);
           alert("Error: La respuesta del servidor no es válida");
