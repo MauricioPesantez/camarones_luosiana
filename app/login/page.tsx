@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState("");
   const [password, setPassword] = useState("");
   const [requiresPassword, setRequiresPassword] = useState(false);
+  const [loadingUsuario, setLoadingUsuario] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -22,9 +23,29 @@ export default function LoginPage() {
       try {
         const res = await fetch("/api/usuarios");
         const data = await res.json();
-        setUsuarios(data.filter((u: Usuario) => u.activo));
+
+        console.log("Response status:", res.status);
+        console.log("Response data:", data);
+
+        if (!res.ok) {
+          console.error("API Error:", data);
+          alert(
+            `Error al cargar usuarios: ${
+              data.error || "Unknown error"
+            }\nDetails: ${data.details || "No details"}`,
+          );
+          return;
+        }
+
+        if (Array.isArray(data)) {
+          setUsuarios(data.filter((u: Usuario) => u.activo));
+        } else {
+          console.error("Data is not an array:", data);
+          alert("Error: La respuesta del servidor no es válida");
+        }
       } catch (error) {
         console.error("Error al cargar usuarios:", error);
+        alert("Error de conexión al cargar usuarios");
       }
     };
 
@@ -34,6 +55,7 @@ export default function LoginPage() {
   const handleUsuarioChange = async (usuarioId: string) => {
     setUsuarioSeleccionado(usuarioId);
     setPassword("");
+    setLoadingUsuario(true);
 
     if (usuarioId) {
       try {
@@ -50,9 +72,12 @@ export default function LoginPage() {
       } catch (error) {
         console.error("Error al cargar datos del usuario:", error);
         setRequiresPassword(false);
+      } finally {
+        setLoadingUsuario(false);
       }
     } else {
       setRequiresPassword(false);
+      setLoadingUsuario(false);
     }
   };
 
@@ -151,10 +176,14 @@ export default function LoginPage() {
 
           <button
             onClick={handleLogin}
-            disabled={!usuarioSeleccionado}
+            disabled={
+              !usuarioSeleccionado ||
+              loadingUsuario ||
+              (requiresPassword && !password)
+            }
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold text-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all"
           >
-            Iniciar Sesión
+            {loadingUsuario ? "Cargando..." : "Iniciar Sesión"}
           </button>
         </div>
 
