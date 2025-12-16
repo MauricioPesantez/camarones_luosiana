@@ -7,7 +7,7 @@ frontend:
         - echo "DATABASE_URL=$DATABASE_URL" >> .env
         - echo "PRINTER_IP=$PRINTER_IP" >> .env
         - echo "PRINTER_PORT=$PRINTER_PORT" >> .env
-        - npx prisma migrate deploy
+        - npx prisma db push
         - npx prisma generate
     build:
       commands:
