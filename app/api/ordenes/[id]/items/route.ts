@@ -45,122 +45,156 @@ export async function PATCH(
     const totalAnterior = Number(ordenActual.total);
     const historialRegistros: any[] = [];
 
-    // Procesar cada cambio de item
-    for (const itemCambio of items) {
-      const { accion, productoId, cantidad, itemId } = itemCambio;
+    // Procesar cada cambio de item dentro de una transacción para manejar stock
+    await prisma.$transaction(async (tx) => {
+      for (const itemCambio of items) {
+        const { accion, productoId, cantidad, itemId } = itemCambio;
 
-      if (accion === 'eliminar') {
-        // Encontrar el item a eliminar
-        const itemAEliminar = ordenActual.items.find((i) => i.id === itemId);
-        if (itemAEliminar) {
-          // Eliminar el item
-          await prisma.item.delete({
-            where: { id: itemId },
+        if (accion === 'eliminar') {
+          // Encontrar el item a eliminar
+          const itemAEliminar = ordenActual.items.find((i) => i.id === itemId);
+          if (itemAEliminar) {
+            // Devolver stock al producto
+            await tx.producto.update({
+              where: { id: itemAEliminar.productoId },
+              data: {
+                stock: {
+                  increment: itemAEliminar.cantidad,
+                },
+              },
+            });
+
+            // Eliminar el item
+            await tx.item.delete({
+              where: { id: itemId },
+            });
+
+            // Registrar en historial
+            historialRegistros.push({
+              tipoAccion: 'item_eliminado',
+              descripcion: `Eliminado: ${itemAEliminar.cantidad}x ${itemAEliminar.producto.nombre}`,
+              itemAfectado: {
+                id: itemAEliminar.id,
+                nombre: itemAEliminar.producto.nombre,
+                cantidad: itemAEliminar.cantidad,
+                precio: Number(itemAEliminar.precioUnitario),
+              },
+              datosAntes: {
+                cantidad: itemAEliminar.cantidad,
+                subtotal: Number(itemAEliminar.subtotal),
+              },
+              usuarioNombre: usuario.nombre,
+              usuarioRol: usuario.rol,
+              razon,
+              diferenciaTotal: -Number(itemAEliminar.subtotal),
+            });
+          }
+        } else if (accion === 'agregar') {
+          // Obtener información del producto
+          const producto = await tx.producto.findUnique({
+            where: { id: productoId },
           });
 
-          // Registrar en historial
-          historialRegistros.push({
-            tipoAccion: 'item_eliminado',
-            descripcion: `Eliminado: ${itemAEliminar.cantidad}x ${itemAEliminar.producto.nombre}`,
-            itemAfectado: {
-              id: itemAEliminar.id,
-              nombre: itemAEliminar.producto.nombre,
-              cantidad: itemAEliminar.cantidad,
-              precio: Number(itemAEliminar.precioUnitario),
-            },
-            datosAntes: {
-              cantidad: itemAEliminar.cantidad,
-              subtotal: Number(itemAEliminar.subtotal),
-            },
-            usuarioNombre: usuario.nombre,
-            usuarioRol: usuario.rol,
-            razon,
-            diferenciaTotal: -Number(itemAEliminar.subtotal),
-          });
-        }
-      } else if (accion === 'agregar') {
-        // Obtener información del producto
-        const producto = await prisma.producto.findUnique({
-          where: { id: productoId },
-        });
+          if (!producto) continue;
 
-        if (!producto) continue;
+          const precioUnitario = Number(producto.precio);
+          const subtotal = cantidad * precioUnitario;
 
-        const precioUnitario = Number(producto.precio);
-        const subtotal = cantidad * precioUnitario;
-
-        // Crear el nuevo item
-        const nuevoItem = await prisma.item.create({
-          data: {
-            ordenId: id,
-            productoId,
-            cantidad,
-            precioUnitario,
-            subtotal,
-          },
-        });
-
-        // Registrar en historial
-        historialRegistros.push({
-          tipoAccion: 'item_agregado',
-          descripcion: `Agregado: ${cantidad}x ${producto.nombre}`,
-          itemAfectado: {
-            id: nuevoItem.id,
-            nombre: producto.nombre,
-            cantidad,
-            precio: precioUnitario,
-          },
-          datosDespues: {
-            cantidad,
-            subtotal,
-          },
-          usuarioNombre: usuario.nombre,
-          usuarioRol: usuario.rol,
-          razon,
-          diferenciaTotal: subtotal,
-        });
-      } else if (accion === 'modificar') {
-        // Modificar cantidad de un item existente
-        const itemAModificar = ordenActual.items.find((i) => i.id === itemId);
-        if (itemAModificar) {
-          const precioUnitario = Number(itemAModificar.precioUnitario);
-          const nuevoSubtotal = cantidad * precioUnitario;
-          const subtotalAnterior = Number(itemAModificar.subtotal);
-
-          await prisma.item.update({
-            where: { id: itemId },
+          // Descontar stock del producto
+          await tx.producto.update({
+            where: { id: productoId },
             data: {
+              stock: {
+                decrement: cantidad,
+              },
+            },
+          });
+
+          // Crear el nuevo item
+          const nuevoItem = await tx.item.create({
+            data: {
+              ordenId: id,
+              productoId,
               cantidad,
-              subtotal: nuevoSubtotal,
+              precioUnitario,
+              subtotal,
             },
           });
 
           // Registrar en historial
           historialRegistros.push({
-            tipoAccion: 'item_modificado',
-            descripcion: `Modificado: ${itemAModificar.producto.nombre} (${itemAModificar.cantidad} → ${cantidad})`,
+            tipoAccion: 'item_agregado',
+            descripcion: `Agregado: ${cantidad}x ${producto.nombre}`,
             itemAfectado: {
-              id: itemAModificar.id,
-              nombre: itemAModificar.producto.nombre,
-              cantidad: itemAModificar.cantidad,
+              id: nuevoItem.id,
+              nombre: producto.nombre,
+              cantidad,
               precio: precioUnitario,
-            },
-            datosAntes: {
-              cantidad: itemAModificar.cantidad,
-              subtotal: subtotalAnterior,
             },
             datosDespues: {
               cantidad,
-              subtotal: nuevoSubtotal,
+              subtotal,
             },
             usuarioNombre: usuario.nombre,
             usuarioRol: usuario.rol,
             razon,
-            diferenciaTotal: nuevoSubtotal - subtotalAnterior,
+            diferenciaTotal: subtotal,
           });
+        } else if (accion === 'modificar') {
+          // Modificar cantidad de un item existente
+          const itemAModificar = ordenActual.items.find((i) => i.id === itemId);
+          if (itemAModificar) {
+            const precioUnitario = Number(itemAModificar.precioUnitario);
+            const nuevoSubtotal = cantidad * precioUnitario;
+            const subtotalAnterior = Number(itemAModificar.subtotal);
+
+            // Ajustar stock: devolver la cantidad anterior y descontar la nueva
+            const diferenciaCantidad = cantidad - itemAModificar.cantidad;
+
+            await tx.producto.update({
+              where: { id: itemAModificar.productoId },
+              data: {
+                stock: {
+                  decrement: diferenciaCantidad,
+                },
+              },
+            });
+
+            await tx.item.update({
+              where: { id: itemId },
+              data: {
+                cantidad,
+                subtotal: nuevoSubtotal,
+              },
+            });
+
+            // Registrar en historial
+            historialRegistros.push({
+              tipoAccion: 'item_modificado',
+              descripcion: `Modificado: ${itemAModificar.producto.nombre} (${itemAModificar.cantidad} → ${cantidad})`,
+              itemAfectado: {
+                id: itemAModificar.id,
+                nombre: itemAModificar.producto.nombre,
+                cantidad: itemAModificar.cantidad,
+                precio: precioUnitario,
+              },
+              datosAntes: {
+                cantidad: itemAModificar.cantidad,
+                subtotal: subtotalAnterior,
+              },
+              datosDespues: {
+                cantidad,
+                subtotal: nuevoSubtotal,
+              },
+              usuarioNombre: usuario.nombre,
+              usuarioRol: usuario.rol,
+              razon,
+              diferenciaTotal: nuevoSubtotal - subtotalAnterior,
+            });
+          }
         }
       }
-    }
+    });
 
     // Recalcular el total de la orden
     const itemsActualizados = await prisma.item.findMany({

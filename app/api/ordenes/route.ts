@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PrinterService } from '@/lib/printer';
+import { ItemSinStock } from '@/types/stock';
 
 export async function GET(request: Request) {
   try {
@@ -29,18 +30,67 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Obtener productos con sus tiempos de preparación
-    const productosIds = body.items.map((item: any) => item.productoId);
+    // Obtener productos con sus tiempos de preparación y stock
+    const productosIds = body.items.map((item: { productoId: string }) => item.productoId);
     const productos = await prisma.producto.findMany({
       where: { id: { in: productosIds } },
+      select: {
+        id: true,
+        nombre: true,
+        categoria: true,
+        precio: true,
+        disponible: true,
+        descripcion: true,
+        tiempoPreparacion: true,
+        stock: true,
+        stockMinimo: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
+
+    // Validar stock para cada producto
+    const itemsSinStock: ItemSinStock[] = [];
+
+    for (const item of body.items) {
+      const producto = productos.find((p) => p.id === item.productoId);
+
+      if (!producto) {
+        itemsSinStock.push({
+          productoId: item.productoId,
+          productoNombre: 'Producto no encontrado',
+          cantidadSolicitada: item.cantidad,
+          stockDisponible: 0,
+        });
+        continue;
+      }
+
+      if (producto.stock < item.cantidad) {
+        itemsSinStock.push({
+          productoId: producto.id,
+          productoNombre: producto.nombre,
+          cantidadSolicitada: item.cantidad,
+          stockDisponible: producto.stock,
+        });
+      }
+    }
+
+    // Si hay items sin stock y no se especifica forzar creación,
+    // crear orden con estado pendiente_aprobacion_stock
+    const solicitarAprobacion = body.solicitarAprobacion === true;
+    const hayStockInsuficiente = itemsSinStock.length > 0;
 
     // Calcular total y tiempo estimado
     let total = 0;
     let tiempoBase = 0;
     let tiempoAdicional = 0;
 
-    const itemsData = body.items.map((item: any) => {
+    const itemsData = body.items.map((item: {
+      productoId: string;
+      cantidad: number;
+      precioUnitario: number;
+      observaciones?: string;
+    }) => {
       const subtotal = item.cantidad * item.precioUnitario;
       total += subtotal;
 
@@ -72,25 +122,49 @@ export async function POST(request: Request) {
     // Calcular tiempo estimado total (redondeado al entero más cercano)
     const tiempoEstimado = Math.ceil(tiempoBase + tiempoAdicional);
 
+    // Determinar el estado inicial de la orden
+    const estadoInicial = hayStockInsuficiente && solicitarAprobacion
+      ? 'pendiente_aprobacion_stock'
+      : 'pendiente';
+
     // Crear orden
-    const orden = await prisma.orden.create({
-      data: {
-        numeroMesa: body.numeroMesa,
-        mesero: body.mesero,
-        observaciones: body.observaciones,
-        total,
-        tiempoEstimado,
-        items: {
-          create: itemsData,
-        },
-      },
-      include: {
-        items: {
-          include: {
-            producto: true,
+    const orden = await prisma.$transaction(async (tx) => {
+      const nuevaOrden = await tx.orden.create({
+        data: {
+          numeroMesa: body.numeroMesa,
+          mesero: body.mesero,
+          observaciones: body.observaciones,
+          total,
+          tiempoEstimado,
+          estado: estadoInicial,
+          itemsSinStock: hayStockInsuficiente && solicitarAprobacion ? itemsSinStock : null,
+          items: {
+            create: itemsData,
           },
         },
-      },
+        include: {
+          items: {
+            include: {
+              producto: true,
+            },
+          },
+        },
+      });
+
+      // Solo descontar stock si la orden fue creada con estado pendiente (con stock suficiente)
+      if (estadoInicial === 'pendiente') {
+        for (const item of body.items) {
+          const producto = productos.find((p) => p.id === item.productoId);
+          if (producto) {
+            await tx.producto.update({
+              where: { id: producto.id },
+              data: { stock: producto.stock - item.cantidad },
+            });
+          }
+        }
+      }
+
+      return nuevaOrden;
     });
 
     // Registrar creación en el historial
@@ -98,11 +172,19 @@ export async function POST(request: Request) {
       .map((item) => `${item.cantidad}x ${item.producto.nombre}`)
       .join(', ');
 
+    const tipoAccion = estadoInicial === 'pendiente_aprobacion_stock'
+      ? 'orden_creada_pendiente_stock'
+      : 'orden_creada';
+
+    const descripcion = estadoInicial === 'pendiente_aprobacion_stock'
+      ? `Orden creada pendiente de aprobación (sin stock) con ${orden.items.length} items: ${itemsDescripcion}`
+      : `Orden creada con ${orden.items.length} items: ${itemsDescripcion}`;
+
     await prisma.historialOrden.create({
       data: {
         ordenId: orden.id,
-        tipoAccion: 'orden_creada',
-        descripcion: `Orden creada con ${orden.items.length} items: ${itemsDescripcion}`,
+        tipoAccion,
+        descripcion,
         datosDespues: {
           items: orden.items.map((item) => ({
             nombre: item.producto.nombre,
@@ -112,6 +194,7 @@ export async function POST(request: Request) {
           })),
           total: Number(total),
           tiempoEstimado,
+          itemsSinStock: hayStockInsuficiente && solicitarAprobacion ? JSON.parse(JSON.stringify(itemsSinStock)) : null,
         },
         usuarioNombre: body.mesero,
         usuarioRol: 'mesero',
@@ -119,21 +202,36 @@ export async function POST(request: Request) {
       },
     });
 
-    // Imprimir comanda
-    const printer = new PrinterService();
-    const resultadoImpresion = await printer.imprimirComanda(orden);
+    // Solo imprimir comanda si la orden no está pendiente de aprobación
+    let resultadoImpresion: { success: boolean; data?: unknown; error?: unknown } = {
+      success: false,
+      error: 'Orden pendiente de aprobación'
+    };
 
-    if (resultadoImpresion.success) {
-      await prisma.orden.update({
-        where: { id: orden.id },
-        data: { impresa: true },
-      });
+    if (estadoInicial === 'pendiente') {
+      const printer = new PrinterService();
+      resultadoImpresion = await printer.imprimirComanda(orden);
+
+      if (resultadoImpresion.success) {
+        await prisma.orden.update({
+          where: { id: orden.id },
+          data: { impresa: true },
+        });
+      }
     }
 
-    return NextResponse.json({
+    // Si hay items sin stock, incluir esa información en la respuesta
+    const respuesta = {
       orden,
       impresion: resultadoImpresion,
-    });
+      ...(hayStockInsuficiente && {
+        stockInsuficiente: true,
+        itemsSinStock,
+        pendienteAprobacion: solicitarAprobacion,
+      }),
+    };
+
+    return NextResponse.json(respuesta);
   } catch (error) {
     console.error('Error al crear orden:', error);
     return NextResponse.json({ error: 'Error al crear orden' }, { status: 500 });
