@@ -93,6 +93,32 @@ export async function POST(request: Request) {
       },
     });
 
+    // Registrar creación en el historial
+    const itemsDescripcion = orden.items
+      .map((item) => `${item.cantidad}x ${item.producto.nombre}`)
+      .join(', ');
+
+    await prisma.historialOrden.create({
+      data: {
+        ordenId: orden.id,
+        tipoAccion: 'orden_creada',
+        descripcion: `Orden creada con ${orden.items.length} items: ${itemsDescripcion}`,
+        datosDespues: {
+          items: orden.items.map((item) => ({
+            nombre: item.producto.nombre,
+            cantidad: item.cantidad,
+            precio: Number(item.precioUnitario),
+            subtotal: Number(item.subtotal),
+          })),
+          total: Number(total),
+          tiempoEstimado,
+        },
+        usuarioNombre: body.mesero,
+        usuarioRol: 'mesero',
+        diferenciaTotal: Number(total),
+      },
+    });
+
     // Imprimir comanda
     const printer = new PrinterService();
     const resultadoImpresion = await printer.imprimirComanda(orden);

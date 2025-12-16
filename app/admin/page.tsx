@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import DetalleOrdenModal from "@/components/admin/DetalleOrdenModal";
 
 interface Orden {
   id: string;
@@ -10,21 +11,26 @@ interface Orden {
   estado: string;
   total: number;
   tiempoEstimado: number;
+  modificada: boolean;
   createdAt: string;
   updatedAt: string;
+  observaciones?: string;
   items: {
     cantidad: number;
     producto: {
       nombre: string;
+      categoria: string;
     };
     precioUnitario: number;
     subtotal: number;
+    observaciones?: string;
   }[];
 }
 
 export default function AdminPage() {
   const { usuario, loading: authLoading, logout } = useAuth();
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
+  const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(null);
   const [fechaFiltro, setFechaFiltro] = useState(
     new Date().toISOString().split("T")[0],
   );
@@ -111,6 +117,12 @@ export default function AdminPage() {
             Panel de Administración
           </h1>
           <div className="flex items-center gap-4">
+            <a
+              href="/admin/reportes"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold"
+            >
+              📊 Reportes
+            </a>
             <span className="text-gray-600">
               Admin: <span className="font-bold">{usuario?.nombre}</span>
             </span>
@@ -228,7 +240,11 @@ export default function AdminPage() {
                   {ordenes.map((orden) => {
                     const estadoTiempo = calcularEstadoTiempo(orden);
                     return (
-                      <tr key={orden.id} className="hover:bg-gray-50">
+                      <tr
+                        key={orden.id}
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => setOrdenSeleccionada(orden)}
+                      >
                         <td className="px-6 py-4 text-sm">
                           {new Date(orden.createdAt).toLocaleTimeString("es-EC")}
                         </td>
@@ -288,6 +304,14 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de Detalle de Orden */}
+      {ordenSeleccionada && (
+        <DetalleOrdenModal
+          orden={ordenSeleccionada}
+          onClose={() => setOrdenSeleccionada(null)}
+        />
+      )}
     </div>
   );
 }

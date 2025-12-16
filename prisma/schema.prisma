@@ -21,17 +21,19 @@ model Producto {
 }
 
 model Orden {
-  id             String   @id @default(cuid())
+  id             String           @id @default(cuid())
   numeroMesa     Int
   mesero         String
-  estado         String   @default("pendiente")
+  estado         String           @default("pendiente")
   observaciones  String?
-  total          Decimal  @db.Decimal(10, 2) @default(0)
-  tiempoEstimado Int?     @default(0) // Tiempo estimado en minutos
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  total          Decimal          @db.Decimal(10, 2) @default(0)
+  tiempoEstimado Int?             @default(0) // Tiempo estimado en minutos
+  modificada     Boolean          @default(false) // Indica si la orden fue modificada
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
   items          Item[]
-  impresa        Boolean  @default(false)
+  historial      HistorialOrden[]
+  impresa        Boolean          @default(false)
 }
 
 model Item {
@@ -61,4 +63,31 @@ model Usuario {
   password  String?
   activo    Boolean  @default(true)
   createdAt DateTime @default(now())
+}
+
+model HistorialOrden {
+  id              String   @id @default(cuid())
+  ordenId         String
+  orden           Orden    @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  tipoAccion      String   // "orden_creada", "item_agregado", "item_eliminado", "item_modificado", "orden_completada"
+  descripcion     String   // Descripción legible del cambio
+
+  // Datos del cambio (JSON)
+  itemAfectado    Json?    // { id, nombre, cantidad, precio }
+  datosAntes      Json?    // Estado antes del cambio
+  datosDespues    Json?    // Estado después del cambio
+
+  // Auditoría
+  usuarioNombre   String   // Quien hizo el cambio
+  usuarioRol      String   // "mesero" | "cocina" | "admin"
+  razon           String?  // Motivo del cambio (obligatorio para modificaciones)
+
+  // Impacto financiero
+  diferenciaTotal Decimal? @db.Decimal(10, 2)
+
+  createdAt       DateTime @default(now())
+
+  @@index([ordenId])
+  @@index([createdAt])
 }

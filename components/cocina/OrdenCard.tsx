@@ -19,6 +19,7 @@ interface Orden {
   mesero: string;
   observaciones?: string;
   tiempoEstimado: number;
+  modificada?: boolean;
   createdAt: string;
   items: Item[];
 }
@@ -137,6 +138,15 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
           {estado.label}
         </span>
       </div>
+
+      {/* Badge de orden modificada */}
+      {orden.modificada && (
+        <div className="mb-3 bg-blue-100 border-l-4 border-blue-500 p-2 rounded">
+          <span className="text-blue-800 text-sm font-bold">
+            🔄 Orden Modificada
+          </span>
+        </div>
+      )}
 
       {/* Header con mesa y mesero */}
       <div className="mb-4">
