@@ -7,7 +7,7 @@ export class PrinterService {
     this.printer = new ThermalPrinter.printer({
       type: ThermalPrinter.types.EPSON,
       interface: `tcp://${process.env.PRINTER_IP}`,
-      characterSet: 'SLOVENIA',
+      characterSet: ThermalPrinter.characterSet.SLOVENIA,
       removeSpecialCharacters: false,
       lineCharacter: '=',
       options: {
