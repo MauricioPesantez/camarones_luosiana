@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 interface Producto {
   nombre: string;
@@ -15,7 +15,10 @@ interface Item {
 
 interface Orden {
   id: string;
-  numeroMesa: number;
+  tipoOrden?: string;
+  numeroMesa?: number | null;
+  nombreCliente?: string | null;
+  telefonoCliente?: string | null;
   mesero: string;
   observaciones?: string;
   tiempoEstimado: number;
@@ -40,7 +43,11 @@ interface EstadoTiempo {
   label: string;
 }
 
-export default function OrdenCard({ orden, onMarcarLista, onEditarOrden }: OrdenCardProps) {
+export default function OrdenCard({
+  orden,
+  onMarcarLista,
+  onEditarOrden,
+}: OrdenCardProps) {
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
 
   useEffect(() => {
@@ -60,56 +67,60 @@ export default function OrdenCard({ orden, onMarcarLista, onEditarOrden }: Orden
     return () => clearInterval(interval);
   }, [orden.createdAt]);
 
-  const getEstadoTiempo = (transcurrido: number, estimado: number): EstadoTiempo => {
+  const getEstadoTiempo = (
+    transcurrido: number,
+    estimado: number,
+  ): EstadoTiempo => {
     const porcentaje = estimado > 0 ? (transcurrido / estimado) * 100 : 0;
 
     if (porcentaje > 100) {
       // Crítico - Más del 100%
       return {
-        bgColor: 'bg-red-100',
-        borderColor: 'border-red-600',
-        textColor: 'text-red-700',
-        animacion: 'animate-pulse-strong',
-        icono: '🚨',
-        label: 'RETRASADO',
+        bgColor: "bg-red-100",
+        borderColor: "border-red-600",
+        textColor: "text-red-700",
+        animacion: "animate-pulse-strong",
+        icono: "🚨",
+        label: "RETRASADO",
       };
     } else if (porcentaje >= 90) {
       // Urgente - 90-100%
       return {
-        bgColor: 'bg-orange-100',
-        borderColor: 'border-orange-600',
-        textColor: 'text-orange-700',
-        animacion: 'animate-pulse-medium',
-        icono: '🔥',
-        label: 'URGENTE',
+        bgColor: "bg-orange-100",
+        borderColor: "border-orange-600",
+        textColor: "text-orange-700",
+        animacion: "animate-pulse-medium",
+        icono: "🔥",
+        label: "URGENTE",
       };
     } else if (porcentaje >= 60) {
       // Advertencia - 60-90%
       return {
-        bgColor: 'bg-yellow-50',
-        borderColor: 'border-yellow-500',
-        textColor: 'text-yellow-700',
-        animacion: 'animate-pulse-soft',
-        icono: '⚠️',
-        label: 'PRONTO',
+        bgColor: "bg-yellow-50",
+        borderColor: "border-yellow-500",
+        textColor: "text-yellow-700",
+        animacion: "animate-pulse-soft",
+        icono: "⚠️",
+        label: "PRONTO",
       };
     } else {
       // OK - 0-60%
       return {
-        bgColor: 'bg-green-50',
-        borderColor: 'border-green-500',
-        textColor: 'text-green-700',
-        animacion: '',
-        icono: '⏱️',
-        label: 'A TIEMPO',
+        bgColor: "bg-green-50",
+        borderColor: "border-green-500",
+        textColor: "text-green-700",
+        animacion: "",
+        icono: "⏱️",
+        label: "A TIEMPO",
       };
     }
   };
 
   const estado = getEstadoTiempo(tiempoTranscurrido, orden.tiempoEstimado);
-  const porcentajeProgreso = orden.tiempoEstimado > 0
-    ? Math.min((tiempoTranscurrido / orden.tiempoEstimado) * 100, 100)
-    : 0;
+  const porcentajeProgreso =
+    orden.tiempoEstimado > 0
+      ? Math.min((tiempoTranscurrido / orden.tiempoEstimado) * 100, 100)
+      : 0;
 
   return (
     <div
@@ -120,12 +131,12 @@ export default function OrdenCard({ orden, onMarcarLista, onEditarOrden }: Orden
         <div
           className={`h-full transition-all duration-1000 ${
             porcentajeProgreso > 100
-              ? 'bg-red-600'
+              ? "bg-red-600"
               : porcentajeProgreso >= 90
-              ? 'bg-orange-600'
-              : porcentajeProgreso >= 60
-              ? 'bg-yellow-500'
-              : 'bg-green-500'
+                ? "bg-orange-600"
+                : porcentajeProgreso >= 60
+                  ? "bg-yellow-500"
+                  : "bg-green-500"
           }`}
           style={{ width: `${Math.min(porcentajeProgreso, 100)}%` }}
         ></div>
@@ -159,20 +170,42 @@ export default function OrdenCard({ orden, onMarcarLista, onEditarOrden }: Orden
         </div>
       )}
 
-      {/* Header con mesa y mesero */}
+      {/* Header con tipo de orden e identificador */}
       <div className="mb-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold text-gray-800">
-            Mesa {orden.numeroMesa}
-          </h2>
+        <div className="flex items-center gap-2 mb-1">
+          {(!orden.tipoOrden || orden.tipoOrden === "local") && (
+            <span className="text-xs font-bold bg-blue-600 text-white px-2 py-1 rounded">
+              🍽 LOCAL
+            </span>
+          )}
+          {orden.tipoOrden === "para_llevar" && (
+            <span className="text-xs font-bold bg-yellow-500 text-white px-2 py-1 rounded">
+              🥡 PARA LLEVAR
+            </span>
+          )}
+          {orden.tipoOrden === "domicilio" && (
+            <span className="text-xs font-bold bg-red-500 text-white px-2 py-1 rounded">
+              🛵 DOMICILIO
+            </span>
+          )}
         </div>
+        <h2 className="text-3xl font-bold text-gray-800">
+          {!orden.tipoOrden || orden.tipoOrden === "local"
+            ? `Mesa ${orden.numeroMesa}`
+            : orden.nombreCliente}
+        </h2>
+        {orden.tipoOrden === "domicilio" && orden.telefonoCliente && (
+          <p className="text-gray-600 text-sm">Telf: {orden.telefonoCliente}</p>
+        )}
         <p className="text-gray-600 text-sm mt-1">Mesero: {orden.mesero}</p>
       </div>
 
       {/* Información de tiempo */}
       <div className={`${estado.textColor} font-semibold mb-4 text-lg`}>
         <div className="flex items-center gap-2">
-          <span>Tiempo: {tiempoTranscurrido} / {orden.tiempoEstimado} min</span>
+          <span>
+            Tiempo: {tiempoTranscurrido} / {orden.tiempoEstimado} min
+          </span>
         </div>
         <div className="text-sm opacity-75 mt-1">
           Hace {tiempoTranscurrido} minutos
