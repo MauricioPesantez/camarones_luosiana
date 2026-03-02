@@ -353,7 +353,7 @@ export default function DetalleOrdenModal({
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
                   <p className="text-sm text-yellow-800 font-semibold">
                     ⚠️ Esta orden fue modificada después de su creación. Ver
-                    pestaña --Historial-- para detalles completos.
+                    pestaña &quot;Historial&quot; para detalles completos.
                   </p>
                 </div>
               )}
