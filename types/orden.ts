@@ -4,12 +4,15 @@ import { ItemSinStock } from './stock';
 
 export type TipoOrden = 'local' | 'para_llevar' | 'domicilio';
 
+export type MetodoPago = 'efectivo' | 'transferencia';
+
 export type EstadoOrden =
   | 'pendiente_aprobacion_stock'
   | 'pendiente'
   | 'en_preparacion'
   | 'lista'
   | 'entregada'
+  | 'cobrada'
   | 'cancelada';
 
 export interface DesglosePrecio {
@@ -58,9 +61,18 @@ export interface OrdenConStock {
   aprobadaPorId: string | null;
   razonAprobacion: string | null;
   itemsSinStock: ItemSinStock[] | null;
+  metodoPago: MetodoPago | null;
+  cobrada: boolean;
+  fechaCobro: Date | null;
+  cobradaPor: string | null;
   createdAt: Date;
   updatedAt: Date;
   impresa: boolean;
+}
+
+export interface CobrarOrdenRequest {
+  metodoPago: MetodoPago;
+  cobradaPor: string;
 }
 
 export interface AprobarOrdenRequest {

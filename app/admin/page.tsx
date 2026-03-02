@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import DetalleOrdenModal from "@/components/admin/DetalleOrdenModal";
 import { ProductoStockBajo } from "@/types/stock";
-import { OrdenPendienteAprobacion } from "@/types/orden";
+import { OrdenPendienteAprobacion, MetodoPago } from "@/types/orden";
 
 interface Orden {
   id: string;
@@ -19,6 +19,10 @@ interface Orden {
   total: number;
   tiempoEstimado: number;
   modificada: boolean;
+  cobrada: boolean;
+  metodoPago: string | null;
+  fechaCobro: string | null;
+  cobradaPor: string | null;
   createdAt: string;
   updatedAt: string;
   observaciones?: string;
@@ -54,6 +58,10 @@ export default function AdminPage() {
   const [ordenParaAprobar, setOrdenParaAprobar] =
     useState<OrdenPendienteAprobacion | null>(null);
   const [razonAprobacion, setRazonAprobacion] = useState("");
+  const [ordenACobrar, setOrdenACobrar] = useState<Orden | null>(null);
+  const [metodoPagoAdmin, setMetodoPagoAdmin] =
+    useState<MetodoPago>("efectivo");
+  const [loadingCobrar, setLoadingCobrar] = useState(false);
 
   const cargarOrdenes = async () => {
     setLoading(true);
@@ -147,6 +155,34 @@ export default function AdminPage() {
     }
   };
 
+  const cobrarOrden = async () => {
+    if (!ordenACobrar) return;
+    setLoadingCobrar(true);
+    try {
+      const res = await fetch(`/api/ordenes/${ordenACobrar.id}/cobrar`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metodoPago: metodoPagoAdmin,
+          cobradaPor: usuario?.nombre ?? "",
+        }),
+      });
+      if (res.ok) {
+        setOrdenACobrar(null);
+        setMetodoPagoAdmin("efectivo");
+        await cargarOrdenes();
+      } else {
+        const error = await res.json();
+        alert(error.error || "Error al cobrar la orden");
+      }
+    } catch (error) {
+      console.error("Error al cobrar:", error);
+      alert("Error al cobrar la orden");
+    } finally {
+      setLoadingCobrar(false);
+    }
+  };
+
   useEffect(() => {
     if (usuario && usuario.rol === "admin") {
       cargarOrdenes();
@@ -185,8 +221,9 @@ export default function AdminPage() {
 
   // Función para calcular si una orden salió a tiempo
   const calcularEstadoTiempo = (orden: Orden) => {
-    if (orden.estado !== "completada" || !orden.tiempoEstimado) {
-      return null; // No aplica para órdenes pendientes o sin tiempo estimado
+    const estadosFinales = ["entregada", "cobrada"];
+    if (!estadosFinales.includes(orden.estado) || !orden.tiempoEstimado) {
+      return null;
     }
 
     const creacion = new Date(orden.createdAt).getTime();
@@ -205,19 +242,27 @@ export default function AdminPage() {
     0,
   );
 
+  const ordenesCobradas = ordenes.filter((o) => o.estado === "cobrada");
+  const totalEfectivo = ordenesCobradas
+    .filter((o) => o.metodoPago === "efectivo")
+    .reduce((total, orden) => total + Number(orden.total), 0);
+  const totalTransferencia = ordenesCobradas
+    .filter((o) => o.metodoPago === "transferencia")
+    .reduce((total, orden) => total + Number(orden.total), 0);
+
   const ordenesPorEstado = {
-    pendiente: ordenes.filter((o) => o.estado === "pendiente").length,
-    completada: ordenes.filter((o) => o.estado === "completada").length,
+    pendiente: ordenes.filter(
+      (o) =>
+        o.estado === "pendiente" ||
+        o.estado === "en_preparacion" ||
+        o.estado === "lista" ||
+        o.estado === "entregada",
+    ).length,
+    cobrada: ordenesCobradas.length,
     total: ordenes.length,
   };
 
-  // Calcular estadísticas de tiempo
-  const ordenesCompletadas = ordenes.filter((o) => o.estado === "completada");
-  const ordenesATiempo = ordenesCompletadas.filter((o) => {
-    const estado = calcularEstadoTiempo(o);
-    return estado?.aTiempo;
-  }).length;
-  const ordenesRetrasadas = ordenesCompletadas.length - ordenesATiempo;
+  // Calcular estadísticas de tiempo (usadas por fila)
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
@@ -451,40 +496,40 @@ export default function AdminPage() {
 
         {/* Estadísticas */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xs text-gray-600 mb-2">Total del Día</h3>
-            <p className="text-2xl font-bold text-green-600">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-xs text-gray-600 mb-1">Total del Día</h3>
+            <p className="text-xl font-bold text-green-600">
               ${totalDelDia.toFixed(2)}
             </p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xs text-gray-600 mb-2">Total Órdenes</h3>
-            <p className="text-2xl font-bold text-blue-600">
+          <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
+            <h3 className="text-xs text-gray-600 mb-1">💵 Efectivo</h3>
+            <p className="text-xl font-bold text-green-700">
+              ${totalEfectivo.toFixed(2)}
+            </p>
+          </div>
+          <div className="bg-blue-50 rounded-lg shadow p-4 border border-blue-200">
+            <h3 className="text-xs text-gray-600 mb-1">🏦 Transferencia</h3>
+            <p className="text-xl font-bold text-blue-700">
+              ${totalTransferencia.toFixed(2)}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-xs text-gray-600 mb-1">Total Órdenes</h3>
+            <p className="text-xl font-bold text-blue-600">
               {ordenesPorEstado.total}
             </p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xs text-gray-600 mb-2">Completadas</h3>
-            <p className="text-2xl font-bold text-green-600">
-              {ordenesPorEstado.completada}
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-xs text-gray-600 mb-1">Cobradas ✓</h3>
+            <p className="text-xl font-bold text-green-600">
+              {ordenesPorEstado.cobrada}
             </p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xs text-gray-600 mb-2">Pendientes</h3>
-            <p className="text-2xl font-bold text-yellow-600">
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-xs text-gray-600 mb-1">Activas</h3>
+            <p className="text-xl font-bold text-yellow-600">
               {ordenesPorEstado.pendiente}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xs text-gray-600 mb-2">A Tiempo ✓</h3>
-            <p className="text-2xl font-bold text-emerald-600">
-              {ordenesATiempo}
-            </p>
-          </div>
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xs text-gray-600 mb-2">Retrasadas ⚠️</h3>
-            <p className="text-2xl font-bold text-red-600">
-              {ordenesRetrasadas}
             </p>
           </div>
         </div>
@@ -529,6 +574,9 @@ export default function AdminPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Total
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Pago
                     </th>
                   </tr>
                 </thead>
@@ -582,9 +630,17 @@ export default function AdminPage() {
                         <td className="px-6 py-4 text-sm">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              orden.estado === "completada"
+                              orden.estado === "cobrada"
                                 ? "bg-green-100 text-green-800"
-                                : "bg-yellow-100 text-yellow-800"
+                                : orden.estado === "cancelada"
+                                  ? "bg-red-100 text-red-800"
+                                  : orden.estado === "lista"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : orden.estado === "entregada"
+                                      ? "bg-purple-100 text-purple-800"
+                                      : orden.estado === "en_preparacion"
+                                        ? "bg-orange-100 text-orange-800"
+                                        : "bg-yellow-100 text-yellow-800"
                             }`}
                           >
                             {orden.estado}
@@ -616,6 +672,43 @@ export default function AdminPage() {
                         <td className="px-6 py-4 text-sm font-bold">
                           ${Number(orden.total).toFixed(2)}
                         </td>
+                        <td
+                          className="px-6 py-4 text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {orden.cobrada ? (
+                            <div className="flex flex-col gap-1">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                  orden.metodoPago === "efectivo"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-blue-100 text-blue-800"
+                                }`}
+                              >
+                                {orden.metodoPago === "efectivo"
+                                  ? "💵 Efectivo"
+                                  : "🏦 Transferencia"}
+                              </span>
+                              {orden.cobradaPor && (
+                                <span className="text-xs text-gray-500">
+                                  por {orden.cobradaPor}
+                                </span>
+                              )}
+                            </div>
+                          ) : orden.estado !== "cancelada" ? (
+                            <button
+                              onClick={() => {
+                                setOrdenACobrar(orden);
+                                setMetodoPagoAdmin("efectivo");
+                              }}
+                              className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 rounded-lg font-bold transition-colors"
+                            >
+                              💵 Cobrar
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -632,6 +725,72 @@ export default function AdminPage() {
           orden={ordenSeleccionada}
           onClose={() => setOrdenSeleccionada(null)}
         />
+      )}
+
+      {/* Modal Cobrar (Admin) */}
+      {ordenACobrar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold mb-2 text-gray-800">
+              💵 Cobrar Orden
+            </h3>
+            <p className="text-gray-600 mb-1">
+              {!ordenACobrar.tipoOrden || ordenACobrar.tipoOrden === "local"
+                ? `Mesa ${ordenACobrar.numeroMesa}`
+                : ordenACobrar.nombreCliente}{" "}
+              — {ordenACobrar.mesero}
+            </p>
+            <p className="text-2xl font-bold text-green-600 mb-5">
+              ${Number(ordenACobrar.total).toFixed(2)}
+            </p>
+
+            <p className="text-sm font-semibold text-gray-700 mb-3">
+              Método de pago:
+            </p>
+            <div className="flex gap-3 mb-6">
+              <button
+                onClick={() => setMetodoPagoAdmin("efectivo")}
+                className={`flex-1 py-3 rounded-lg font-bold border-2 transition-colors ${
+                  metodoPagoAdmin === "efectivo"
+                    ? "bg-green-600 text-white border-green-600"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-green-400"
+                }`}
+              >
+                💵 Efectivo
+              </button>
+              <button
+                onClick={() => setMetodoPagoAdmin("transferencia")}
+                className={`flex-1 py-3 rounded-lg font-bold border-2 transition-colors ${
+                  metodoPagoAdmin === "transferencia"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
+                }`}
+              >
+                🏦 Transferencia
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={cobrarOrden}
+                disabled={loadingCobrar}
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 rounded-lg font-bold transition-colors"
+              >
+                {loadingCobrar ? "Procesando..." : "✓ Confirmar Cobro"}
+              </button>
+              <button
+                onClick={() => {
+                  setOrdenACobrar(null);
+                  setMetodoPagoAdmin("efectivo");
+                }}
+                disabled={loadingCobrar}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white py-2 rounded-lg font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
