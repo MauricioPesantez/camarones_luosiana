@@ -181,7 +181,7 @@ export default function CocinaPage() {
             <OrdenCard
               key={orden.id}
               orden={orden}
-              onMarcarLista={(id) => cambiarEstado(id, "completada")}
+              onMarcarLista={(id) => cambiarEstado(id, "lista")}
               onEditarOrden={
                 usuario.rol === "cocina"
                   ? (orden) => setOrdenEditar(orden as any)

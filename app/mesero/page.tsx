@@ -5,15 +5,22 @@ import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
+import { MetodoPago } from "@/types/orden";
 
 interface Orden {
   id: string;
-  numeroMesa: number;
+  tipoOrden: string;
+  numeroMesa: number | null;
+  nombreCliente: string | null;
+  telefonoCliente: string | null;
   mesero: string;
   estado: string;
   total: number;
   tiempoEstimado: number;
   modificada: boolean;
+  cobrada: boolean;
+  metodoPago: string | null;
+  cobradaPor: string | null;
   createdAt: string;
   items: {
     id: string;
@@ -36,21 +43,63 @@ export default function MeseroPage() {
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [loadingOrdenes, setLoadingOrdenes] = useState(false);
+  const [ordenACobrar, setOrdenACobrar] = useState<Orden | null>(null);
+  const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] =
+    useState<MetodoPago>("efectivo");
+  const [loadingCobrar, setLoadingCobrar] = useState(false);
+
+  const ordenesPorCobrar = ordenes.filter(
+    (o) =>
+      o.estado === "lista" ||
+      o.estado === "entregada" ||
+      o.estado === "completada",
+  );
 
   const cargarOrdenes = async () => {
     setLoadingOrdenes(true);
     try {
-      const res = await fetch("/api/ordenes?estado=pendiente");
+      const res = await fetch("/api/ordenes");
       const data = await res.json();
-      // Filtrar solo las órdenes del mesero actual
+      // Filtrar órdenes del mesero actual que no estén cobradas ni canceladas
       const ordenesDelMesero = data.filter(
-        (orden: Orden) => orden.mesero === usuario?.nombre
+        (orden: Orden) =>
+          orden.mesero === usuario?.nombre &&
+          orden.estado !== "cobrada" &&
+          orden.estado !== "cancelada",
       );
       setOrdenes(ordenesDelMesero);
     } catch (error) {
       console.error("Error al cargar órdenes:", error);
     } finally {
       setLoadingOrdenes(false);
+    }
+  };
+
+  const cobrarOrden = async () => {
+    if (!ordenACobrar) return;
+    setLoadingCobrar(true);
+    try {
+      const res = await fetch(`/api/ordenes/${ordenACobrar.id}/cobrar`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metodoPago: metodoPagoSeleccionado,
+          cobradaPor: usuario?.nombre ?? "",
+        }),
+      });
+      if (res.ok) {
+        setOrdenACobrar(null);
+        setMetodoPagoSeleccionado("efectivo");
+        await cargarOrdenes();
+      } else {
+        const error = await res.json();
+        alert(error.error || "Error al cobrar la orden");
+      }
+    } catch (error) {
+      console.error("Error al cobrar:", error);
+      alert("Error al cobrar la orden");
+    } finally {
+      setLoadingCobrar(false);
     }
   };
 
@@ -88,13 +137,18 @@ export default function MeseroPage() {
             </button>
             <button
               onClick={() => setVistaActiva("ordenes")}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+              className={`relative px-4 py-2 rounded-lg font-semibold transition-colors ${
                 vistaActiva === "ordenes"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
             >
               📋 Mis Órdenes
+              {ordenesPorCobrar.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {ordenesPorCobrar.length}
+                </span>
+              )}
             </button>
             {usuario.rol === "cocina" && (
               <button
@@ -126,7 +180,7 @@ export default function MeseroPage() {
         <div className="p-6 max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800">
-              Mis Órdenes Pendientes
+              Mis Órdenes Activas
             </h1>
             <button
               onClick={cargarOrdenes}
@@ -140,67 +194,208 @@ export default function MeseroPage() {
             <div className="text-center py-12">Cargando órdenes...</div>
           ) : ordenes.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
-              No tienes órdenes pendientes
+              No tienes órdenes activas
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {ordenes.map((orden) => (
-                <div
-                  key={orden.id}
-                  className="bg-white rounded-lg shadow-lg p-6 border-2 border-gray-200 hover:border-blue-400 transition-colors"
-                >
-                  {/* Header */}
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-800">
-                        Mesa {orden.numeroMesa}
-                      </h2>
-                      <p className="text-sm text-gray-500">
-                        {new Date(orden.createdAt).toLocaleString("es-EC")}
-                      </p>
-                    </div>
-                    {orden.modificada && (
-                      <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">
-                        🔄 Modificada
-                      </span>
-                    )}
+            <>
+              {ordenesPorCobrar.length > 0 && (
+                <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-6 flex items-center gap-3">
+                  <span className="text-2xl">💵</span>
+                  <div>
+                    <p className="font-bold text-green-800">
+                      {ordenesPorCobrar.length}{" "}
+                      {ordenesPorCobrar.length === 1
+                        ? "orden lista para cobrar"
+                        : "órdenes listas para cobrar"}
+                    </p>
+                    <p className="text-sm text-green-700">
+                      Las tarjetas con borde verde tienen el botón{" "}
+                      <strong>💵 Cobrar Orden</strong>
+                    </p>
                   </div>
-
-                  {/* Items */}
-                  <div className="mb-4">
-                    <h3 className="font-semibold text-gray-700 text-sm mb-2">
-                      Items:
-                    </h3>
-                    <div className="space-y-1">
-                      {orden.items.map((item, idx) => (
-                        <div key={idx} className="text-sm text-gray-600">
-                          {item.cantidad}x {item.producto.nombre}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Total */}
-                  <div className="border-t pt-3 mb-4">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-700">Total:</span>
-                      <span className="text-xl font-bold text-green-600">
-                        ${Number(orden.total).toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Botón Editar */}
-                  <button
-                    onClick={() => setOrdenEditar(orden)}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-colors"
-                  >
-                    ✏️ Editar Orden
-                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {ordenes.map((orden) => {
+                  const puedeCobrarse =
+                    orden.estado === "lista" ||
+                    orden.estado === "entregada" ||
+                    orden.estado === "completada";
+                  const tituloOrden =
+                    !orden.tipoOrden || orden.tipoOrden === "local"
+                      ? `Mesa ${orden.numeroMesa}`
+                      : (orden.nombreCliente ?? "Sin nombre");
+                  return (
+                    <div
+                      key={orden.id}
+                      className={`bg-white rounded-lg shadow-lg p-6 border-2 transition-colors ${
+                        puedeCobrarse
+                          ? "border-green-400 hover:border-green-500"
+                          : "border-gray-200 hover:border-blue-400"
+                      }`}
+                    >
+                      {/* Header */}
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h2 className="text-xl font-bold text-gray-800">
+                            {tituloOrden}
+                          </h2>
+                          <p className="text-xs text-gray-500">
+                            {new Date(orden.createdAt).toLocaleString("es-EC")}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {orden.modificada && (
+                            <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">
+                              🔄 Modificada
+                            </span>
+                          )}
+                          <span
+                            className={`text-xs font-bold px-2 py-1 rounded ${
+                              orden.estado === "lista" ||
+                              orden.estado === "completada"
+                                ? "bg-green-100 text-green-800"
+                                : orden.estado === "en_preparacion"
+                                  ? "bg-orange-100 text-orange-800"
+                                  : orden.estado === "entregada"
+                                    ? "bg-purple-100 text-purple-800"
+                                    : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {orden.estado === "lista" ||
+                            orden.estado === "completada"
+                              ? "✅ Lista"
+                              : orden.estado === "en_preparacion"
+                                ? "🍳 En preparación"
+                                : orden.estado === "entregada"
+                                  ? "🚀 Entregada"
+                                  : orden.estado === "pendiente"
+                                    ? "⏳ Pendiente"
+                                    : orden.estado}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Items */}
+                      <div className="mb-4">
+                        <h3 className="font-semibold text-gray-700 text-sm mb-2">
+                          Items:
+                        </h3>
+                        <div className="space-y-1">
+                          {orden.items.map((item, idx) => (
+                            <div key={idx} className="text-sm text-gray-600">
+                              {item.cantidad}x {item.producto.nombre}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Total */}
+                      <div className="border-t pt-3 mb-4">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-gray-700">
+                            Total:
+                          </span>
+                          <span className="text-xl font-bold text-green-600">
+                            ${Number(orden.total).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Botones */}
+                      <div className="flex flex-col gap-2">
+                        {puedeCobrarse && (
+                          <button
+                            onClick={() => {
+                              setOrdenACobrar(orden);
+                              setMetodoPagoSeleccionado("efectivo");
+                            }}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition-colors"
+                          >
+                            💵 Cobrar Orden
+                          </button>
+                        )}
+                        {(orden.estado === "pendiente" ||
+                          orden.estado === "en_preparacion") && (
+                          <button
+                            onClick={() => setOrdenEditar(orden)}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-colors"
+                          >
+                            ✏️ Editar Orden
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
+        </div>
+      )}
+
+      {/* Modal Cobrar */}
+      {ordenACobrar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold mb-2 text-gray-800">
+              💵 Cobrar Orden
+            </h3>
+            <p className="text-gray-600 mb-1">
+              {!ordenACobrar.tipoOrden || ordenACobrar.tipoOrden === "local"
+                ? `Mesa ${ordenACobrar.numeroMesa}`
+                : ordenACobrar.nombreCliente}
+            </p>
+            <p className="text-2xl font-bold text-green-600 mb-5">
+              ${Number(ordenACobrar.total).toFixed(2)}
+            </p>
+
+            <p className="text-sm font-semibold text-gray-700 mb-3">
+              Método de pago:
+            </p>
+            <div className="flex gap-3 mb-6">
+              <button
+                onClick={() => setMetodoPagoSeleccionado("efectivo")}
+                className={`flex-1 py-3 rounded-lg font-bold border-2 transition-colors ${
+                  metodoPagoSeleccionado === "efectivo"
+                    ? "bg-green-600 text-white border-green-600"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-green-400"
+                }`}
+              >
+                💵 Efectivo
+              </button>
+              <button
+                onClick={() => setMetodoPagoSeleccionado("transferencia")}
+                className={`flex-1 py-3 rounded-lg font-bold border-2 transition-colors ${
+                  metodoPagoSeleccionado === "transferencia"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-blue-400"
+                }`}
+              >
+                🏦 Transferencia
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={cobrarOrden}
+                disabled={loadingCobrar}
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 rounded-lg font-bold transition-colors"
+              >
+                {loadingCobrar ? "Procesando..." : "✓ Confirmar Cobro"}
+              </button>
+              <button
+                onClick={() => {
+                  setOrdenACobrar(null);
+                  setMetodoPagoSeleccionado("efectivo");
+                }}
+                disabled={loadingCobrar}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white py-2 rounded-lg font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -16,6 +16,10 @@ interface Orden {
   total: number;
   tiempoEstimado: number;
   modificada: boolean;
+  cobrada?: boolean;
+  metodoPago?: string | null;
+  fechaCobro?: string | null;
+  cobradaPor?: string | null;
   createdAt: string;
   updatedAt: string;
   observaciones?: string;
@@ -102,6 +106,72 @@ export default function DetalleOrdenModal({
         <div className="flex-1 overflow-y-auto p-6">
           {pestanaActiva === "resumen" ? (
             <div className="space-y-6">
+              {/* Tipo de Orden e Info del Cliente */}
+              <div className="rounded-lg border overflow-hidden">
+                <div className="bg-gray-50 px-4 py-3 border-b">
+                  <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">
+                    Tipo de Orden
+                  </h3>
+                </div>
+                <div className="p-4 grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500 font-semibold uppercase">
+                      Tipo
+                    </label>
+                    <p className="mt-1">
+                      {(!orden.tipoOrden || orden.tipoOrden === "local") && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
+                          🍽 Local
+                        </span>
+                      )}
+                      {orden.tipoOrden === "para_llevar" && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 text-yellow-800">
+                          🥡 Para Llevar
+                        </span>
+                      )}
+                      {orden.tipoOrden === "domicilio" && (
+                        <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-red-100 text-red-800">
+                          🛵 Domicilio
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {(!orden.tipoOrden || orden.tipoOrden === "local") && (
+                    <div>
+                      <label className="text-xs text-gray-500 font-semibold uppercase">
+                        Mesa
+                      </label>
+                      <p className="text-lg font-bold text-gray-800">
+                        #{orden.numeroMesa}
+                      </p>
+                    </div>
+                  )}
+                  {(orden.tipoOrden === "para_llevar" ||
+                    orden.tipoOrden === "domicilio") && (
+                    <>
+                      <div>
+                        <label className="text-xs text-gray-500 font-semibold uppercase">
+                          Cliente
+                        </label>
+                        <p className="text-base font-semibold text-gray-800">
+                          {orden.nombreCliente ?? "—"}
+                        </p>
+                      </div>
+                      {orden.tipoOrden === "domicilio" && (
+                        <div>
+                          <label className="text-xs text-gray-500 font-semibold uppercase">
+                            Teléfono
+                          </label>
+                          <p className="text-base text-gray-800">
+                            {orden.telefonoCliente ?? "—"}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
               {/* Información General */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -211,7 +281,58 @@ export default function DetalleOrdenModal({
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50">
-                      <tr>
+                      {(Number(orden.recargo) > 0 ||
+                        Number(orden.costoEnvio) > 0) && (
+                        <>
+                          <tr className="border-t">
+                            <td
+                              colSpan={4}
+                              className="px-4 py-2 text-right text-sm text-gray-600"
+                            >
+                              Subtotal productos:
+                            </td>
+                            <td className="px-4 py-2 text-right text-sm text-gray-700">
+                              $
+                              {(
+                                Number(orden.total) -
+                                Number(orden.recargo ?? 0) -
+                                Number(orden.costoEnvio ?? 0)
+                              ).toFixed(2)}
+                            </td>
+                          </tr>
+                          {Number(orden.recargo) > 0 && (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="px-4 py-2 text-right text-sm text-gray-600"
+                              >
+                                Recargo (
+                                {orden.tipoOrden === "domicilio"
+                                  ? "domicilio"
+                                  : "para llevar"}
+                                ):
+                              </td>
+                              <td className="px-4 py-2 text-right text-sm text-gray-700">
+                                +${Number(orden.recargo).toFixed(2)}
+                              </td>
+                            </tr>
+                          )}
+                          {Number(orden.costoEnvio) > 0 && (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="px-4 py-2 text-right text-sm text-gray-600"
+                              >
+                                🛵 Costo de envío:
+                              </td>
+                              <td className="px-4 py-2 text-right text-sm text-gray-700">
+                                +${Number(orden.costoEnvio).toFixed(2)}
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )}
+                      <tr className="border-t-2 border-gray-300">
                         <td
                           colSpan={4}
                           className="px-4 py-3 text-right font-bold text-gray-800"
@@ -232,10 +353,63 @@ export default function DetalleOrdenModal({
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
                   <p className="text-sm text-yellow-800 font-semibold">
                     ⚠️ Esta orden fue modificada después de su creación. Ver
-                    pestaña "Historial" para detalles completos.
+                    pestaña --Historial-- para detalles completos.
                   </p>
                 </div>
               )}
+
+              {/* Información de Cobro */}
+              {orden.cobrada ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-green-800 mb-3 flex items-center gap-2">
+                    ✅ Orden Cobrada
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-gray-500 font-semibold uppercase">
+                        Método de Pago
+                      </label>
+                      <p className="mt-1">
+                        <span
+                          className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${
+                            orden.metodoPago === "efectivo"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {orden.metodoPago === "efectivo"
+                            ? "💵 Efectivo"
+                            : "🏦 Transferencia"}
+                        </span>
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 font-semibold uppercase">
+                        Cobrado por
+                      </label>
+                      <p className="text-sm text-gray-800 mt-1 font-semibold">
+                        {orden.cobradaPor ?? "—"}
+                      </p>
+                    </div>
+                    {orden.fechaCobro && (
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 font-semibold uppercase">
+                          Fecha de Cobro
+                        </label>
+                        <p className="text-sm text-gray-800 mt-1">
+                          {new Date(orden.fechaCobro).toLocaleString("es-EC")}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : orden.estado !== "cancelada" ? (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <p className="text-sm text-orange-700 font-semibold">
+                    ⏳ Pendiente de cobro
+                  </p>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div>

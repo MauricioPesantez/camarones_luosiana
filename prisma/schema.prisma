@@ -30,8 +30,12 @@ model Orden {
   telefonoCliente     String?                                // Solo para "domicilio"
   recargo             Decimal?         @db.Decimal(10, 2)   // $0.50 para "para_llevar" y "domicilio"
   costoEnvio          Decimal?         @db.Decimal(10, 2)   // Solo para "domicilio"
+  metodoPago          String?                                // "efectivo" | "transferencia"
+  cobrada             Boolean          @default(false)
+  fechaCobro          DateTime?
+  cobradaPor          String?                                // Nombre del mesero/admin que cobró
   mesero              String
-  estado              String           @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cancelada"
+  estado              String           @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cobrada", "cancelada"
   observaciones       String?
   total               Decimal          @db.Decimal(10, 2) @default(0)
   tiempoEstimado      Int?             @default(0) // Tiempo estimado en minutos

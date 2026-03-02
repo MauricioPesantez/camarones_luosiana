@@ -19,7 +19,7 @@ interface Item {
 
 interface Orden {
   id: string;
-  numeroMesa: number;
+  numeroMesa: number | null;
   total: number;
   items: Item[];
 }
@@ -331,8 +331,8 @@ export default function EditarOrdenModal({
                   diferencia > 0
                     ? "text-green-600"
                     : diferencia < 0
-                    ? "text-red-600"
-                    : "text-gray-600"
+                      ? "text-red-600"
+                      : "text-gray-600"
                 }`}
               >
                 {diferencia > 0 ? "+" : ""}${Number(diferencia).toFixed(2)}
