@@ -355,7 +355,7 @@ export default function CrearOrden() {
                   type="number"
                   value={numeroMesa}
                   onChange={(e) => setNumeroMesa(e.target.value)}
-                  className="w-full border rounded-lg px-4 py-2"
+                  className="w-full border rounded-lg px-4 py-2 text-black"
                   placeholder="Ej: 5"
                 />
               </div>
@@ -370,7 +370,7 @@ export default function CrearOrden() {
                   type="text"
                   value={nombreCliente}
                   onChange={(e) => setNombreCliente(e.target.value)}
-                  className="w-full border rounded-lg px-4 py-2"
+                  className="w-full border rounded-lg px-4 py-2 text-black"
                   placeholder="Ej: Juan Pérez"
                 />
               </div>
@@ -386,7 +386,7 @@ export default function CrearOrden() {
                     type="text"
                     value={telefonoCliente}
                     onChange={(e) => setTelefonoCliente(e.target.value)}
-                    className="w-full border rounded-lg px-4 py-2"
+                    className="w-full border rounded-lg px-4 py-2 text-black"
                     placeholder="Ej: 0991234567"
                   />
                 </div>
@@ -400,7 +400,7 @@ export default function CrearOrden() {
                     min="0"
                     value={costoEnvio}
                     onChange={(e) => setCostoEnvio(e.target.value)}
-                    className="w-full border rounded-lg px-4 py-2"
+                    className="w-full border rounded-lg px-4 py-2 text-black"
                     placeholder="Ej: 1.50"
                   />
                 </div>
@@ -465,7 +465,7 @@ export default function CrearOrden() {
               ) : (
                 carrito.map((item) => (
                   <div key={item.productoId} className="border rounded-lg p-3">
-                    <div className="flex justify-between items-start mb-2">
+                    <div className="flex justify-between items-start mb-2 text-black">
                       <span className="font-medium text-sm">{item.nombre}</span>
                       <span className="font-bold">
                         ${(item.cantidad * item.precioUnitario).toFixed(2)}
@@ -480,7 +480,7 @@ export default function CrearOrden() {
                       >
                         -
                       </button>
-                      <span className="w-8 text-center font-bold">
+                      <span className="w-8 text-center font-bold text-black">
                         {item.cantidad}
                       </span>
                       <button

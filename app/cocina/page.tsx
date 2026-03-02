@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import OrdenCard from "@/components/cocina/OrdenCard";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
@@ -34,29 +34,124 @@ interface Orden {
   sinStock?: boolean;
 }
 
+interface Notificacion {
+  id: string;
+  tipoOrden: string;
+  numeroMesa: number | null;
+  nombreCliente: string | null;
+  mesero: string;
+  tiempoEstimado: number;
+  itemsCount: number;
+}
+
 export default function CocinaPage() {
   const { usuario, loading: authLoading, logout } = useAuth();
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [vistaActiva, setVistaActiva] = useState<"cocina" | "mesero">("cocina");
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
+  const [notificacion, setNotificacion] = useState<Notificacion | null>(null);
+  const [permisoBrowser, setPermisoBrowser] = useState<boolean>(false);
+  const notificacionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Genera un doble pitido usando Web Audio API (sin archivos externos)
+  const reproducirSonido = useCallback(() => {
+    try {
+      type AudioCtxCtor = typeof AudioContext;
+      const AudioCtx: AudioCtxCtor =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: AudioCtxCtor })
+          .webkitAudioContext;
+      const ctx = new AudioCtx();
+      [0, 0.25].forEach((offset) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, ctx.currentTime + offset);
+        gain.gain.setValueAtTime(0.35, ctx.currentTime + offset);
+        gain.gain.exponentialRampToValueAtTime(
+          0.001,
+          ctx.currentTime + offset + 0.22,
+        );
+        osc.start(ctx.currentTime + offset);
+        osc.stop(ctx.currentTime + offset + 0.22);
+      });
+    } catch {
+      /* El navegador bloqueó el audio */
+    }
+  }, []);
+
+  const cargarOrdenes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ordenes?estado=pendiente");
+      const data = await res.json();
+      setOrdenes(data);
+    } catch (error) {
+      console.error("Error al cargar órdenes:", error);
+    }
+  }, []);
+
+  // Polling de respaldo cada 30 s (cubre casos donde SSE no esté disponible)
   useEffect(() => {
-    const cargarOrdenes = async () => {
-      try {
-        const res = await fetch("/api/ordenes?estado=pendiente");
-        const data = await res.json();
-        setOrdenes(data);
-      } catch (error) {
-        console.error("Error al cargar órdenes:", error);
-      }
-    };
-
     if (vistaActiva === "cocina" && usuario) {
       cargarOrdenes();
-      const interval = setInterval(cargarOrdenes, 30000); // Actualizar cada 30 segundos
+      const interval = setInterval(cargarOrdenes, 30000);
       return () => clearInterval(interval);
     }
-  }, [vistaActiva, usuario]);
+  }, [vistaActiva, usuario, cargarOrdenes]);
+
+  // Verificar soporte de notificaciones del navegador (sólo client-side)
+  useEffect(() => {
+    if (
+      typeof Notification !== "undefined" &&
+      Notification.permission === "default"
+    ) {
+      setPermisoBrowser(true);
+    }
+  }, []);
+
+  // Conexión SSE — recibe notificaciones en tiempo real cuando llega una nueva orden
+  useEffect(() => {
+    if (!usuario) return;
+
+    const eventSource = new EventSource("/api/ordenes/events");
+
+    eventSource.addEventListener("nueva-orden", (e: MessageEvent) => {
+      const orden = JSON.parse(e.data) as Notificacion;
+
+      // Mostrar banner y auto-ocultar a los 8 s
+      setNotificacion(orden);
+      if (notificacionTimer.current) clearTimeout(notificacionTimer.current);
+      notificacionTimer.current = setTimeout(() => setNotificacion(null), 8000);
+
+      // Recargar lista inmediatamente
+      cargarOrdenes();
+
+      // Sonido de alerta
+      reproducirSonido();
+
+      // Notificación nativa del navegador (si el usuario dio permiso)
+      if (
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
+        const titulo =
+          orden.tipoOrden === "local"
+            ? `Mesa ${orden.numeroMesa}`
+            : (orden.nombreCliente ?? "Cliente");
+        new Notification(`🍳 Nueva orden — ${titulo}`, {
+          body: `Mesero: ${orden.mesero} · ${orden.itemsCount} ítem(s)`,
+          icon: "/favicon.ico",
+        });
+      }
+    });
+
+    return () => {
+      eventSource.close();
+      if (notificacionTimer.current) clearTimeout(notificacionTimer.current);
+    };
+  }, [usuario, cargarOrdenes, reproducirSonido]);
 
   if (authLoading) {
     return (
@@ -125,6 +220,42 @@ export default function CocinaPage() {
 
   return (
     <div className="min-h-screen bg-gray-900">
+      {/* Banner de notificación nueva orden (tiempo real via SSE) */}
+      {notificacion && (
+        <div className="fixed top-0 left-0 right-0 z-50 shadow-2xl">
+          <div className="bg-green-500 text-white px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-3xl animate-bounce">🔔</span>
+              <div>
+                <p className="text-xl font-bold">
+                  ¡Nueva orden!{" "}
+                  {notificacion.tipoOrden === "local"
+                    ? `Mesa ${notificacion.numeroMesa}`
+                    : `${
+                        notificacion.tipoOrden === "domicilio"
+                          ? "🛵 Domicilio"
+                          : "🥡 Para llevar"
+                      } — ${notificacion.nombreCliente}`}
+                </p>
+                <p className="text-sm opacity-90">
+                  Mesero: {notificacion.mesero} · {notificacion.itemsCount}
+                   ítem(s)
+                  {notificacion.tiempoEstimado > 0 &&
+                    ` · Est. ${notificacion.tiempoEstimado} min`}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setNotificacion(null)}
+              className="text-white text-2xl hover:text-green-100 font-bold leading-none px-2"
+              aria-label="Cerrar notificación"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Selector de vista solo para cocineros */}
       {usuario.rol === "cocina" && (
         <div className="bg-gray-800 border-b border-gray-700 p-4">
@@ -144,6 +275,20 @@ export default function CocinaPage() {
               </button>
             </div>
             <div className="flex items-center gap-4">
+              {/* Botón para activar notificaciones nativas del navegador */}
+              {permisoBrowser && (
+                <button
+                  onClick={() =>
+                    Notification.requestPermission().then((p) => {
+                      if (p !== "default") setPermisoBrowser(false);
+                    })
+                  }
+                  className="bg-yellow-500 text-white px-3 py-2 rounded-lg hover:bg-yellow-600 text-sm font-semibold"
+                  title="Recibir notificaciones incluso con la pestaña en segundo plano"
+                >
+                  🔔 Activar notificaciones
+                </button>
+              )}
               <span className="text-white">
                 Usuario: <span className="font-bold">{usuario.nombre}</span>
               </span>
