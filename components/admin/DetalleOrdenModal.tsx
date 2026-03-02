@@ -1,11 +1,16 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import HistorialOrdenTimeline from './HistorialOrdenTimeline';
+import { useState } from "react";
+import HistorialOrdenTimeline from "./HistorialOrdenTimeline";
 
 interface Orden {
   id: string;
-  numeroMesa: number;
+  tipoOrden?: string;
+  numeroMesa: number | null;
+  nombreCliente?: string | null;
+  telefonoCliente?: string | null;
+  recargo?: number | null;
+  costoEnvio?: number | null;
   mesero: string;
   estado: string;
   total: number;
@@ -31,8 +36,13 @@ interface DetalleOrdenModalProps {
   onClose: () => void;
 }
 
-export default function DetalleOrdenModal({ orden, onClose }: DetalleOrdenModalProps) {
-  const [pestanaActiva, setPestanaActiva] = useState<'resumen' | 'historial'>('resumen');
+export default function DetalleOrdenModal({
+  orden,
+  onClose,
+}: DetalleOrdenModalProps) {
+  const [pestanaActiva, setPestanaActiva] = useState<"resumen" | "historial">(
+    "resumen",
+  );
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -41,10 +51,12 @@ export default function DetalleOrdenModal({ orden, onClose }: DetalleOrdenModalP
         <div className="border-b px-6 py-4 flex justify-between items-center bg-gray-50">
           <div>
             <h2 className="text-2xl font-bold text-gray-800">
-              Orden Mesa {orden.numeroMesa}
+              {!orden.tipoOrden || orden.tipoOrden === "local"
+                ? `Mesa ${orden.numeroMesa}`
+                : orden.nombreCliente}
             </h2>
             <p className="text-sm text-gray-500">
-              {new Date(orden.createdAt).toLocaleString('es-EC')}
+              {new Date(orden.createdAt).toLocaleString("es-EC")}
             </p>
           </div>
           <button
@@ -59,21 +71,21 @@ export default function DetalleOrdenModal({ orden, onClose }: DetalleOrdenModalP
         <div className="border-b bg-gray-50">
           <div className="flex gap-2 px-6">
             <button
-              onClick={() => setPestanaActiva('resumen')}
+              onClick={() => setPestanaActiva("resumen")}
               className={`px-4 py-3 font-semibold transition-colors border-b-2 ${
-                pestanaActiva === 'resumen'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
+                pestanaActiva === "resumen"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-600 hover:text-gray-800"
               }`}
             >
               📋 Resumen
             </button>
             <button
-              onClick={() => setPestanaActiva('historial')}
+              onClick={() => setPestanaActiva("historial")}
               className={`px-4 py-3 font-semibold transition-colors border-b-2 flex items-center gap-2 ${
-                pestanaActiva === 'historial'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
+                pestanaActiva === "historial"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-gray-600 hover:text-gray-800"
               }`}
             >
               📜 Historial
@@ -88,22 +100,26 @@ export default function DetalleOrdenModal({ orden, onClose }: DetalleOrdenModalP
 
         {/* Contenido */}
         <div className="flex-1 overflow-y-auto p-6">
-          {pestanaActiva === 'resumen' ? (
+          {pestanaActiva === "resumen" ? (
             <div className="space-y-6">
               {/* Información General */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-gray-500 font-semibold">Mesero</label>
+                  <label className="text-sm text-gray-500 font-semibold">
+                    Mesero
+                  </label>
                   <p className="text-lg text-gray-800">{orden.mesero}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 font-semibold">Estado</label>
+                  <label className="text-sm text-gray-500 font-semibold">
+                    Estado
+                  </label>
                   <p>
                     <span
                       className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
-                        orden.estado === 'completada'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
+                        orden.estado === "completada"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
                       }`}
                     >
                       {orden.estado}
@@ -114,10 +130,14 @@ export default function DetalleOrdenModal({ orden, onClose }: DetalleOrdenModalP
                   <label className="text-sm text-gray-500 font-semibold">
                     Tiempo Estimado
                   </label>
-                  <p className="text-lg text-gray-800">{orden.tiempoEstimado} minutos</p>
+                  <p className="text-lg text-gray-800">
+                    {orden.tiempoEstimado} minutos
+                  </p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 font-semibold">Total</label>
+                  <label className="text-sm text-gray-500 font-semibold">
+                    Total
+                  </label>
                   <p className="text-2xl font-bold text-green-600">
                     ${Number(orden.total).toFixed(2)}
                   </p>
@@ -192,7 +212,10 @@ export default function DetalleOrdenModal({ orden, onClose }: DetalleOrdenModalP
                     </tbody>
                     <tfoot className="bg-gray-50">
                       <tr>
-                        <td colSpan={4} className="px-4 py-3 text-right font-bold text-gray-800">
+                        <td
+                          colSpan={4}
+                          className="px-4 py-3 text-right font-bold text-gray-800"
+                        >
                           TOTAL:
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-green-600 text-lg">
@@ -208,8 +231,8 @@ export default function DetalleOrdenModal({ orden, onClose }: DetalleOrdenModalP
               {orden.modificada && (
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
                   <p className="text-sm text-yellow-800 font-semibold">
-                    ⚠️ Esta orden fue modificada después de su creación. Ver pestaña
-                    "Historial" para detalles completos.
+                    ⚠️ Esta orden fue modificada después de su creación. Ver
+                    pestaña "Historial" para detalles completos.
                   </p>
                 </div>
               )}

@@ -2,6 +2,8 @@
 
 import { ItemSinStock } from './stock';
 
+export type TipoOrden = 'local' | 'para_llevar' | 'domicilio';
+
 export type EstadoOrden =
   | 'pendiente_aprobacion_stock'
   | 'pendiente'
@@ -10,9 +12,42 @@ export type EstadoOrden =
   | 'entregada'
   | 'cancelada';
 
+export interface DesglosePrecio {
+  subtotalProductos: number;
+  recargo: number;       // $0.50 para para_llevar y domicilio
+  costoEnvio: number;    // Solo para domicilio
+  total: number;         // subtotalProductos + recargo + costoEnvio
+}
+
+export interface CrearOrdenRequest {
+  tipoOrden: TipoOrden;
+  // Solo local
+  numeroMesa?: number;
+  // Para llevar y domicilio
+  nombreCliente?: string;
+  // Solo domicilio
+  telefonoCliente?: string;
+  costoEnvio?: number;
+  // Comunes
+  mesero: string;
+  observaciones?: string;
+  items: {
+    productoId: string;
+    cantidad: number;
+    precioUnitario: number;
+    observaciones?: string;
+  }[];
+  solicitarAprobacion?: boolean;
+}
+
 export interface OrdenConStock {
   id: string;
-  numeroMesa: number;
+  tipoOrden: TipoOrden;
+  numeroMesa: number | null;
+  nombreCliente: string | null;
+  telefonoCliente: string | null;
+  recargo: number | null;
+  costoEnvio: number | null;
   mesero: string;
   estado: EstadoOrden;
   observaciones: string | null;
@@ -42,7 +77,9 @@ export interface RechazarOrdenRequest {
 
 export interface OrdenPendienteAprobacion {
   id: string;
-  numeroMesa: number;
+  tipoOrden: TipoOrden;
+  numeroMesa: number | null;
+  nombreCliente: string | null;
   mesero: string;
   total: number;
   itemsSinStock: ItemSinStock[];

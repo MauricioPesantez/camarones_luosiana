@@ -19,7 +19,10 @@ interface Item {
 
 interface Orden {
   id: string;
-  numeroMesa: number;
+  tipoOrden: string;
+  numeroMesa: number | null;
+  nombreCliente: string | null;
+  telefonoCliente: string | null;
   mesero: string;
   estado: string;
   total: number;
@@ -179,7 +182,11 @@ export default function CocinaPage() {
               key={orden.id}
               orden={orden}
               onMarcarLista={(id) => cambiarEstado(id, "completada")}
-              onEditarOrden={usuario.rol === "cocina" ? (orden) => setOrdenEditar(orden as any) : undefined}
+              onEditarOrden={
+                usuario.rol === "cocina"
+                  ? (orden) => setOrdenEditar(orden as any)
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -202,7 +209,9 @@ export default function CocinaPage() {
               fetch("/api/ordenes?estado=pendiente")
                 .then((res) => res.json())
                 .then((data) => setOrdenes(data))
-                .catch((error) => console.error("Error al cargar órdenes:", error));
+                .catch((error) =>
+                  console.error("Error al cargar órdenes:", error),
+                );
             }}
           />
         )}

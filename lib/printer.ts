@@ -1,7 +1,33 @@
 import ThermalPrinter from 'node-thermal-printer';
 
+// Representa un valor numérico que puede ser un Decimal de Prisma, number o string
+type NumericValue = number | string | { toNumber(): number; toFixed(d?: number): string };
+
+interface ItemComanda {
+  cantidad: number;
+  observaciones?: string | null;
+  producto: {
+    nombre: string;
+  };
+}
+
+interface OrdenComanda {
+  id: string;
+  tipoOrden?: string | null;
+  numeroMesa?: number | null;
+  nombreCliente?: string | null;
+  telefonoCliente?: string | null;
+  mesero: string;
+  observaciones?: string | null;
+  recargo?: NumericValue | null;
+  costoEnvio?: NumericValue | null;
+  total: NumericValue;
+  createdAt: string | Date;
+  items: ItemComanda[];
+}
+
 export class PrinterService {
-  private printer: any;
+  private printer: ThermalPrinter.printer;
 
   constructor() {
     this.printer = new ThermalPrinter.printer({
@@ -16,7 +42,7 @@ export class PrinterService {
     });
   }
 
-  async imprimirComanda(orden: any) {
+  async imprimirComanda(orden: OrdenComanda) {
     try {
       // Configurar impresora
       this.printer.alignCenter();
@@ -28,10 +54,26 @@ export class PrinterService {
       this.printer.println('================================');
       this.printer.newLine();
 
+      // Tipo de orden
+      const tipoOrden = orden.tipoOrden ?? 'local';
+      const labelTipo = tipoOrden === 'para_llevar' ? 'PARA LLEVAR'
+        : tipoOrden === 'domicilio' ? 'DOMICILIO'
+          : 'LOCAL';
+      this.printer.bold(true);
+      this.printer.println(`TIPO: ${labelTipo}`);
+      this.printer.bold(false);
+
       // Información de la orden
       this.printer.alignLeft();
       this.printer.bold(true);
-      this.printer.println(`Mesa: ${orden.numeroMesa}`);
+      if (tipoOrden === 'local') {
+        this.printer.println(`Mesa: ${orden.numeroMesa}`);
+      } else {
+        this.printer.println(`Cliente: ${orden.nombreCliente}`);
+        if (tipoOrden === 'domicilio' && orden.telefonoCliente) {
+          this.printer.println(`Telefono: ${orden.telefonoCliente}`);
+        }
+      }
       this.printer.println(`Mesero: ${orden.mesero}`);
       this.printer.bold(false);
       this.printer.println(`Hora: ${new Date(orden.createdAt).toLocaleTimeString('es-EC')}`);
@@ -40,7 +82,7 @@ export class PrinterService {
       this.printer.newLine();
 
       // Items
-      orden.items.forEach((item: any) => {
+      orden.items.forEach((item: ItemComanda) => {
         this.printer.bold(true);
         this.printer.setTextSize(1, 1);
         this.printer.println(`${item.cantidad}x ${item.producto.nombre}`);
@@ -63,6 +105,21 @@ export class PrinterService {
         this.printer.println(orden.observaciones);
         this.printer.println('--------------------------------');
       }
+
+      // Desglose de precios
+      this.printer.alignLeft();
+      const subtotal = Number(orden.total) - Number(orden.recargo ?? 0) - Number(orden.costoEnvio ?? 0);
+      this.printer.println(`Subtotal:   $${subtotal.toFixed(2)}`);
+      if (Number(orden.recargo ?? 0) > 0) {
+        this.printer.println(`Recargo:    $${Number(orden.recargo).toFixed(2)}`);
+      }
+      if (Number(orden.costoEnvio ?? 0) > 0) {
+        this.printer.println(`Envio:      $${Number(orden.costoEnvio).toFixed(2)}`);
+      }
+      this.printer.println('--------------------------------');
+      this.printer.bold(true);
+      this.printer.println(`TOTAL:      $${Number(orden.total).toFixed(2)}`);
+      this.printer.bold(false);
 
       this.printer.newLine();
       this.printer.alignCenter();

@@ -2,7 +2,20 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PrinterService } from '@/lib/printer';
 import { ItemSinStock } from '@/types/stock';
+import { CrearOrdenRequest, TipoOrden } from '@/types/orden';
 import { Prisma } from '@prisma/client';
+
+const RECARGO_FIJO = 0.50; // $0.50 para para_llevar y domicilio
+
+const ORDEN_INCLUDE = {
+  items: {
+    include: {
+      producto: true,
+    },
+  },
+} satisfies Prisma.OrdenInclude;
+
+type OrdenConItems = Prisma.OrdenGetPayload<{ include: typeof ORDEN_INCLUDE }>;
 
 export async function GET(request: Request) {
   try {
@@ -11,25 +24,39 @@ export async function GET(request: Request) {
 
     const ordenes = await prisma.orden.findMany({
       where: estado ? { estado } : undefined,
-      include: {
-        items: {
-          include: {
-            producto: true,
-          },
-        },
-      },
+      include: ORDEN_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json(ordenes);
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Error al obtener órdenes' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body: CrearOrdenRequest = await request.json();
+
+    const tipoOrden: TipoOrden = body.tipoOrden ?? 'local';
+
+    // Validaciones por tipo de orden
+    if (tipoOrden === 'local' && !body.numeroMesa) {
+      return NextResponse.json({ error: 'El número de mesa es requerido para órdenes locales' }, { status: 400 });
+    }
+    if ((tipoOrden === 'para_llevar' || tipoOrden === 'domicilio') && !body.nombreCliente) {
+      return NextResponse.json({ error: 'El nombre del cliente es requerido' }, { status: 400 });
+    }
+    if (tipoOrden === 'domicilio' && !body.telefonoCliente) {
+      return NextResponse.json({ error: 'El teléfono del cliente es requerido para domicilio' }, { status: 400 });
+    }
+    if (tipoOrden === 'domicilio' && (body.costoEnvio === undefined || body.costoEnvio < 0)) {
+      return NextResponse.json({ error: 'El costo de envío es requerido para domicilio' }, { status: 400 });
+    }
+
+    // Recargo y costo de envío
+    const recargo = tipoOrden !== 'local' ? RECARGO_FIJO : 0;
+    const costoEnvio = tipoOrden === 'domicilio' ? (body.costoEnvio ?? 0) : 0;
 
     // Obtener productos con sus tiempos de preparación y stock
     const productosIds = body.items.map((item: { productoId: string }) => item.productoId);
@@ -123,19 +150,28 @@ export async function POST(request: Request) {
     // Calcular tiempo estimado total (redondeado al entero más cercano)
     const tiempoEstimado = Math.ceil(tiempoBase + tiempoAdicional);
 
+    // Total final: subtotal de productos + recargo + costo de envío
+    const subtotalProductos = total;
+    const totalFinal = subtotalProductos + recargo + costoEnvio;
+
     // Determinar el estado inicial de la orden
     const estadoInicial = hayStockInsuficiente && solicitarAprobacion
       ? 'pendiente_aprobacion_stock'
       : 'pendiente';
 
     // Crear orden
-    const orden = await prisma.$transaction(async (tx) => {
+    const orden = await prisma.$transaction(async (tx): Promise<OrdenConItems> => {
       const nuevaOrden = await tx.orden.create({
         data: {
-          numeroMesa: body.numeroMesa,
+          tipoOrden,
+          numeroMesa: tipoOrden === 'local' ? (body.numeroMesa ?? null) : null,
+          nombreCliente: tipoOrden !== 'local' ? body.nombreCliente : null,
+          telefonoCliente: tipoOrden === 'domicilio' ? body.telefonoCliente : null,
+          recargo: recargo > 0 ? recargo : null,
+          costoEnvio: costoEnvio > 0 ? costoEnvio : null,
           mesero: body.mesero,
           observaciones: body.observaciones,
-          total,
+          total: totalFinal,
           tiempoEstimado,
           estado: estadoInicial,
           itemsSinStock: (hayStockInsuficiente && solicitarAprobacion
@@ -145,13 +181,7 @@ export async function POST(request: Request) {
             create: itemsData,
           },
         },
-        include: {
-          items: {
-            include: {
-              producto: true,
-            },
-          },
-        },
+        include: ORDEN_INCLUDE,
       });
 
       // Solo descontar stock si la orden fue creada con estado pendiente (con stock suficiente)
@@ -189,19 +219,23 @@ export async function POST(request: Request) {
         tipoAccion,
         descripcion,
         datosDespues: {
+          tipoOrden,
           items: orden.items.map((item) => ({
             nombre: item.producto.nombre,
             cantidad: item.cantidad,
             precio: Number(item.precioUnitario),
             subtotal: Number(item.subtotal),
           })),
-          total: Number(total),
+          subtotalProductos: Number(subtotalProductos),
+          recargo: Number(recargo),
+          costoEnvio: Number(costoEnvio),
+          total: Number(totalFinal),
           tiempoEstimado,
           itemsSinStock: hayStockInsuficiente && solicitarAprobacion ? JSON.parse(JSON.stringify(itemsSinStock)) : null,
         },
         usuarioNombre: body.mesero,
         usuarioRol: 'mesero',
-        diferenciaTotal: Number(total),
+        diferenciaTotal: Number(totalFinal),
       },
     });
 
@@ -227,6 +261,12 @@ export async function POST(request: Request) {
     const respuesta = {
       orden,
       impresion: resultadoImpresion,
+      desglose: {
+        subtotalProductos: Number(subtotalProductos),
+        recargo: Number(recargo),
+        costoEnvio: Number(costoEnvio),
+        total: Number(totalFinal),
+      },
       ...(hayStockInsuficiente && {
         stockInsuficiente: true,
         itemsSinStock,

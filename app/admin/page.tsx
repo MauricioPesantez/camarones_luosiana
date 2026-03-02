@@ -8,7 +8,12 @@ import { OrdenPendienteAprobacion } from "@/types/orden";
 
 interface Orden {
   id: string;
-  numeroMesa: number;
+  tipoOrden: string;
+  numeroMesa: number | null;
+  nombreCliente: string | null;
+  telefonoCliente: string | null;
+  recargo: number | null;
+  costoEnvio: number | null;
   mesero: string;
   estado: string;
   total: number;
@@ -32,15 +37,22 @@ interface Orden {
 export default function AdminPage() {
   const { usuario, loading: authLoading, logout } = useAuth();
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
-  const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(null);
+  const [ordenSeleccionada, setOrdenSeleccionada] = useState<Orden | null>(
+    null,
+  );
   const [fechaFiltro, setFechaFiltro] = useState(
     new Date().toISOString().split("T")[0],
   );
   const [loading, setLoading] = useState(false);
-  const [productosStockBajo, setProductosStockBajo] = useState<ProductoStockBajo[]>([]);
-  const [ordenesPendientes, setOrdenesPendientes] = useState<OrdenPendienteAprobacion[]>([]);
+  const [productosStockBajo, setProductosStockBajo] = useState<
+    ProductoStockBajo[]
+  >([]);
+  const [ordenesPendientes, setOrdenesPendientes] = useState<
+    OrdenPendienteAprobacion[]
+  >([]);
   const [mostrarModalAprobacion, setMostrarModalAprobacion] = useState(false);
-  const [ordenParaAprobar, setOrdenParaAprobar] = useState<OrdenPendienteAprobacion | null>(null);
+  const [ordenParaAprobar, setOrdenParaAprobar] =
+    useState<OrdenPendienteAprobacion | null>(null);
   const [razonAprobacion, setRazonAprobacion] = useState("");
 
   const cargarOrdenes = async () => {
@@ -108,7 +120,8 @@ export default function AdminPage() {
 
   const rechazarOrden = async (ordenId: string) => {
     if (!usuario) return;
-    if (!confirm("¿Estás seguro de rechazar esta orden? Será cancelada.")) return;
+    if (!confirm("¿Estás seguro de rechazar esta orden? Será cancelada."))
+      return;
 
     try {
       const res = await fetch("/api/ordenes/aprobacion/rechazar", {
@@ -152,7 +165,6 @@ export default function AdminPage() {
 
       return () => clearInterval(interval);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario]);
 
   if (authLoading) {
@@ -284,7 +296,10 @@ export default function AdminPage() {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-semibold text-lg">
-                            Mesa {orden.numeroMesa} - {orden.mesero}
+                            {!orden.tipoOrden || orden.tipoOrden === "local"
+                              ? `Mesa ${orden.numeroMesa}`
+                              : orden.nombreCliente}{" "}
+                            - {orden.mesero}
                           </p>
                           <p className="text-sm text-gray-600">
                             Total: ${Number(orden.total).toFixed(2)}
@@ -303,8 +318,8 @@ export default function AdminPage() {
                             <li key={idx} className="flex justify-between">
                               <span>{item.productoNombre}</span>
                               <span className="text-red-600 font-semibold">
-                                Solicitado: {item.cantidadSolicitada} | Disponible:{" "}
-                                {item.stockDisponible}
+                                Solicitado: {item.cantidadSolicitada} |
+                                Disponible: {item.stockDisponible}
                               </span>
                             </li>
                           ))}
@@ -358,12 +373,16 @@ export default function AdminPage() {
                     >
                       <div>
                         <p className="font-semibold">{producto.nombre}</p>
-                        <p className="text-sm text-gray-600">{producto.categoria}</p>
+                        <p className="text-sm text-gray-600">
+                          {producto.categoria}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p
                           className={`text-lg font-bold ${
-                            producto.stock === 0 ? "text-red-600" : "text-yellow-600"
+                            producto.stock === 0
+                              ? "text-red-600"
+                              : "text-yellow-600"
                           }`}
                         >
                           {producto.stock} unidades
@@ -384,9 +403,15 @@ export default function AdminPage() {
         {mostrarModalAprobacion && ordenParaAprobar && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
-              <h3 className="text-xl font-bold mb-4">Aprobar Orden sin Stock</h3>
+              <h3 className="text-xl font-bold mb-4">
+                Aprobar Orden sin Stock
+              </h3>
               <p className="text-gray-700 mb-4">
-                Mesa {ordenParaAprobar.numeroMesa} - {ordenParaAprobar.mesero}
+                {!ordenParaAprobar.tipoOrden ||
+                ordenParaAprobar.tipoOrden === "local"
+                  ? `Mesa ${ordenParaAprobar.numeroMesa}`
+                  : ordenParaAprobar.nombreCliente}{" "}
+                - {ordenParaAprobar.mesero}
               </p>
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -402,7 +427,9 @@ export default function AdminPage() {
               </div>
               <div className="flex gap-3">
                 <button
-                  onClick={() => aprobarOrden(ordenParaAprobar.id, razonAprobacion)}
+                  onClick={() =>
+                    aprobarOrden(ordenParaAprobar.id, razonAprobacion)
+                  }
                   className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-semibold"
                 >
                   Confirmar Aprobación
@@ -483,7 +510,10 @@ export default function AdminPage() {
                       Hora
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Mesa
+                      Tipo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Mesa / Cliente
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Mesero
@@ -512,10 +542,32 @@ export default function AdminPage() {
                         onClick={() => setOrdenSeleccionada(orden)}
                       >
                         <td className="px-6 py-4 text-sm">
-                          {new Date(orden.createdAt).toLocaleTimeString("es-EC")}
+                          {new Date(orden.createdAt).toLocaleTimeString(
+                            "es-EC",
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          {(!orden.tipoOrden ||
+                            orden.tipoOrden === "local") && (
+                            <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                              🍽 Local
+                            </span>
+                          )}
+                          {orden.tipoOrden === "para_llevar" && (
+                            <span className="text-xs font-bold bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                              🥡 Para Llevar
+                            </span>
+                          )}
+                          {orden.tipoOrden === "domicilio" && (
+                            <span className="text-xs font-bold bg-red-100 text-red-800 px-2 py-1 rounded">
+                              🛵 Domicilio
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-sm font-medium">
-                          {orden.numeroMesa}
+                          {!orden.tipoOrden || orden.tipoOrden === "local"
+                            ? `Mesa ${orden.numeroMesa}`
+                            : orden.nombreCliente}
                         </td>
                         <td className="px-6 py-4 text-sm">{orden.mesero}</td>
                         <td className="px-6 py-4 text-sm">
@@ -548,10 +600,13 @@ export default function AdminPage() {
                                     : "bg-red-100 text-red-800 border border-red-300"
                                 }`}
                               >
-                                {estadoTiempo.aTiempo ? "✓ A Tiempo" : "⚠️ Retrasada"}
+                                {estadoTiempo.aTiempo
+                                  ? "✓ A Tiempo"
+                                  : "⚠️ Retrasada"}
                               </span>
                               <span className="text-xs text-gray-500">
-                                {estadoTiempo.tiempoReal} / {estadoTiempo.tiempoEstimado} min
+                                {estadoTiempo.tiempoReal} /{" "}
+                                {estadoTiempo.tiempoEstimado} min
                               </span>
                             </div>
                           ) : (

@@ -30,7 +30,9 @@ export async function GET() {
 
     const ordenesPendientes: OrdenPendienteAprobacion[] = ordenes.map(orden => ({
       id: orden.id,
+      tipoOrden: (orden.tipoOrden ?? 'local') as OrdenPendienteAprobacion['tipoOrden'],
       numeroMesa: orden.numeroMesa,
+      nombreCliente: orden.nombreCliente,
       mesero: orden.mesero,
       total: Number(orden.total),
       itemsSinStock: (orden.itemsSinStock as unknown as ItemSinStock[]) || [],

@@ -21,12 +21,19 @@ interface ItemCarrito {
 }
 
 import { useAuth } from "@/lib/auth";
+import { TipoOrden } from "@/types/orden";
+
+const RECARGO_FIJO = 0.5;
 
 export default function CrearOrden() {
   const { usuario, loading: authLoading, logout } = useAuth();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
+  const [tipoOrden, setTipoOrden] = useState<TipoOrden>("local");
   const [numeroMesa, setNumeroMesa] = useState("");
+  const [nombreCliente, setNombreCliente] = useState("");
+  const [telefonoCliente, setTelefonoCliente] = useState("");
+  const [costoEnvio, setCostoEnvio] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("Todas");
   const [loading, setLoading] = useState(false);
@@ -115,12 +122,20 @@ export default function CrearOrden() {
     }
   };
 
-  const calcularTotal = () => {
+  const calcularSubtotalProductos = () => {
     return carrito.reduce(
       (total, item) => total + item.cantidad * item.precioUnitario,
       0,
     );
   };
+
+  const calcularRecargo = () => (tipoOrden !== "local" ? RECARGO_FIJO : 0);
+
+  const calcularCostoEnvio = () =>
+    tipoOrden === "domicilio" ? parseFloat(costoEnvio) || 0 : 0;
+
+  const calcularTotal = () =>
+    calcularSubtotalProductos() + calcularRecargo() + calcularCostoEnvio();
 
   const validarStock = async () => {
     try {
@@ -139,13 +154,37 @@ export default function CrearOrden() {
       return data;
     } catch (error) {
       console.error("Error al validar stock:", error);
-      return { hayStock: false, itemsSinStock: [], mensaje: "Error al validar stock" };
+      return {
+        hayStock: false,
+        itemsSinStock: [],
+        mensaje: "Error al validar stock",
+      };
     }
   };
 
+  const validarCampos = (): string | null => {
+    if (carrito.length === 0) return "Agrega al menos un producto al carrito";
+    if (tipoOrden === "local" && !numeroMesa)
+      return "Ingresa el número de mesa";
+    if (
+      (tipoOrden === "para_llevar" || tipoOrden === "domicilio") &&
+      !nombreCliente.trim()
+    )
+      return "Ingresa el nombre del cliente";
+    if (tipoOrden === "domicilio" && !telefonoCliente.trim())
+      return "Ingresa el teléfono del cliente";
+    if (
+      tipoOrden === "domicilio" &&
+      (!costoEnvio || parseFloat(costoEnvio) < 0)
+    )
+      return "Ingresa el costo de envío";
+    return null;
+  };
+
   const enviarOrden = async (solicitarAprobacion = false) => {
-    if (!numeroMesa || carrito.length === 0) {
-      alert("Por favor completa todos los campos");
+    const errorValidacion = validarCampos();
+    if (errorValidacion) {
+      alert(errorValidacion);
       return;
     }
 
@@ -167,7 +206,14 @@ export default function CrearOrden() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          numeroMesa: parseInt(numeroMesa),
+          tipoOrden,
+          numeroMesa: tipoOrden === "local" ? parseInt(numeroMesa) : undefined,
+          nombreCliente:
+            tipoOrden !== "local" ? nombreCliente.trim() : undefined,
+          telefonoCliente:
+            tipoOrden === "domicilio" ? telefonoCliente.trim() : undefined,
+          costoEnvio:
+            tipoOrden === "domicilio" ? parseFloat(costoEnvio) : undefined,
           mesero: usuario?.nombre || "Desconocido",
           observaciones,
           items: carrito,
@@ -180,7 +226,7 @@ export default function CrearOrden() {
       if (res.ok) {
         if (solicitarAprobacion && data.pendienteAprobacion) {
           alert(
-            "Orden creada y enviada para aprobación del administrador.\nSerá procesada una vez aprobada."
+            "Orden creada y enviada para aprobación del administrador.\nSerá procesada una vez aprobada.",
           );
         } else if (data.impresion.success) {
           alert("¡Orden enviada e impresa exitosamente!");
@@ -190,6 +236,9 @@ export default function CrearOrden() {
         // Limpiar formulario
         setCarrito([]);
         setNumeroMesa("");
+        setNombreCliente("");
+        setTelefonoCliente("");
+        setCostoEnvio("");
         setObservaciones("");
         setMostrarModalStock(false);
         setItemsSinStock([]);
@@ -216,7 +265,9 @@ export default function CrearOrden() {
   const getStockBadge = (producto: Producto) => {
     if (producto.stock === 0)
       return (
-        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Sin Stock</span>
+        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+          Sin Stock
+        </span>
       );
     if (producto.stockMinimo && producto.stock <= producto.stockMinimo)
       return (
@@ -255,18 +306,106 @@ export default function CrearOrden() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Panel de productos */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
+            {/* Selector de tipo de orden */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2 text-gray-800">
-                Número de Mesa
+                Tipo de Orden
               </label>
-              <input
-                type="number"
-                value={numeroMesa}
-                onChange={(e) => setNumeroMesa(e.target.value)}
-                className="w-full border rounded-lg px-4 py-2"
-                placeholder="Ej: 5"
-              />
+              <div className="flex gap-2">
+                {(["local", "para_llevar", "domicilio"] as TipoOrden[]).map(
+                  (tipo) => (
+                    <button
+                      key={tipo}
+                      type="button"
+                      onClick={() => {
+                        setTipoOrden(tipo);
+                        setNumeroMesa("");
+                        setNombreCliente("");
+                        setTelefonoCliente("");
+                        setCostoEnvio("");
+                      }}
+                      className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
+                        tipoOrden === tipo
+                          ? tipo === "local"
+                            ? "bg-blue-600 text-white"
+                            : tipo === "para_llevar"
+                              ? "bg-yellow-500 text-white"
+                              : "bg-red-500 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                    >
+                      {tipo === "local"
+                        ? "🍽 Local"
+                        : tipo === "para_llevar"
+                          ? "🥡 Para Llevar"
+                          : "🛵 Domicilio"}
+                    </button>
+                  ),
+                )}
+              </div>
             </div>
+
+            {/* Campos según tipo */}
+            {tipoOrden === "local" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 text-gray-800">
+                  Número de Mesa
+                </label>
+                <input
+                  type="number"
+                  value={numeroMesa}
+                  onChange={(e) => setNumeroMesa(e.target.value)}
+                  className="w-full border rounded-lg px-4 py-2"
+                  placeholder="Ej: 5"
+                />
+              </div>
+            )}
+
+            {(tipoOrden === "para_llevar" || tipoOrden === "domicilio") && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 text-gray-800">
+                  Nombre del Cliente
+                </label>
+                <input
+                  type="text"
+                  value={nombreCliente}
+                  onChange={(e) => setNombreCliente(e.target.value)}
+                  className="w-full border rounded-lg px-4 py-2"
+                  placeholder="Ej: Juan Pérez"
+                />
+              </div>
+            )}
+
+            {tipoOrden === "domicilio" && (
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-800">
+                    Teléfono
+                  </label>
+                  <input
+                    type="text"
+                    value={telefonoCliente}
+                    onChange={(e) => setTelefonoCliente(e.target.value)}
+                    className="w-full border rounded-lg px-4 py-2"
+                    placeholder="Ej: 0991234567"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-800">
+                    Costo de Envío ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={costoEnvio}
+                    onChange={(e) => setCostoEnvio(e.target.value)}
+                    className="w-full border rounded-lg px-4 py-2"
+                    placeholder="Ej: 1.50"
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Filtros de categoría */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
@@ -299,11 +438,15 @@ export default function CrearOrden() {
                   <div className="text-lg font-bold mb-1">
                     ${Number(producto.precio).toFixed(2)}
                   </div>
-                  <div className={`text-xs font-semibold ${getStockColor(producto)}`}>
+                  <div
+                    className={`text-xs font-semibold ${getStockColor(producto)}`}
+                  >
                     Stock: {producto.stock}
                   </div>
                   {getStockBadge(producto) && (
-                    <div className="absolute top-2 right-2">{getStockBadge(producto)}</div>
+                    <div className="absolute top-2 right-2">
+                      {getStockBadge(producto)}
+                    </div>
                   )}
                 </button>
               ))}
@@ -367,8 +510,24 @@ export default function CrearOrden() {
               />
             </div>
 
-            <div className="border-t pt-4 mb-4">
-              <div className="flex justify-between items-center text-xl font-bold text-blue-500">
+            <div className="border-t pt-4 mb-4 space-y-1">
+              <div className="flex justify-between text-sm text-gray-600">
+                <span>Subtotal productos:</span>
+                <span>${calcularSubtotalProductos().toFixed(2)}</span>
+              </div>
+              {tipoOrden !== "local" && (
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Recargo:</span>
+                  <span>${calcularRecargo().toFixed(2)}</span>
+                </div>
+              )}
+              {tipoOrden === "domicilio" && (
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>Costo de envío:</span>
+                  <span>${calcularCostoEnvio().toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-xl font-bold text-blue-500 pt-1 border-t">
                 <span>Total:</span>
                 <span>${calcularTotal().toFixed(2)}</span>
               </div>
@@ -376,7 +535,7 @@ export default function CrearOrden() {
 
             <button
               onClick={() => enviarOrden(false)}
-              disabled={loading || carrito.length === 0 || !numeroMesa}
+              disabled={loading || !!validarCampos()}
               className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               {loading ? "Enviando..." : "Enviar a Cocina"}

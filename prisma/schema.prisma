@@ -24,7 +24,12 @@ model Producto {
 
 model Orden {
   id                  String           @id @default(cuid())
-  numeroMesa          Int
+  tipoOrden           String           @default("local")    // "local" | "para_llevar" | "domicilio"
+  numeroMesa          Int?                                   // Solo para tipo "local"
+  nombreCliente       String?                                // Para "para_llevar" y "domicilio"
+  telefonoCliente     String?                                // Solo para "domicilio"
+  recargo             Decimal?         @db.Decimal(10, 2)   // $0.50 para "para_llevar" y "domicilio"
+  costoEnvio          Decimal?         @db.Decimal(10, 2)   // Solo para "domicilio"
   mesero              String
   estado              String           @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cancelada"
   observaciones       String?
