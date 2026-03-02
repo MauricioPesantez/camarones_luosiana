@@ -372,12 +372,16 @@ export default function DetalleOrdenModal({
                       <p className="mt-1">
                         <span
                           className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${
-                            orden.metodoPago === "efectivo"
+                            !orden.metodoPago
+                              ? "bg-gray-100 text-gray-600"
+                              : orden.metodoPago === "efectivo"
                               ? "bg-green-100 text-green-800"
                               : "bg-blue-100 text-blue-800"
                           }`}
                         >
-                          {orden.metodoPago === "efectivo"
+                          {!orden.metodoPago
+                            ? "— Desconocido"
+                            : orden.metodoPago === "efectivo"
                             ? "💵 Efectivo"
                             : "🏦 Transferencia"}
                         </span>
