@@ -113,7 +113,8 @@ export default function CocinaPage() {
 
   // Conexión SSE — recibe notificaciones en tiempo real cuando llega una nueva orden
   useEffect(() => {
-    if (!usuario) return;
+    // Abrir SSE solo para usuarios de cocina
+    if (!usuario || usuario.rol !== "cocina") return;
 
     const eventSource = new EventSource("/api/ordenes/events");
 
