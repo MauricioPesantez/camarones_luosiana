@@ -4,6 +4,7 @@ import { PrinterService } from '@/lib/printer';
 import { ItemSinStock } from '@/types/stock';
 import { CrearOrdenRequest, TipoOrden } from '@/types/orden';
 import { Prisma } from '@prisma/client';
+import { notificarClientes } from '@/lib/sse';
 
 const RECARGO_FIJO = 0.50; // $0.50 para para_llevar y domicilio
 
@@ -255,6 +256,20 @@ export async function POST(request: Request) {
           data: { impresa: true },
         });
       }
+    }
+
+    // Notificar en tiempo real a la cocina (solo órdenes que ya están en estado pendiente)
+    if (estadoInicial === 'pendiente') {
+      notificarClientes('nueva-orden', {
+        id: orden.id,
+        tipoOrden,
+        numeroMesa: orden.numeroMesa,
+        nombreCliente: orden.nombreCliente,
+        mesero: orden.mesero,
+        tiempoEstimado: orden.tiempoEstimado,
+        itemsCount: orden.items.length,
+        createdAt: orden.createdAt,
+      });
     }
 
     // Si hay items sin stock, incluir esa información en la respuesta
