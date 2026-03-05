@@ -77,6 +77,11 @@ export default function CocinaPage() {
         osc.start(ctx.currentTime + offset);
         osc.stop(ctx.currentTime + offset + 0.22);
       });
+      // Cerrar el AudioContext una vez que termina el último beep
+      const totalDurationMs = (0.25 + 0.22 + 0.1) * 1000; // último offset + duración + margen
+      setTimeout(() => {
+        void ctx.close();
+      }, totalDurationMs);
     } catch {
       /* El navegador bloqueó el audio */
     }
