@@ -39,6 +39,9 @@ export default function CrearOrden() {
   const [loading, setLoading] = useState(false);
   const [itemsSinStock, setItemsSinStock] = useState<ItemSinStock[]>([]);
   const [mostrarModalStock, setMostrarModalStock] = useState(false);
+  const [agregadoReciente, setAgregadoReciente] = useState<Set<string>>(
+    new Set(),
+  );
 
   const cargarProductos = async () => {
     try {
@@ -107,6 +110,21 @@ export default function CrearOrden() {
               : producto.precio,
         },
       ]);
+    }
+
+    // Feedback visual: marcar como agregado
+    setAgregadoReciente((prev) => new Set(prev).add(producto.id));
+    setTimeout(() => {
+      setAgregadoReciente((prev) => {
+        const next = new Set(prev);
+        next.delete(producto.id);
+        return next;
+      });
+    }, 800);
+
+    // Vibración en móvil
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(60);
     }
   };
 
@@ -425,32 +443,123 @@ export default function CrearOrden() {
             </div>
 
             {/* Grid de productos */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {productosFiltrados.map((producto) => (
-                <button
-                  key={producto.id}
-                  onClick={() => agregarAlCarrito(producto)}
-                  className="bg-linear-to-br from-blue-500 to-blue-600 text-white p-4 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg relative"
-                >
-                  <div className="font-semibold text-sm mb-2">
-                    {producto.nombre}
-                  </div>
-                  <div className="text-lg font-bold mb-1">
-                    ${Number(producto.precio).toFixed(2)}
-                  </div>
-                  <div
-                    className={`text-xs font-semibold ${getStockColor(producto)}`}
-                  >
-                    Stock: {producto.stock}
-                  </div>
-                  {getStockBadge(producto) && (
-                    <div className="absolute top-2 right-2">
-                      {getStockBadge(producto)}
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
+            {categoriaActiva === "Todas" ? (
+              // Vista agrupada por categoría
+              <div className="space-y-6">
+                {Array.from(new Set(productos.map((p) => p.categoria))).map(
+                  (categoria) => {
+                    const grupoProductos = productos.filter(
+                      (p) => p.categoria === categoria,
+                    );
+                    const esCombos = categoria === "Combos";
+                    return (
+                      <div key={categoria}>
+                        <div
+                          className={`flex items-center gap-3 mb-3 pb-2 border-b-2 ${esCombos ? "border-blue-500" : "border-orange-400"}`}
+                        >
+                          <span
+                            className={`text-lg font-bold ${esCombos ? "text-blue-700" : "text-orange-600"}`}
+                          >
+                            {esCombos ? "🦐" : "➕"} {categoria}
+                          </span>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-semibold ${esCombos ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}
+                          >
+                            {grupoProductos.length} items
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {grupoProductos.map((producto) => {
+                            const fueAgregado = agregadoReciente.has(
+                              producto.id,
+                            );
+                            return (
+                              <button
+                                key={producto.id}
+                                onClick={() => agregarAlCarrito(producto)}
+                                className={`text-white p-4 rounded-lg transition-all duration-200 shadow-lg relative ${
+                                  fueAgregado
+                                    ? "bg-linear-to-br from-green-500 to-green-600 scale-95"
+                                    : esCombos
+                                      ? "bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                                      : "bg-linear-to-br from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600"
+                                }`}
+                              >
+                                {fueAgregado && (
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-green-500">
+                                    <span className="text-3xl font-bold">
+                                      ✓
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="font-semibold text-sm mb-2">
+                                  {producto.nombre}
+                                </div>
+                                <div className="text-lg font-bold mb-1">
+                                  ${Number(producto.precio).toFixed(2)}
+                                </div>
+                                <div
+                                  className={`text-xs font-semibold ${getStockColor(producto)}`}
+                                >
+                                  Stock: {producto.stock}
+                                </div>
+                                {getStockBadge(producto) && (
+                                  <div className="absolute top-2 right-2">
+                                    {getStockBadge(producto)}
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+            ) : (
+              // Vista filtrada por categoría (lista plana)
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {productosFiltrados.map((producto) => {
+                  const fueAgregado = agregadoReciente.has(producto.id);
+                  return (
+                    <button
+                      key={producto.id}
+                      onClick={() => agregarAlCarrito(producto)}
+                      className={`text-white p-4 rounded-lg transition-all duration-200 shadow-lg relative ${
+                        fueAgregado
+                          ? "bg-linear-to-br from-green-500 to-green-600 scale-95"
+                          : producto.categoria === "Combos"
+                            ? "bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                            : "bg-linear-to-br from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600"
+                      }`}
+                    >
+                      {fueAgregado && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-green-500">
+                          <span className="text-3xl font-bold">✓</span>
+                        </div>
+                      )}
+                      <div className="font-semibold text-sm mb-2">
+                        {producto.nombre}
+                      </div>
+                      <div className="text-lg font-bold mb-1">
+                        ${Number(producto.precio).toFixed(2)}
+                      </div>
+                      <div
+                        className={`text-xs font-semibold ${getStockColor(producto)}`}
+                      >
+                        Stock: {producto.stock}
+                      </div>
+                      {getStockBadge(producto) && (
+                        <div className="absolute top-2 right-2">
+                          {getStockBadge(producto)}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Carrito */}
