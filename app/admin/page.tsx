@@ -307,7 +307,7 @@ export default function AdminPage() {
               type="date"
               value={fechaFiltro}
               onChange={(e) => setFechaFiltro(e.target.value)}
-              className="border rounded-lg px-4 py-2"
+              className="border rounded-lg px-4 py-2 text-black"
             />
             <button
               onClick={cargarOrdenes}
@@ -417,7 +417,9 @@ export default function AdminPage() {
                       className="bg-white rounded-lg p-3 border border-yellow-300 flex justify-between items-center"
                     >
                       <div>
-                        <p className="font-semibold">{producto.nombre}</p>
+                        <p className="font-semibold text-orange-500">
+                          {producto.nombre}
+                        </p>
                         <p className="text-sm text-gray-600">
                           {producto.categoria}
                         </p>

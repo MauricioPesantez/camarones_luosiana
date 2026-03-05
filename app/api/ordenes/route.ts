@@ -23,8 +23,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const estado = searchParams.get('estado');
 
+    // Soporta un solo estado o múltiples separados por coma: ?estado=pendiente,en_preparacion
+    const estadoFiltro = estado
+      ? estado.includes(',')
+        ? { estado: { in: estado.split(',').map((s) => s.trim()) } }
+        : { estado }
+      : undefined;
+
     const ordenes = await prisma.orden.findMany({
-      where: estado ? { estado } : undefined,
+      where: estadoFiltro,
       include: ORDEN_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });

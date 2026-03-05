@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { notificarClientes } from '@/lib/sse';
 
 export async function PATCH(
   request: Request,
@@ -34,12 +35,37 @@ export async function PATCH(
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
 
-    // Validar que la orden esté pendiente
-    if (ordenActual.estado !== 'pendiente') {
+    // Validar que la orden esté en un estado editable (cualquiera antes de cobrada/cancelada)
+    const estadosEditables = ['pendiente', 'en_preparacion', 'lista'];
+    if (!estadosEditables.includes(ordenActual.estado)) {
       return NextResponse.json(
-        { error: 'Solo se pueden modificar órdenes pendientes' },
+        { error: 'Solo se pueden modificar órdenes activas' },
         { status: 400 }
       );
+    }
+
+    const estabaLista = ordenActual.estado === 'lista';
+
+    // Validar acciones inválidas para órdenes lista
+    if (estabaLista) {
+      const accionesInvalidas = items.filter(
+        (i: { accion: string; itemId?: string; cantidad?: number }) => {
+          if (i.accion === 'eliminar') return true; // nunca permitir eliminar
+          if (i.accion === 'modificar') {
+            // Solo rechazar si reduce la cantidad por debajo de la original
+            const itemOriginal = ordenActual.items.find((orig) => orig.id === i.itemId);
+            if (!itemOriginal) return false;
+            return (i.cantidad ?? 0) < itemOriginal.cantidad;
+          }
+          return false;
+        }
+      );
+      if (accionesInvalidas.length > 0) {
+        return NextResponse.json(
+          { error: 'No se pueden eliminar items ni reducir cantidades de una orden ya lista.' },
+          { status: 400 }
+        );
+      }
     }
 
     const totalAnterior = Number(ordenActual.total);
@@ -231,13 +257,17 @@ export async function PATCH(
 
     const nuevoTiempoEstimado = Math.ceil(tiempoBase + tiempoAdicional);
 
-    // Actualizar la orden
+    // Actualizar la orden — si estaba lista y se agregaron items, regresa a cocina
+    const tieneItemsNuevos = historialRegistros.some(r => r.tipoAccion === 'item_agregado');
+    const nuevoEstado = estabaLista && tieneItemsNuevos ? 'en_preparacion' : undefined;
+
     await prisma.orden.update({
       where: { id },
       data: {
         total: nuevoTotal,
         tiempoEstimado: nuevoTiempoEstimado,
         modificada: true,
+        ...(nuevoEstado ? { estado: nuevoEstado } : {}),
       },
     });
 
@@ -261,12 +291,23 @@ export async function PATCH(
       },
     });
 
+    // Si la orden regresó a cocina, notificar en tiempo real via SSE
+    if (nuevoEstado && ordenActualizada) {
+      const titulo =
+        !ordenActualizada.tipoOrden || ordenActualizada.tipoOrden === 'local'
+          ? `Mesa ${ordenActualizada.numeroMesa}`
+          : (ordenActualizada.nombreCliente ?? 'Cliente');
+      const itemsNuevos = historialRegistros.filter(r => r.tipoAccion === 'item_agregado').length;
+      notificarClientes('regresa-a-cocina', { ordenId: id, tituloOrden: titulo, itemsNuevos });
+    }
+
     return NextResponse.json({
       orden: ordenActualizada,
       cambios: historialRegistros.length,
       totalAnterior,
       totalNuevo: nuevoTotal,
       diferencia: nuevoTotal - totalAnterior,
+      regresaACocina: !!nuevoEstado,
     });
   } catch (error) {
     console.error('Error al modificar orden:', error);

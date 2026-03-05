@@ -89,7 +89,7 @@ export default function CocinaPage() {
 
   const cargarOrdenes = useCallback(async () => {
     try {
-      const res = await fetch("/api/ordenes?estado=pendiente");
+      const res = await fetch("/api/ordenes?estado=pendiente,en_preparacion");
       const data = await res.json();
       setOrdenes(data);
     } catch (error) {
@@ -148,6 +148,28 @@ export default function CocinaPage() {
             : (orden.nombreCliente ?? "Cliente");
         new Notification(`🍳 Nueva orden — ${titulo}`, {
           body: `Mesero: ${orden.mesero} · ${orden.itemsCount} ítem(s)`,
+          icon: "/favicon.ico",
+        });
+      }
+    });
+
+    // Evento: orden lista regresa a cocina con nuevos items
+    eventSource.addEventListener("regresa-a-cocina", (e: MessageEvent) => {
+      const data = JSON.parse(e.data) as {
+        ordenId: string;
+        tituloOrden: string;
+        itemsNuevos: number;
+      };
+
+      cargarOrdenes();
+      reproducirSonido();
+
+      if (
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
+        new Notification(`🔄 Orden modificada — ${data.tituloOrden}`, {
+          body: `${data.itemsNuevos} item(s) nuevo(s) agregado(s)`,
           icon: "/favicon.ico",
         });
       }
@@ -216,7 +238,7 @@ export default function CocinaPage() {
         body: JSON.stringify({ estado }),
       });
       // Recargar órdenes después de cambiar estado
-      const res = await fetch("/api/ordenes?estado=pendiente");
+      const res = await fetch("/api/ordenes?estado=pendiente,en_preparacion");
       const data = await res.json();
       setOrdenes(data);
     } catch (error) {
@@ -356,13 +378,7 @@ export default function CocinaPage() {
             onClose={() => setOrdenEditar(null)}
             onSuccess={() => {
               setOrdenEditar(null);
-              // Recargar órdenes
-              fetch("/api/ordenes?estado=pendiente")
-                .then((res) => res.json())
-                .then((data) => setOrdenes(data))
-                .catch((error) =>
-                  console.error("Error al cargar órdenes:", error),
-                );
+              cargarOrdenes();
             }}
           />
         )}
