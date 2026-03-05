@@ -18,9 +18,9 @@ async function main() {
   // --- PRODUCTOS: Seafood Boil ---
   const productos = [
     // Combos
-    { nombre: 'Combo Simple', categoria: 'Combos', precio: 11.00, descripcion: 'Incluye camaron, camaron jumbo, huevo, papa, maiz dulce, limon y salsa luoisiana.', stock: 99, stockMinimo: 0 },
-    { nombre: 'Combo Duo', categoria: 'Combos', precio: 21.00, descripcion: 'Incluye camaron, camaron jumbo, huevo, papa, maiz dulce, limon y salsa luoisiana.', stock: 99, stockMinimo: 0 },
-    { nombre: 'Combo Triple', categoria: 'Combos', precio: 26.00, descripcion: 'Incluye camaron, camaron jumbo, huevo, papa, maiz dulce, limon y salsa luoisiana.', stock: 99, stockMinimo: 0 },
+    { nombre: 'Combo Simple', categoria: 'Combos', precio: 11.00, descripcion: 'Incluye camaron, camaron jumbo, huevo, papa, maiz dulce, limon y salsa louisiana.', stock: 99, stockMinimo: 0 },
+    { nombre: 'Combo Duo', categoria: 'Combos', precio: 21.00, descripcion: 'Incluye camaron, camaron jumbo, huevo, papa, maiz dulce, limon y salsa louisiana.', stock: 99, stockMinimo: 0 },
+    { nombre: 'Combo Triple', categoria: 'Combos', precio: 26.00, descripcion: 'Incluye camaron, camaron jumbo, huevo, papa, maiz dulce, limon y salsa louisiana.', stock: 99, stockMinimo: 0 },
     { nombre: 'Combo Mixto Small', categoria: 'Combos', precio: 13.50, descripcion: 'Incluye camaron, camaron jumbo, almeja, mejillon, langostino, chorizo, huevo, papas, y maiz dulce.', stock: 99, stockMinimo: 0 },
     { nombre: 'Combo Mixto Duo', categoria: 'Combos', precio: 27.00, descripcion: 'Incluye camaron, camaron jumbo, almeja, mejillon, langostino, chorizo, huevo, papas, y maiz dulce.', stock: 99, stockMinimo: 0 },
     { nombre: 'Combo Mixto Triple', categoria: 'Combos', precio: 37.00, descripcion: 'Incluye camaron, camaron jumbo, almeja, mejillon, langostino, chorizo, huevo, papas, y maiz dulce.', stock: 99, stockMinimo: 0 },
