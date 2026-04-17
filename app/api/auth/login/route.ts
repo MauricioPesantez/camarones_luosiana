@@ -21,6 +21,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Contraseña incorrecta' }, { status: 401 });
     }
   } catch (error) {
+    console.error('Error al autenticar:', error);
     return NextResponse.json({ success: false, error: 'Error al autenticar' }, { status: 500 });
   }
 }

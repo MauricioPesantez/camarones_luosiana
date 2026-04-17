@@ -37,7 +37,8 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(ordenes);
-  } catch {
+  } catch (error) {
+    console.error('Error al obtener órdenes:', error);
     return NextResponse.json({ error: 'Error al obtener órdenes' }, { status: 500 });
   }
 }
@@ -248,7 +249,7 @@ export async function POST(request: Request) {
     });
 
     // Solo imprimir comanda si la orden no está pendiente de aprobación
-    let resultadoImpresion: { success: boolean; data?: unknown; error?: unknown } = {
+    let resultadoImpresion: { success: boolean; data?: unknown; error?: string } = {
       success: false,
       error: 'Orden pendiente de aprobación'
     };

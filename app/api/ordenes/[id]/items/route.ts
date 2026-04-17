@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { notificarClientes } from '@/lib/sse';
+import { Prisma } from '@prisma/client';
 
 export async function PATCH(
   request: Request,
@@ -69,7 +70,20 @@ export async function PATCH(
     }
 
     const totalAnterior = Number(ordenActual.total);
-    const historialRegistros: any[] = [];
+
+    interface HistorialRegistro {
+      tipoAccion: string;
+      descripcion: string;
+      itemAfectado?: Prisma.InputJsonValue;
+      datosAntes?: Prisma.InputJsonValue;
+      datosDespues?: Prisma.InputJsonValue;
+      usuarioNombre: string;
+      usuarioRol: string;
+      razon: string;
+      diferenciaTotal: number;
+    }
+
+    const historialRegistros: HistorialRegistro[] = [];
 
     // Procesar cada cambio de item dentro de una transacción para manejar stock
     await prisma.$transaction(async (tx) => {

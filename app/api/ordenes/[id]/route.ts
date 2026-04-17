@@ -21,6 +21,7 @@ export async function PATCH(
     });
     return NextResponse.json(orden);
   } catch (error) {
+    console.error('Error al actualizar orden:', error);
     return NextResponse.json({ error: 'Error al actualizar orden' }, { status: 500 });
   }
 }
@@ -36,6 +37,7 @@ export async function DELETE(
     });
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('Error al eliminar orden:', error);
     return NextResponse.json({ error: 'Error al eliminar orden' }, { status: 500 });
   }
 }

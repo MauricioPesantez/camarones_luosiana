@@ -7,13 +7,20 @@ import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
 import { useAuth } from "@/lib/auth";
 
 interface Producto {
+  id: string;
   nombre: string;
   categoria: string;
+  precio: number;
+  disponible: boolean;
+  stock: number;
 }
 
 interface Item {
+  id: string;
   cantidad: number;
   producto: Producto;
+  precioUnitario: number;
+  subtotal: number;
   observaciones?: string;
 }
 
@@ -23,6 +30,8 @@ interface Orden {
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;
+  recargo: number | null;
+  costoEnvio: number | null;
   mesero: string;
   estado: string;
   total: number;
@@ -50,7 +59,13 @@ export default function CocinaPage() {
   const [vistaActiva, setVistaActiva] = useState<"cocina" | "mesero">("cocina");
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [notificacion, setNotificacion] = useState<Notificacion | null>(null);
-  const [permisoBrowser, setPermisoBrowser] = useState<boolean>(false);
+  const [permisoBrowser, setPermisoBrowser] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      typeof Notification !== "undefined" &&
+      Notification.permission === "default"
+    );
+  });
   const notificacionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Genera un doble pitido usando Web Audio API (sin archivos externos)
@@ -99,22 +114,17 @@ export default function CocinaPage() {
 
   // Polling de respaldo cada 30 s (cubre casos donde SSE no esté disponible)
   useEffect(() => {
-    if (vistaActiva === "cocina" && usuario) {
-      cargarOrdenes();
-      const interval = setInterval(cargarOrdenes, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [vistaActiva, usuario, cargarOrdenes]);
+    if (vistaActiva !== "cocina" || !usuario) return;
 
-  // Verificar soporte de notificaciones del navegador (sólo client-side)
-  useEffect(() => {
-    if (
-      typeof Notification !== "undefined" &&
-      Notification.permission === "default"
-    ) {
-      setPermisoBrowser(true);
-    }
-  }, []);
+    const fetchOrdenes = () => {
+      cargarOrdenes().catch(console.error);
+    };
+
+    fetchOrdenes();
+    const interval = setInterval(fetchOrdenes, 30000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vistaActiva, usuario]);
 
   // Conexión SSE — recibe notificaciones en tiempo real cuando llega una nueva orden
   useEffect(() => {
@@ -357,7 +367,7 @@ export default function CocinaPage() {
               onMarcarLista={(id) => cambiarEstado(id, "lista")}
               onEditarOrden={
                 usuario.rol === "cocina"
-                  ? (orden) => setOrdenEditar(orden as any)
+                  ? (orden) => setOrdenEditar(orden)
                   : undefined
               }
             />
@@ -373,7 +383,7 @@ export default function CocinaPage() {
         {/* Modal de edición usando el componente EditarOrdenModal */}
         {ordenEditar && usuario && (
           <EditarOrdenModal
-            orden={ordenEditar as any}
+            orden={ordenEditar}
             usuario={usuario}
             onClose={() => setOrdenEditar(null)}
             onSuccess={() => {

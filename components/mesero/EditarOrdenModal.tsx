@@ -171,8 +171,15 @@ export default function EditarOrdenModal({
     return items.reduce((sum, item) => sum + Number(item.subtotal), 0);
   };
 
+  interface CambioItem {
+    accion: "eliminar" | "agregar" | "modificar";
+    itemId?: string;
+    productoId?: string;
+    cantidad?: number;
+  }
+
   const obtenerCambios = () => {
-    const cambios: any[] = [];
+    const cambios: CambioItem[] = [];
 
     // Detectar items eliminados — solo permitir si NO son originales en orden lista
     orden.items.forEach((itemOriginal) => {
@@ -252,8 +259,10 @@ export default function EditarOrdenModal({
 
       onSuccess();
       onClose();
-    } catch (error: any) {
-      alert(error.message || "Error al modificar orden");
+    } catch (error) {
+      alert(
+        error instanceof Error ? error.message : "Error al modificar orden",
+      );
     } finally {
       setLoading(false);
     }
