@@ -7,7 +7,7 @@ interface Producto {
   id: string;
   nombre: string;
   categoria: string;
-  precio: number;
+  precio: string | number;
   disponible: boolean;
 }
 
@@ -49,6 +49,7 @@ interface Orden {
 
 interface DetalleOrdenModalProps {
   orden: Orden;
+  adminId?: string;
   adminNombre?: string;
   onClose: () => void;
   onOrdenActualizada?: (ordenActualizada: Orden) => void;
@@ -58,6 +59,7 @@ const ESTADOS_EDITABLES = ["pendiente", "en_preparacion", "lista", "entregada"];
 
 export default function DetalleOrdenModal({
   orden: ordenInicial,
+  adminId,
   adminNombre,
   onClose,
   onOrdenActualizada,
@@ -80,7 +82,7 @@ export default function DetalleOrdenModal({
   const [errorCortesia, setErrorCortesia] = useState("");
 
   const puedeAgregarCortesia =
-    adminNombre && ESTADOS_EDITABLES.includes(orden.estado);
+    adminId && ESTADOS_EDITABLES.includes(orden.estado);
 
   const itemsCortesia = orden.items.filter((i) => i.esCortesia);
 
@@ -115,7 +117,7 @@ export default function DetalleOrdenModal({
   };
 
   const confirmarCortesia = async () => {
-    if (!productoSeleccionado || !adminNombre) return;
+    if (!productoSeleccionado || !adminId) return;
     setLoadingCortesia(true);
     setErrorCortesia("");
     try {
@@ -125,7 +127,7 @@ export default function DetalleOrdenModal({
         body: JSON.stringify({
           productoId: productoSeleccionado.id,
           cantidad: cantidadCortesia,
-          adminNombre,
+          adminId,
           razon: razonCortesia.trim() || undefined,
         }),
       });

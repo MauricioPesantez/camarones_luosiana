@@ -11,7 +11,7 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { productoId, cantidad, adminNombre, razon } = body;
+    const { productoId, cantidad, adminId, razon } = body;
 
     if (!productoId || !productoId.trim()) {
       return NextResponse.json({ error: 'El producto es requerido' }, { status: 400 });
@@ -19,8 +19,17 @@ export async function POST(
     if (!cantidad || cantidad < 1 || !Number.isInteger(cantidad)) {
       return NextResponse.json({ error: 'La cantidad debe ser un número entero mayor a 0' }, { status: 400 });
     }
-    if (!adminNombre || adminNombre.trim() === '') {
-      return NextResponse.json({ error: 'El nombre del admin es requerido' }, { status: 400 });
+    if (!adminId || !adminId.trim()) {
+      return NextResponse.json({ error: 'El ID del administrador es requerido' }, { status: 400 });
+    }
+
+    // Verificar que el admin existe y tiene rol 'admin'
+    const admin = await prisma.usuario.findUnique({ where: { id: adminId } });
+    if (!admin) {
+      return NextResponse.json({ error: 'Administrador no encontrado' }, { status: 404 });
+    }
+    if (admin.rol !== 'admin') {
+      return NextResponse.json({ error: 'Solo los administradores pueden aplicar cortesías' }, { status: 403 });
     }
 
     const orden = await prisma.orden.findUnique({
@@ -49,10 +58,16 @@ export async function POST(
     if (!producto.disponible) {
       return NextResponse.json({ error: 'El producto no está disponible' }, { status: 400 });
     }
+    if (producto.stock < cantidad) {
+      return NextResponse.json(
+        { error: `Stock insuficiente. Disponible: ${producto.stock}` },
+        { status: 409 }
+      );
+    }
 
     // Crear item de cortesía y descontar stock en una transacción
     await prisma.$transaction(async (tx) => {
-      await tx.item.create({
+      const nuevoItem = await tx.item.create({
         data: {
           ordenId: id,
           productoId,
@@ -60,7 +75,7 @@ export async function POST(
           precioUnitario: 0,
           subtotal: 0,
           esCortesia: true,
-          adminCortesia: adminNombre.trim(),
+          adminCortesia: admin.nombre,
         },
       });
 
@@ -75,6 +90,7 @@ export async function POST(
           tipoAccion: 'cortesia_aplicada',
           descripcion: `Cortesía aplicada: ${cantidad}x ${producto.nombre}`,
           itemAfectado: {
+            id: nuevoItem.id,
             nombre: producto.nombre,
             cantidad,
             precio: 0,
@@ -86,7 +102,7 @@ export async function POST(
             esCortesia: true,
             razon: razon ?? null,
           },
-          usuarioNombre: adminNombre.trim(),
+          usuarioNombre: admin.nombre,
           usuarioRol: 'admin',
           razon: razon ?? 'Cortesía aplicada por admin',
           diferenciaTotal: 0,
@@ -114,7 +130,7 @@ export async function POST(
       tituloOrden,
       productoNombre: producto.nombre,
       cantidad,
-      adminNombre: adminNombre.trim(),
+      adminNombre: admin.nombre,
     });
 
     return NextResponse.json({ orden: ordenActualizada });

@@ -727,6 +727,7 @@ export default function AdminPage() {
       {ordenSeleccionada && (
         <DetalleOrdenModal
           orden={ordenSeleccionada}
+          adminId={usuario?.id}
           adminNombre={usuario?.nombre}
           onClose={() => setOrdenSeleccionada(null)}
           onOrdenActualizada={(ordenActualizada) => {

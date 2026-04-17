@@ -624,24 +624,3 @@ export default function ReportesPage() {
   );
 }
 
-interface Estadisticas {
-  resumen: {
-    totalModificaciones: number;
-    ordenesModificadas: number;
-    impactoFinanciero: {
-      aumentos: number;
-      reducciones: number;
-    };
-  };
-  topItemsEliminados: Array<{ nombre: string; cantidad: number }>;
-  topItemsAgregados: Array<{ nombre: string; cantidad: number }>;
-  topMeseros: Array<{
-    nombre: string;
-    total: number;
-    agregados: number;
-    eliminados: number;
-    modificados: number;
-  }>;
-  graficoDias: Array<{ fecha: string; cantidad: number }>;
-  topRazones: Array<{ razon: string; cantidad: number }>;
-}
