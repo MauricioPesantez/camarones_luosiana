@@ -13,6 +13,8 @@ interface Orden {
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;
+  recargo: number | null;
+  costoEnvio: number | null;
   mesero: string;
   estado: string;
   total: number;
@@ -48,12 +50,7 @@ export default function MeseroPage() {
     useState<MetodoPago>("efectivo");
   const [loadingCobrar, setLoadingCobrar] = useState(false);
 
-  const ordenesPorCobrar = ordenes.filter(
-    (o) =>
-      o.estado === "lista" ||
-      o.estado === "entregada" ||
-      o.estado === "completada",
-  );
+  const ordenesPorCobrar = ordenes.filter((o) => o.estado === "lista");
 
   const cargarOrdenes = async () => {
     setLoadingOrdenes(true);
@@ -217,10 +214,7 @@ export default function MeseroPage() {
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {ordenes.map((orden) => {
-                  const puedeCobrarse =
-                    orden.estado === "lista" ||
-                    orden.estado === "entregada" ||
-                    orden.estado === "completada";
+                  const puedeCobrarse = orden.estado === "lista";
                   const tituloOrden =
                     !orden.tipoOrden || orden.tipoOrden === "local"
                       ? `Mesa ${orden.numeroMesa}`
@@ -237,9 +231,32 @@ export default function MeseroPage() {
                       {/* Header */}
                       <div className="flex justify-between items-start mb-3">
                         <div>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                orden.tipoOrden === "domicilio"
+                                  ? "bg-purple-100 text-purple-700"
+                                  : orden.tipoOrden === "para_llevar"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {orden.tipoOrden === "domicilio"
+                                ? "🛵 Domicilio"
+                                : orden.tipoOrden === "para_llevar"
+                                  ? "🥡 Para llevar"
+                                  : "🪑 Local"}
+                            </span>
+                          </div>
                           <h2 className="text-xl font-bold text-gray-800">
                             {tituloOrden}
                           </h2>
+                          {orden.tipoOrden === "domicilio" &&
+                            orden.telefonoCliente && (
+                              <p className="text-xs text-purple-600 font-medium">
+                                📞 {orden.telefonoCliente}
+                              </p>
+                            )}
                           <p className="text-xs text-gray-500">
                             {new Date(orden.createdAt).toLocaleString("es-EC")}
                           </p>
@@ -252,26 +269,18 @@ export default function MeseroPage() {
                           )}
                           <span
                             className={`text-xs font-bold px-2 py-1 rounded ${
-                              orden.estado === "lista" ||
-                              orden.estado === "completada"
+                              orden.estado === "lista"
                                 ? "bg-green-100 text-green-800"
                                 : orden.estado === "en_preparacion"
                                   ? "bg-orange-100 text-orange-800"
-                                  : orden.estado === "entregada"
-                                    ? "bg-purple-100 text-purple-800"
-                                    : "bg-yellow-100 text-yellow-800"
+                                  : "bg-yellow-100 text-yellow-800"
                             }`}
                           >
-                            {orden.estado === "lista" ||
-                            orden.estado === "completada"
+                            {orden.estado === "lista"
                               ? "✅ Lista"
                               : orden.estado === "en_preparacion"
                                 ? "🍳 En preparación"
-                                : orden.estado === "entregada"
-                                  ? "🚀 Entregada"
-                                  : orden.estado === "pendiente"
-                                    ? "⏳ Pendiente"
-                                    : orden.estado}
+                                : "⏳ Pendiente"}
                           </span>
                         </div>
                       </div>
@@ -315,15 +324,18 @@ export default function MeseroPage() {
                             💵 Cobrar Orden
                           </button>
                         )}
-                        {(orden.estado === "pendiente" ||
-                          orden.estado === "en_preparacion") && (
-                          <button
-                            onClick={() => setOrdenEditar(orden)}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition-colors"
-                          >
-                            ✏️ Editar Orden
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setOrdenEditar(orden)}
+                          className={`w-full py-2 rounded-lg font-semibold transition-colors text-white ${
+                            orden.estado === "lista"
+                              ? "bg-orange-500 hover:bg-orange-600"
+                              : "bg-blue-600 hover:bg-blue-700"
+                          }`}
+                        >
+                          {orden.estado === "lista"
+                            ? "➕ Agregar más items"
+                            : "✏️ Editar Orden"}
+                        </button>
                       </div>
                     </div>
                   );
