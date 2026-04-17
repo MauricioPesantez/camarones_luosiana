@@ -53,16 +53,18 @@ model Orden {
 }
 
 model Item {
-  id            String   @id @default(cuid())
-  ordenId       String
-  orden         Orden    @relation(fields: [ordenId], references: [id], onDelete: Cascade)
-  productoId    String
-  producto      Producto @relation(fields: [productoId], references: [id])
-  cantidad      Int
-  precioUnitario Decimal @db.Decimal(10, 2)
-  subtotal      Decimal  @db.Decimal(10, 2)
-  observaciones String?
-  createdAt     DateTime @default(now())
+  id             String   @id @default(cuid())
+  ordenId        String
+  orden          Orden    @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  productoId     String
+  producto       Producto @relation(fields: [productoId], references: [id])
+  cantidad       Int
+  precioUnitario Decimal  @db.Decimal(10, 2)
+  subtotal       Decimal  @db.Decimal(10, 2)
+  observaciones  String?
+  esCortesia     Boolean  @default(false)
+  adminCortesia  String?  // Nombre del admin que autorizó la cortesía
+  createdAt      DateTime @default(now())
 }
 
 model Mesa {

@@ -18,6 +18,8 @@ interface Item {
   precioUnitario: number;
   subtotal: number;
   observaciones?: string;
+  esCortesia?: boolean;
+  adminCortesia?: string;
 }
 
 interface Orden {
@@ -228,25 +230,60 @@ export default function OrdenCard({
         <h3 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">
           Productos:
         </h3>
-        {orden.items.map((item, index) => (
-          <div key={index} className="bg-white bg-opacity-60 rounded p-3">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <span className="font-semibold text-gray-800">
+        {orden.items.map((item, index) =>
+          item.esCortesia ? (
+            <div
+              key={index}
+              className="relative bg-gradient-to-r from-amber-100 to-yellow-50 border-2 border-amber-400 rounded-lg p-3 shadow-sm overflow-hidden"
+            >
+              {/* Franja lateral decorativa */}
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500 rounded-l-lg" />
+              {/* Badge y autor */}
+              <div className="flex items-center justify-between mb-1 pl-2">
+                <span className="inline-flex items-center gap-1 bg-amber-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
+                  🎁 CORTESÍA
+                </span>
+                {item.adminCortesia && (
+                  <span className="text-xs text-amber-700 font-semibold">
+                    Gerencia: {item.adminCortesia}
+                  </span>
+                )}
+              </div>
+              {/* Nombre del producto */}
+              <div className="flex justify-between items-start pl-2">
+                <span className="font-bold text-gray-900 text-base">
                   {item.cantidad}x {item.producto.nombre}
                 </span>
-                <span className="text-xs text-gray-500 ml-2">
+                <span className="text-xs text-amber-600 font-medium ml-2">
                   ({item.producto.categoria})
                 </span>
               </div>
+              {item.observaciones && (
+                <p className="text-sm text-amber-800 italic mt-1 pl-2">
+                  Nota: {item.observaciones}
+                </p>
+              )}
             </div>
-            {item.observaciones && (
-              <p className="text-sm text-gray-600 italic mt-1">
-                Nota: {item.observaciones}
-              </p>
-            )}
-          </div>
-        ))}
+          ) : (
+            <div key={index} className="bg-white bg-opacity-60 rounded p-3">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <span className="font-semibold text-gray-800">
+                    {item.cantidad}x {item.producto.nombre}
+                  </span>
+                  <span className="text-xs text-gray-500 ml-2">
+                    ({item.producto.categoria})
+                  </span>
+                </div>
+              </div>
+              {item.observaciones && (
+                <p className="text-sm text-gray-600 italic mt-1">
+                  Nota: {item.observaciones}
+                </p>
+              )}
+            </div>
+          )
+        )}
       </div>
 
       {/* Observaciones generales */}

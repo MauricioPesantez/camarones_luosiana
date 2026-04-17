@@ -37,6 +37,8 @@ interface Orden {
     };
     precioUnitario: number;
     subtotal: number;
+    esCortesia?: boolean;
+    adminCortesia?: string;
   }[];
 }
 
@@ -292,12 +294,27 @@ export default function MeseroPage() {
                         <h3 className="font-semibold text-gray-700 text-sm mb-2">
                           Items:
                         </h3>
-                        <div className="space-y-1">
-                          {orden.items.map((item, idx) => (
-                            <div key={idx} className="text-sm text-gray-600">
-                              {item.cantidad}x {item.producto.nombre}
-                            </div>
-                          ))}
+                        <div className="space-y-1.5">
+                          {orden.items.map((item, idx) =>
+                            item.esCortesia ? (
+                              <div
+                                key={idx}
+                                className="flex items-center gap-2 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-300 rounded-lg px-2.5 py-1.5"
+                              >
+                                <span className="text-base leading-none">🎁</span>
+                                <span className="text-sm font-semibold text-amber-900 flex-1">
+                                  {item.cantidad}x {item.producto.nombre}
+                                </span>
+                                <span className="text-xs font-bold text-amber-600 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                  CORTESÍA
+                                </span>
+                              </div>
+                            ) : (
+                              <div key={idx} className="text-sm text-gray-600">
+                                {item.cantidad}x {item.producto.nombre}
+                              </div>
+                            )
+                          )}
                         </div>
                       </div>
 
