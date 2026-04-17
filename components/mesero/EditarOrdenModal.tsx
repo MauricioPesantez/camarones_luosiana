@@ -172,7 +172,7 @@ export default function EditarOrdenModal({
   };
 
   interface CambioItem {
-    accion: 'eliminar' | 'agregar' | 'modificar';
+    accion: "eliminar" | "agregar" | "modificar";
     itemId?: string;
     productoId?: string;
     cantidad?: number;
@@ -260,7 +260,9 @@ export default function EditarOrdenModal({
       onSuccess();
       onClose();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Error al modificar orden");
+      alert(
+        error instanceof Error ? error.message : "Error al modificar orden",
+      );
     } finally {
       setLoading(false);
     }
