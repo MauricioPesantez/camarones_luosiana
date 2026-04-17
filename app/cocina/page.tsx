@@ -116,20 +116,10 @@ export default function CocinaPage() {
   useEffect(() => {
     if (vistaActiva !== "cocina" || !usuario) return;
 
-    async function fetchOrdenes() {
-      try {
-        const res = await fetch("/api/ordenes?estado=pendiente,en_preparacion");
-        const data = (await res.json()) as Orden[];
-        setOrdenes(data);
-      } catch (error) {
-        console.error("Error al cargar órdenes:", error);
-      }
-    }
-
-    void fetchOrdenes();
-    const interval = setInterval(() => void fetchOrdenes(), 30000);
+    void cargarOrdenes();
+    const interval = setInterval(() => void cargarOrdenes(), 30000);
     return () => clearInterval(interval);
-  }, [vistaActiva, usuario]);
+  }, [vistaActiva, usuario, cargarOrdenes]);
 
   // Conexión SSE — recibe notificaciones en tiempo real cuando llega una nueva orden
   useEffect(() => {
