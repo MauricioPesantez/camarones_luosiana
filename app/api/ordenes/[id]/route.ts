@@ -8,9 +8,20 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
+
+    // Si cocina marca la orden como 'entregada' y ya fue cobrada, cerrarla directamente.
+    let estadoFinal = body.estado;
+    if (estadoFinal === 'entregada') {
+      const existente = await prisma.orden.findUnique({
+        where: { id },
+        select: { cobrada: true },
+      });
+      if (existente?.cobrada) estadoFinal = 'cobrada';
+    }
+
     const orden = await prisma.orden.update({
       where: { id },
-      data: { estado: body.estado },
+      data: { estado: estadoFinal },
       include: {
         items: {
           include: {
