@@ -539,13 +539,13 @@ export default function AdminPage() {
         {/* Tabla de Órdenes */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="px-6 py-4 border-b">
-            <h2 className="text-xl font-bold">Órdenes del Día</h2>
+            <h2 className="text-xl font-bold text-blue-800">Órdenes del Día</h2>
           </div>
 
           {loading ? (
             <div className="p-8 text-center">Cargando...</div>
           ) : ordenes.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-black">
               No hay órdenes para esta fecha
             </div>
           ) : (
@@ -591,7 +591,7 @@ export default function AdminPage() {
                         className="hover:bg-gray-50 cursor-pointer"
                         onClick={() => setOrdenSeleccionada(orden)}
                       >
-                        <td className="px-6 py-4 text-sm">
+                        <td className="px-6 py-4 text-sm text-blue-700">
                           {new Date(orden.createdAt).toLocaleTimeString(
                             "es-EC",
                           )}
@@ -614,22 +614,24 @@ export default function AdminPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm font-medium">
+                        <td className="px-6 py-4 text-sm font-medium text-gray-700">
                           {!orden.tipoOrden || orden.tipoOrden === "local"
                             ? `Mesa ${orden.numeroMesa}`
                             : orden.nombreCliente}
                         </td>
-                        <td className="px-6 py-4 text-sm">{orden.mesero}</td>
-                        <td className="px-6 py-4 text-sm">
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {orden.mesero}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
                           <div className="space-y-1">
                             {orden.items.map((item, idx) => (
-                              <div key={idx} className="text-xs">
+                              <div key={idx} className="text-xs text-gray-700">
                                 {item.cantidad}x {item.producto.nombre}
                               </div>
                             ))}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm">
+                        <td className="px-6 py-4 text-sm text-gray-700">
                           <span
                             className={`px-2 py-1 rounded-full text-xs font-semibold ${
                               orden.estado === "cobrada"
@@ -671,7 +673,7 @@ export default function AdminPage() {
                             <span className="text-xs text-gray-400">N/A</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm font-bold">
+                        <td className="px-6 py-4 text-sm font-bold text-gray-800">
                           ${Number(orden.total).toFixed(2)}
                         </td>
                         <td
@@ -725,7 +727,13 @@ export default function AdminPage() {
       {ordenSeleccionada && (
         <DetalleOrdenModal
           orden={ordenSeleccionada}
+          adminId={usuario?.id}
+          adminNombre={usuario?.nombre}
           onClose={() => setOrdenSeleccionada(null)}
+          onOrdenActualizada={(ordenActualizada) => {
+            setOrdenSeleccionada(ordenActualizada as unknown as Orden);
+            cargarOrdenes();
+          }}
         />
       )}
 

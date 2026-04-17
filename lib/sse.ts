@@ -9,8 +9,17 @@
 
 type SSEController = ReadableStreamDefaultController<Uint8Array>;
 
-// Map con controller por id de cliente para poder limpiar bien
-const clientes = new Map<string, SSEController>();
+// Singleton via globalThis para que todos los route handlers compartan el mismo Map,
+// igual que se hace con PrismaClient en lib/db.ts
+const globalForSSE = globalThis as unknown as {
+  sseClientes: Map<string, SSEController>;
+};
+
+const clientes: Map<string, SSEController> =
+  globalForSSE.sseClientes ?? new Map<string, SSEController>();
+
+if (process.env.NODE_ENV !== 'production') globalForSSE.sseClientes = clientes;
+
 const encoder = new TextEncoder();
 
 export function registrarCliente(id: string, controller: SSEController) {
