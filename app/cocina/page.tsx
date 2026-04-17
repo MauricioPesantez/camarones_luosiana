@@ -116,10 +116,15 @@ export default function CocinaPage() {
   useEffect(() => {
     if (vistaActiva !== "cocina" || !usuario) return;
 
-    void cargarOrdenes();
-    const interval = setInterval(() => void cargarOrdenes(), 30000);
+    const fetchOrdenes = () => {
+      cargarOrdenes().catch(console.error);
+    };
+
+    fetchOrdenes();
+    const interval = setInterval(fetchOrdenes, 30000);
     return () => clearInterval(interval);
-  }, [vistaActiva, usuario, cargarOrdenes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vistaActiva, usuario]);
 
   // Conexión SSE — recibe notificaciones en tiempo real cuando llega una nueva orden
   useEffect(() => {
