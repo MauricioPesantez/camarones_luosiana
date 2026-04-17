@@ -1,7 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import HistorialOrdenTimeline from "./HistorialOrdenTimeline";
+
+interface Producto {
+  id: string;
+  nombre: string;
+  categoria: string;
+  precio: number;
+  disponible: boolean;
+}
+
+interface ItemOrden {
+  cantidad: number;
+  producto: {
+    nombre: string;
+    categoria: string;
+  };
+  precioUnitario: number;
+  subtotal: number;
+  observaciones?: string;
+  esCortesia?: boolean;
+  adminCortesia?: string | null;
+}
 
 interface Orden {
   id: string;
@@ -23,30 +44,115 @@ interface Orden {
   createdAt: string;
   updatedAt: string;
   observaciones?: string;
-  items: {
-    cantidad: number;
-    producto: {
-      nombre: string;
-      categoria: string;
-    };
-    precioUnitario: number;
-    subtotal: number;
-    observaciones?: string;
-  }[];
+  items: ItemOrden[];
 }
 
 interface DetalleOrdenModalProps {
   orden: Orden;
+  adminNombre?: string;
   onClose: () => void;
+  onOrdenActualizada?: (ordenActualizada: Orden) => void;
 }
 
+const ESTADOS_EDITABLES = ["pendiente", "en_preparacion", "lista", "entregada"];
+
 export default function DetalleOrdenModal({
-  orden,
+  orden: ordenInicial,
+  adminNombre,
   onClose,
+  onOrdenActualizada,
 }: DetalleOrdenModalProps) {
+  const [orden, setOrden] = useState<Orden>(ordenInicial);
   const [pestanaActiva, setPestanaActiva] = useState<"resumen" | "historial">(
     "resumen",
   );
+
+  // Estado del modal de cortesía
+  const [mostrarModalCortesia, setMostrarModalCortesia] = useState(false);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [cargandoProductos, setCargandoProductos] = useState(false);
+  const [busquedaProducto, setBusquedaProducto] = useState("");
+  const [productoSeleccionado, setProductoSeleccionado] =
+    useState<Producto | null>(null);
+  const [cantidadCortesia, setCantidadCortesia] = useState(1);
+  const [razonCortesia, setRazonCortesia] = useState("");
+  const [loadingCortesia, setLoadingCortesia] = useState(false);
+  const [errorCortesia, setErrorCortesia] = useState("");
+
+  const puedeAgregarCortesia =
+    adminNombre && ESTADOS_EDITABLES.includes(orden.estado);
+
+  const itemsCortesia = orden.items.filter((i) => i.esCortesia);
+
+  const cargarProductos = async () => {
+    if (productos.length > 0) return;
+    setCargandoProductos(true);
+    try {
+      const res = await fetch("/api/productos");
+      const data = await res.json();
+      setProductos(data.filter((p: Producto) => p.disponible));
+    } catch {
+      setErrorCortesia("Error al cargar productos");
+    } finally {
+      setCargandoProductos(false);
+    }
+  };
+
+  const abrirModalCortesia = () => {
+    setMostrarModalCortesia(true);
+    setProductoSeleccionado(null);
+    setCantidadCortesia(1);
+    setRazonCortesia("");
+    setErrorCortesia("");
+    cargarProductos();
+  };
+
+  const cerrarModalCortesia = () => {
+    setMostrarModalCortesia(false);
+    setBusquedaProducto("");
+    setProductoSeleccionado(null);
+    setErrorCortesia("");
+  };
+
+  const confirmarCortesia = async () => {
+    if (!productoSeleccionado || !adminNombre) return;
+    setLoadingCortesia(true);
+    setErrorCortesia("");
+    try {
+      const res = await fetch(`/api/ordenes/${orden.id}/cortesia`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productoId: productoSeleccionado.id,
+          cantidad: cantidadCortesia,
+          adminNombre,
+          razon: razonCortesia.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorCortesia(data.error || "Error al aplicar cortesía");
+        return;
+      }
+      const ordenActualizada = data.orden as Orden;
+      setOrden(ordenActualizada);
+      onOrdenActualizada?.(ordenActualizada);
+      cerrarModalCortesia();
+    } catch {
+      setErrorCortesia("Error de red al aplicar cortesía");
+    } finally {
+      setLoadingCortesia(false);
+    }
+  };
+
+  const productosFiltrados = productos.filter((p) =>
+    p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase()),
+  );
+
+  // Sync if parent updates the orden
+  useEffect(() => {
+    setOrden(ordenInicial);
+  }, [ordenInicial]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -63,12 +169,22 @@ export default function DetalleOrdenModal({
               {new Date(orden.createdAt).toLocaleString("es-EC")}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-3xl font-bold"
-          >
-            ×
-          </button>
+          <div className="flex items-center gap-3">
+            {puedeAgregarCortesia && (
+              <button
+                onClick={abrirModalCortesia}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2"
+              >
+                🎁 Agregar Cortesía
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 text-3xl font-bold"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Pestañas */}
@@ -252,15 +368,34 @@ export default function DetalleOrdenModal({
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {orden.items.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
+                        <tr
+                          key={idx}
+                          className={
+                            item.esCortesia
+                              ? "bg-emerald-50 hover:bg-emerald-100"
+                              : "hover:bg-gray-50"
+                          }
+                        >
                           <td className="px-4 py-3">
                             <div>
-                              <p className="font-medium text-gray-800">
-                                {item.producto.nombre}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-gray-800">
+                                  {item.producto.nombre}
+                                </p>
+                                {item.esCortesia && (
+                                  <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded-full border border-emerald-300">
+                                    🎁 CORTESÍA
+                                  </span>
+                                )}
+                              </div>
                               {item.observaciones && (
                                 <p className="text-xs text-gray-500 italic">
                                   Nota: {item.observaciones}
+                                </p>
+                              )}
+                              {item.esCortesia && item.adminCortesia && (
+                                <p className="text-xs text-emerald-600 mt-0.5">
+                                  Autorizado por: {item.adminCortesia}
                                 </p>
                               )}
                             </div>
@@ -272,15 +407,39 @@ export default function DetalleOrdenModal({
                             {item.cantidad}
                           </td>
                           <td className="px-4 py-3 text-right text-gray-700">
-                            ${Number(item.precioUnitario).toFixed(2)}
+                            {item.esCortesia ? (
+                              <span className="text-emerald-600 font-semibold">
+                                $0.00
+                              </span>
+                            ) : (
+                              `$${Number(item.precioUnitario).toFixed(2)}`
+                            )}
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-gray-800">
-                            ${Number(item.subtotal).toFixed(2)}
+                            {item.esCortesia ? (
+                              <span className="text-emerald-600">$0.00</span>
+                            ) : (
+                              `$${Number(item.subtotal).toFixed(2)}`
+                            )}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50">
+                      {itemsCortesia.length > 0 && (
+                        <tr className="border-t border-emerald-200">
+                          <td
+                            colSpan={4}
+                            className="px-4 py-2 text-right text-sm text-emerald-700"
+                          >
+                            🎁 Cortesías ({itemsCortesia.length} ítem
+                            {itemsCortesia.length !== 1 ? "s" : ""}):
+                          </td>
+                          <td className="px-4 py-2 text-right text-sm text-emerald-700 font-semibold">
+                            $0.00
+                          </td>
+                        </tr>
+                      )}
                       {(Number(orden.recargo) > 0 ||
                         Number(orden.costoEnvio) > 0) && (
                         <>
@@ -435,6 +594,148 @@ export default function DetalleOrdenModal({
           </button>
         </div>
       </div>
+
+      {/* Modal de Cortesía */}
+      {mostrarModalCortesia && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4 border-b bg-emerald-50 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-emerald-800 flex items-center gap-2">
+                🎁 Agregar Cortesía
+              </h3>
+              <button
+                onClick={cerrarModalCortesia}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {/* Buscador de producto */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Buscar Producto
+                </label>
+                <input
+                  type="text"
+                  placeholder="Escribe el nombre del producto..."
+                  value={busquedaProducto}
+                  onChange={(e) => setBusquedaProducto(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  autoFocus
+                />
+              </div>
+
+              {/* Lista de productos */}
+              <div className="border rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                {cargandoProductos ? (
+                  <p className="text-center py-6 text-gray-500 text-sm">
+                    Cargando productos...
+                  </p>
+                ) : productosFiltrados.length === 0 ? (
+                  <p className="text-center py-6 text-gray-500 text-sm">
+                    No se encontraron productos
+                  </p>
+                ) : (
+                  productosFiltrados.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setProductoSeleccionado(p)}
+                      className={`w-full text-left px-4 py-3 flex justify-between items-center border-b last:border-b-0 transition-colors ${
+                        productoSeleccionado?.id === p.id
+                          ? "bg-emerald-100 border-l-4 border-l-emerald-500"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium text-gray-800 text-sm">
+                          {p.nombre}
+                        </p>
+                        <p className="text-xs text-gray-500">{p.categoria}</p>
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        ${Number(p.precio).toFixed(2)}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* Producto seleccionado */}
+              {productoSeleccionado && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                  <p className="text-sm text-emerald-800">
+                    <span className="font-semibold">Seleccionado:</span>{" "}
+                    {productoSeleccionado.nombre}
+                  </p>
+                </div>
+              )}
+
+              {/* Cantidad */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Cantidad
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={cantidadCortesia}
+                  onChange={(e) =>
+                    setCantidadCortesia(Math.max(1, parseInt(e.target.value) || 1))
+                  }
+                  className="w-24 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Razón (opcional) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Razón{" "}
+                  <span className="text-gray-400 font-normal">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Compensación por demora, Cumpleaños..."
+                  value={razonCortesia}
+                  onChange={(e) => setRazonCortesia(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* Autorizado por */}
+              <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-600">
+                👤 Autorizado por:{" "}
+                <span className="font-semibold text-gray-800">
+                  {adminNombre}
+                </span>
+              </div>
+
+              {errorCortesia && (
+                <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded px-3 py-2">
+                  {errorCortesia}
+                </p>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t flex gap-3">
+              <button
+                onClick={cerrarModalCortesia}
+                className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarCortesia}
+                disabled={!productoSeleccionado || loadingCortesia}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white py-2 rounded-lg font-semibold"
+              >
+                {loadingCortesia ? "Aplicando..." : "✓ Confirmar Cortesía"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

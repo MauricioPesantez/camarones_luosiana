@@ -185,6 +185,30 @@ export default function CocinaPage() {
       }
     });
 
+    // Evento: admin aplicó una cortesía a una orden
+    eventSource.addEventListener("cortesia-aplicada", (e: MessageEvent) => {
+      const data = JSON.parse(e.data) as {
+        ordenId: string;
+        tituloOrden: string;
+        productoNombre: string;
+        cantidad: number;
+        adminNombre: string;
+      };
+
+      cargarOrdenes();
+      reproducirSonido();
+
+      if (
+        typeof Notification !== "undefined" &&
+        Notification.permission === "granted"
+      ) {
+        new Notification(`🎁 Cortesía — ${data.tituloOrden}`, {
+          body: `${data.cantidad}x ${data.productoNombre} (por ${data.adminNombre})`,
+          icon: "/favicon.ico",
+        });
+      }
+    });
+
     return () => {
       eventSource.close();
       if (notificacionTimer.current) clearTimeout(notificacionTimer.current);
