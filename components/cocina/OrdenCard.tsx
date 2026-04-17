@@ -3,23 +3,34 @@
 import { useEffect, useState } from "react";
 
 interface Producto {
+  id: string;
   nombre: string;
   categoria: string;
+  precio: number;
+  disponible: boolean;
+  stock: number;
 }
 
 interface Item {
+  id: string;
   cantidad: number;
   producto: Producto;
+  precioUnitario: number;
+  subtotal: number;
   observaciones?: string;
 }
 
 interface Orden {
   id: string;
-  tipoOrden?: string;
-  numeroMesa?: number | null;
-  nombreCliente?: string | null;
-  telefonoCliente?: string | null;
+  tipoOrden: string;
+  numeroMesa: number | null;
+  nombreCliente: string | null;
+  telefonoCliente: string | null;
+  recargo: number | null;
+  costoEnvio: number | null;
   mesero: string;
+  estado: string;
+  total: number;
   observaciones?: string;
   tiempoEstimado: number;
   modificada?: boolean;

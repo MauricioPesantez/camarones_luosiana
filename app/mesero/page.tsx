@@ -32,6 +32,8 @@ interface Orden {
       nombre: string;
       categoria: string;
       precio: number;
+      stock: number;
+      disponible: boolean;
     };
     precioUnitario: number;
     subtotal: number;

@@ -2,13 +2,29 @@
 
 import { useEffect, useState } from 'react';
 
+interface ItemAfectado {
+  nombre?: string;
+  cantidad?: number;
+  precioUnitario?: number;
+  producto?: {
+    nombre: string;
+  };
+}
+
+interface DatosHistorial {
+  cantidad?: number;
+  subtotal?: number;
+  estado?: string;
+  [key: string]: unknown;
+}
+
 interface HistorialItem {
   id: string;
   tipoAccion: string;
   descripcion: string;
-  itemAfectado?: any;
-  datosAntes?: any;
-  datosDespues?: any;
+  itemAfectado?: ItemAfectado;
+  datosAntes?: DatosHistorial;
+  datosDespues?: DatosHistorial;
   usuarioNombre: string;
   usuarioRol: string;
   razon?: string;
