@@ -135,7 +135,7 @@ export class PrinterService {
       return { success: true, data: execute };
     } catch (error) {
       console.error('Error al imprimir:', error);
-      return { success: false, error: error };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 

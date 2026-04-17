@@ -75,7 +75,8 @@ export async function PATCH(
     });
 
     return NextResponse.json(orden);
-  } catch {
+  } catch (error) {
+    console.error('Error al registrar el cobro:', error);
     return NextResponse.json(
       { error: 'Error al registrar el cobro' },
       { status: 500 }
