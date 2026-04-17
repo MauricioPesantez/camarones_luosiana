@@ -148,7 +148,7 @@ export class PrinterService {
       await this.printer.execute();
       return { success: true };
     } catch (error) {
-      return { success: false, error };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 }
