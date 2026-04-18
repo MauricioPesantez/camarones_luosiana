@@ -716,28 +716,23 @@ export default function AdminPage() {
                               )}
                             </div>
                           ) : orden.estado !== "cancelada" ? (
-                            (() => {
-                              const esLocal = !orden.tipoOrden || orden.tipoOrden === "local";
-                              const estadosListos = ["lista", "entregada"];
-                              const puedeCobrarse = esLocal
-                                ? estadosListos.includes(orden.estado)
-                                : true; // domicilio/para_llevar: puede pagarse antes
-                              return puedeCobrarse ? (
-                                <button
-                                  onClick={() => {
-                                    setOrdenACobrar(orden);
-                                    setMetodoPagoAdmin("efectivo");
-                                  }}
-                                  className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 rounded-lg font-bold transition-colors"
-                                >
-                                  💵 Cobrar
-                                </button>
-                              ) : (
-                                <span className="text-xs text-gray-400 italic">
-                                  En cocina…
-                                </span>
-                              );
-                            })()
+                            ((!orden.tipoOrden || orden.tipoOrden === "local")
+                              ? ["lista", "entregada"].includes(orden.estado)
+                              : true) ? (
+                              <button
+                                onClick={() => {
+                                  setOrdenACobrar(orden);
+                                  setMetodoPagoAdmin("efectivo");
+                                }}
+                                className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 rounded-lg font-bold transition-colors"
+                              >
+                                💵 Cobrar
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">
+                                En cocina…
+                              </span>
+                            )
                           ) : (
                             <span className="text-xs text-gray-400">—</span>
                           )}
