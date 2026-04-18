@@ -219,7 +219,7 @@ export default function MeseroPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {ordenes.map((orden) => {
                   const esLocal = !orden.tipoOrden || orden.tipoOrden === "local";
-                  const estadosListos = ["lista", "entregada"];
+                  const estadosListos = ["lista"];
                   const puedeCobrarse = esLocal
                     ? estadosListos.includes(orden.estado)
                     : !orden.cobrada && orden.estado !== "cancelada";
