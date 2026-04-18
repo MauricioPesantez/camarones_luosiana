@@ -682,6 +682,7 @@ export default function AdminPage() {
                         >
                           {orden.cobrada ? (
                             <div className="flex flex-col gap-1">
+                               {/* Badge método de pago */}
                               <span
                                 className={`px-2 py-1 rounded-full text-xs font-bold ${
                                   orden.metodoPago === "efectivo"
@@ -693,6 +694,21 @@ export default function AdminPage() {
                                   ? "💵 Efectivo"
                                   : "🏦 Transferencia"}
                               </span>
+                              {/* Badge cuando el pago llegó antes de que cocina termine */}
+                              {orden.estado !== "cobrada" && (
+                                <span className="px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300">
+                                  ⏳ Pagada ·{" "}
+                                  {orden.estado === "en_preparacion"
+                                    ? "En preparación"
+                                    : orden.estado === "pendiente"
+                                      ? "Pendiente"
+                                      : orden.estado === "lista"
+                                        ? "Lista"
+                                        : orden.estado === "entregada"
+                                          ? "Entregada"
+                                          : orden.estado}
+                                </span>
+                              )}
                               {orden.cobradaPor && (
                                 <span className="text-xs text-gray-500">
                                   por {orden.cobradaPor}
@@ -700,15 +716,23 @@ export default function AdminPage() {
                               )}
                             </div>
                           ) : orden.estado !== "cancelada" ? (
-                            <button
-                              onClick={() => {
-                                setOrdenACobrar(orden);
-                                setMetodoPagoAdmin("efectivo");
-                              }}
-                              className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 rounded-lg font-bold transition-colors"
-                            >
-                              💵 Cobrar
-                            </button>
+                            ((!orden.tipoOrden || orden.tipoOrden === "local")
+                              ? ["lista", "entregada"].includes(orden.estado)
+                              : true) ? (
+                              <button
+                                onClick={() => {
+                                  setOrdenACobrar(orden);
+                                  setMetodoPagoAdmin("efectivo");
+                                }}
+                                className="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 rounded-lg font-bold transition-colors"
+                              >
+                                💵 Cobrar
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">
+                                En cocina…
+                              </span>
+                            )
                           ) : (
                             <span className="text-xs text-gray-400">—</span>
                           )}
