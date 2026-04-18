@@ -8,15 +8,19 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await request.json();
+    const existente = await prisma.orden.findUnique({
+      where: { id },
+      select: { cobrada: true },
+    });
+
+    if (!existente) {
+      return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
+    }
 
     // Si cocina marca la orden como 'entregada' y ya fue cobrada, cerrarla directamente.
     let estadoFinal = body.estado;
-    if (estadoFinal === 'entregada') {
-      const existente = await prisma.orden.findUnique({
-        where: { id },
-        select: { cobrada: true },
-      });
-      if (existente?.cobrada) estadoFinal = 'cobrada';
+    if (estadoFinal === 'entregada' && existente.cobrada) {
+      estadoFinal = 'cobrada';
     }
 
     const orden = await prisma.orden.update({
