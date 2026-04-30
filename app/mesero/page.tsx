@@ -54,7 +54,14 @@ export default function MeseroPage() {
     useState<MetodoPago>("efectivo");
   const [loadingCobrar, setLoadingCobrar] = useState(false);
 
-  const ordenesPorCobrar = ordenes.filter((o) => o.estado === "lista");
+  const puedeOrdenCobrarse = (o: Orden): boolean => {
+    const esLocal = !o.tipoOrden || o.tipoOrden === "local";
+    return esLocal
+      ? o.estado === "lista"
+      : !o.cobrada && o.estado !== "cancelada";
+  };
+
+  const ordenesPorCobrar = ordenes.filter(puedeOrdenCobrarse);
 
   const cargarOrdenes = async () => {
     setLoadingOrdenes(true);
@@ -218,7 +225,7 @@ export default function MeseroPage() {
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {ordenes.map((orden) => {
-                  const puedeCobrarse = orden.estado === "lista";
+                  const puedeCobrarse = puedeOrdenCobrarse(orden);
                   const tituloOrden =
                     !orden.tipoOrden || orden.tipoOrden === "local"
                       ? `Mesa ${orden.numeroMesa}`
@@ -277,14 +284,18 @@ export default function MeseroPage() {
                                 ? "bg-green-100 text-green-800"
                                 : orden.estado === "en_preparacion"
                                   ? "bg-orange-100 text-orange-800"
-                                  : "bg-yellow-100 text-yellow-800"
+                                  : orden.estado === "entregada"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-yellow-100 text-yellow-800"
                             }`}
                           >
                             {orden.estado === "lista"
                               ? "✅ Lista"
                               : orden.estado === "en_preparacion"
                                 ? "🍳 En preparación"
-                                : "⏳ Pendiente"}
+                                : orden.estado === "entregada"
+                                  ? "📦 Entregada"
+                                  : "⏳ Pendiente"}
                           </span>
                         </div>
                       </div>

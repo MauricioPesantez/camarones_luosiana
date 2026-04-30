@@ -55,7 +55,25 @@ export async function PATCH(
       );
     }
 
-    // Registrar el cobro
+    const esLocal = !ordenExistente.tipoOrden || ordenExistente.tipoOrden === 'local';
+    const estadosListos = ['lista', 'entregada', 'cobrada'];
+
+    // Para órdenes locales: solo se cobra cuando la comida ya está lista/entregada
+    // (el cliente come primero, luego paga).
+    if (esLocal && !estadosListos.includes(ordenExistente.estado)) {
+      return NextResponse.json(
+        { error: 'Las órdenes de mesa solo se pueden cobrar cuando estén listas o entregadas' },
+        { status: 400 }
+      );
+    }
+
+    // Para domicilio/para_llevar: el pago puede llegar antes de que cocina termine
+    // (ej. transferencia anticipada). En ese caso registramos el cobro pero dejamos
+    // el estado intacto para que cocina siga viendo la orden.
+    const nuevoEstado = estadosListos.includes(ordenExistente.estado)
+      ? 'cobrada'
+      : ordenExistente.estado;
+
     const orden = await prisma.orden.update({
       where: { id },
       data: {
@@ -63,7 +81,7 @@ export async function PATCH(
         cobrada: true,
         fechaCobro: new Date(),
         cobradaPor: cobradaPor.trim(),
-        estado: 'cobrada',
+        estado: nuevoEstado,
       },
       include: {
         items: {
