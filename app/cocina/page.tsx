@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import CrearOrden from "@/components/mesero/CrearOrden";
 import OrdenCard from "@/components/cocina/OrdenCard";
-import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
 import { useAuth } from "@/lib/auth";
 
 interface Producto {
@@ -54,10 +52,8 @@ interface Notificacion {
 }
 
 export default function CocinaPage() {
-  const { usuario, loading: authLoading, logout } = useAuth();
+  const { usuario, loading: authLoading, logout } = useAuth("cocina");
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
-  const [vistaActiva, setVistaActiva] = useState<"cocina" | "mesero">("cocina");
-  const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [notificacion, setNotificacion] = useState<Notificacion | null>(null);
   const [permisoBrowser, setPermisoBrowser] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -114,7 +110,7 @@ export default function CocinaPage() {
 
   // Polling de respaldo cada 30 s (cubre casos donde SSE no esté disponible)
   useEffect(() => {
-    if (vistaActiva !== "cocina" || !usuario) return;
+    if (!usuario) return;
 
     const fetchOrdenes = () => {
       cargarOrdenes().catch(console.error);
@@ -124,12 +120,11 @@ export default function CocinaPage() {
     const interval = setInterval(fetchOrdenes, 30000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vistaActiva, usuario]);
+  }, [usuario]);
 
   // Conexión SSE — recibe notificaciones en tiempo real cuando llega una nueva orden
   useEffect(() => {
-    // Abrir SSE solo para usuarios de cocina
-    if (!usuario || usuario.rol !== "cocina") return;
+    if (!usuario) return;
 
     const eventSource = new EventSource("/api/ordenes/events");
 
@@ -225,45 +220,6 @@ export default function CocinaPage() {
 
   if (!usuario) return null;
 
-  // Si el usuario es cocinero y está en vista de mesero, mostrar componente de mesero
-  if (usuario.rol === "cocina" && vistaActiva === "mesero") {
-    return (
-      <div>
-        {/* Selector de vista */}
-        <div className="bg-gray-800 border-b border-gray-700 p-4">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setVistaActiva("cocina")}
-                className="px-4 py-2 rounded-lg font-semibold transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600"
-              >
-                🍳 Vista Cocina
-              </button>
-              <button
-                onClick={() => setVistaActiva("mesero")}
-                className="px-4 py-2 rounded-lg font-semibold transition-colors bg-blue-600 text-white"
-              >
-                📋 Vista Mesero
-              </button>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-white">
-                Usuario: <span className="font-bold">{usuario.nombre}</span>
-              </span>
-              <button
-                onClick={logout}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
-          </div>
-        </div>
-        <CrearOrden />
-      </div>
-    );
-  }
-
   const cambiarEstado = async (id: string, estado: string) => {
     try {
       await fetch(`/api/ordenes/${id}`, {
@@ -318,69 +274,42 @@ export default function CocinaPage() {
         </div>
       )}
 
-      {/* Selector de vista solo para cocineros */}
-      {usuario.rol === "cocina" && (
-        <div className="bg-gray-800 border-b border-gray-700 p-4">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex gap-2">
+      {/* Header con usuario y controles */}
+      <div className="bg-gray-800 border-b border-gray-700 p-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            {/* Botón para activar notificaciones nativas del navegador */}
+            {permisoBrowser && (
               <button
-                onClick={() => setVistaActiva("cocina")}
-                className="px-4 py-2 rounded-lg font-semibold transition-colors bg-blue-600 text-white"
+                onClick={() =>
+                  Notification.requestPermission().then((p) => {
+                    if (p !== "default") setPermisoBrowser(false);
+                  })
+                }
+                className="bg-yellow-500 text-white px-3 py-2 rounded-lg hover:bg-yellow-600 text-sm font-semibold"
+                title="Recibir notificaciones incluso con la pestaña en segundo plano"
               >
-                🍳 Vista Cocina
+                🔔 Activar notificaciones
               </button>
-              <button
-                onClick={() => setVistaActiva("mesero")}
-                className="px-4 py-2 rounded-lg font-semibold transition-colors bg-gray-700 text-gray-300 hover:bg-gray-600"
-              >
-                📋 Vista Mesero
-              </button>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* Botón para activar notificaciones nativas del navegador */}
-              {permisoBrowser && (
-                <button
-                  onClick={() =>
-                    Notification.requestPermission().then((p) => {
-                      if (p !== "default") setPermisoBrowser(false);
-                    })
-                  }
-                  className="bg-yellow-500 text-white px-3 py-2 rounded-lg hover:bg-yellow-600 text-sm font-semibold"
-                  title="Recibir notificaciones incluso con la pestaña en segundo plano"
-                >
-                  🔔 Activar notificaciones
-                </button>
-              )}
-              <span className="text-white">
-                Usuario: <span className="font-bold">{usuario.nombre}</span>
-              </span>
-              <button
-                onClick={logout}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-white">
+              Usuario: <span className="font-bold">{usuario.nombre}</span>
+            </span>
+            <button
+              onClick={logout}
+              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+            >
+              Cerrar Sesión
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       <div className="p-6">
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-8">
           <h1 className="text-4xl font-bold text-white">Monitor de Cocina</h1>
-          {usuario.rol !== "cocina" && (
-            <div className="flex items-center gap-4">
-              <span className="text-white">
-                Usuario: <span className="font-bold">{usuario?.nombre}</span>
-              </span>
-              <button
-                onClick={logout}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
-          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -389,11 +318,6 @@ export default function CocinaPage() {
               key={orden.id}
               orden={orden}
               onMarcarLista={(id) => cambiarEstado(id, "lista")}
-              onEditarOrden={
-                usuario.rol === "cocina"
-                  ? (orden) => setOrdenEditar(orden)
-                  : undefined
-              }
             />
           ))}
         </div>
@@ -402,19 +326,6 @@ export default function CocinaPage() {
           <div className="text-center text-white text-2xl mt-20">
             No hay órdenes pendientes
           </div>
-        )}
-
-        {/* Modal de edición usando el componente EditarOrdenModal */}
-        {ordenEditar && usuario && (
-          <EditarOrdenModal
-            orden={ordenEditar}
-            usuario={usuario}
-            onClose={() => setOrdenEditar(null)}
-            onSuccess={() => {
-              setOrdenEditar(null);
-              cargarOrdenes();
-            }}
-          />
         )}
       </div>
     </div>

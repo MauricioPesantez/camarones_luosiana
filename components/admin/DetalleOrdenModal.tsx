@@ -536,15 +536,15 @@ export default function DetalleOrdenModal({
                             !orden.metodoPago
                               ? "bg-gray-100 text-gray-600"
                               : orden.metodoPago === "efectivo"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-blue-100 text-blue-800"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-blue-100 text-blue-800"
                           }`}
                         >
                           {!orden.metodoPago
                             ? "— Desconocido"
                             : orden.metodoPago === "efectivo"
-                            ? "💵 Efectivo"
-                            : "🏦 Transferencia"}
+                              ? "💵 Efectivo"
+                              : "🏦 Transferencia"}
                         </span>
                       </p>
                     </div>
@@ -684,7 +684,9 @@ export default function DetalleOrdenModal({
                   min={1}
                   value={cantidadCortesia}
                   onChange={(e) =>
-                    setCantidadCortesia(Math.max(1, parseInt(e.target.value) || 1))
+                    setCantidadCortesia(
+                      Math.max(1, parseInt(e.target.value) || 1),
+                    )
                   }
                   className="w-24 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
