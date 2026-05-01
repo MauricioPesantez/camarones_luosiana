@@ -352,14 +352,14 @@ export default function EditarOrdenModal({
                       ${Number(item.precioUnitario).toFixed(2)} c/u
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => modificarCantidad(item.id, -1)}
                       disabled={bloqueadoMenos}
                       className={`w-8 h-8 rounded-lg font-bold ${
                         bloqueadoMenos
                           ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-                          : "bg-gray-200 hover:bg-gray-300"
+                          : "bg-gray-200 hover:bg-gray-300 text-black"
                       }`}
                     >
                       -
@@ -369,7 +369,7 @@ export default function EditarOrdenModal({
                     </span>
                     <button
                       onClick={() => modificarCantidad(item.id, 1)}
-                      className="w-8 h-8 rounded-lg font-bold bg-gray-200 hover:bg-gray-300"
+                      className="w-8 h-8 rounded-lg font-bold bg-gray-200 text-black hover:bg-gray-300"
                     >
                       +
                     </button>

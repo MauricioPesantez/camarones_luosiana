@@ -44,7 +44,6 @@ interface Orden {
 interface OrdenCardProps {
   orden: Orden;
   onMarcarLista: (id: string) => void;
-  onEditarOrden?: (orden: Orden) => void;
 }
 
 interface EstadoTiempo {
@@ -56,11 +55,7 @@ interface EstadoTiempo {
   label: string;
 }
 
-export default function OrdenCard({
-  orden,
-  onMarcarLista,
-  onEditarOrden,
-}: OrdenCardProps) {
+export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0);
 
   useEffect(() => {
@@ -202,7 +197,7 @@ export default function OrdenCard({
             </span>
           )}
         </div>
-        <h2 className="text-3xl font-bold text-gray-800">
+        <h2 className="text-2xl font-bold text-gray-800">
           {!orden.tipoOrden || orden.tipoOrden === "local"
             ? `Mesa ${orden.numeroMesa}`
             : orden.nombreCliente}
@@ -215,11 +210,6 @@ export default function OrdenCard({
 
       {/* Información de tiempo */}
       <div className={`${estado.textColor} font-semibold mb-4 text-lg`}>
-        <div className="flex items-center gap-2">
-          <span>
-            Tiempo: {tiempoTranscurrido} / {orden.tiempoEstimado} min
-          </span>
-        </div>
         <div className="text-sm opacity-75 mt-1">
           Hace {tiempoTranscurrido} minutos
         </div>
@@ -251,7 +241,7 @@ export default function OrdenCard({
               </div>
               {/* Nombre del producto */}
               <div className="flex justify-between items-start pl-2">
-                <span className="font-bold text-gray-900 text-base">
+                <span className="font-bold text-gray-900 text-2xl">
                   {item.cantidad}x {item.producto.nombre}
                 </span>
                 <span className="text-xs text-amber-600 font-medium ml-2">
@@ -268,7 +258,7 @@ export default function OrdenCard({
             <div key={index} className="bg-white bg-opacity-60 rounded p-3">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
-                  <span className="font-semibold text-gray-800">
+                  <span className="font-semibold text-gray-800 text-2xl">
                     {item.cantidad}x {item.producto.nombre}
                   </span>
                   <span className="text-xs text-gray-500 ml-2">
@@ -282,33 +272,25 @@ export default function OrdenCard({
                 </p>
               )}
             </div>
-          )
+          ),
         )}
       </div>
 
       {/* Observaciones generales */}
       {orden.observaciones && (
         <div className="mb-4 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
-          <p className="text-sm font-semibold text-blue-900 mb-1">
+          <p className="font-semibold text-blue-900 mb-1 text-lg">
             Observaciones generales:
           </p>
-          <p className="text-sm text-blue-800">{orden.observaciones}</p>
+          <p className="text-blue-800 text-2xl">{orden.observaciones}</p>
         </div>
       )}
 
       {/* Botones de acción */}
       <div className="flex gap-2 mt-2">
-        {onEditarOrden && (
-          <button
-            onClick={() => onEditarOrden(orden)}
-            className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg"
-          >
-            ✏️ Editar
-          </button>
-        )}
         <button
           onClick={() => onMarcarLista(orden.id)}
-          className="flex-1 bg-gray-800 text-white py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors font-semibold text-lg"
+          className="flex-1 bg-gray-800 text-white py-3 px-4 rounded-lg hover:bg-gray-700 transition-colors font-semibold text-[14px]"
         >
           Marcar como Lista
         </button>

@@ -26,10 +26,12 @@ import { TipoOrden } from "@/types/orden";
 const RECARGO_FIJO = 0.5;
 
 export default function CrearOrden() {
-  const { usuario, loading: authLoading, logout } = useAuth();
+  const { usuario, loading: authLoading } = useAuth();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
-  const [tipoOrden, setTipoOrden] = useState<TipoOrden>("local");
+  const [tipoOrden, setTipoOrden] = useState<TipoOrden>(() =>
+    usuario?.rol === "digital" ? "para_llevar" : "local",
+  );
   const [numeroMesa, setNumeroMesa] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
   const [telefonoCliente, setTelefonoCliente] = useState("");
@@ -299,69 +301,42 @@ export default function CrearOrden() {
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-7xl mx-auto">
-        {/* Solo mostrar header si no es cocinero (el cocinero tiene el selector arriba) */}
-        {usuario?.rol !== "cocina" && (
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-black">Nueva Orden</h1>
-            <div className="flex items-center gap-4">
-              <span className="text-gray-600">
-                Usuario: <span className="font-bold">{usuario?.nombre}</span>
-              </span>
-              <button
-                onClick={logout}
-                className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
-          </div>
-        )}
-
-        {usuario?.rol === "cocina" && (
-          <h1 className="text-3xl font-bold text-black mb-6">Nueva Orden</h1>
-        )}
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Panel de productos */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-            {/* Selector de tipo de orden */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2 text-gray-800">
-                Tipo de Orden
-              </label>
-              <div className="flex gap-2">
-                {(["local", "para_llevar", "domicilio"] as TipoOrden[]).map(
-                  (tipo) => (
+            {/* Selector de tipo de orden: solo visible para el agente digital */}
+            {usuario?.rol === "digital" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 text-gray-800">
+                  Tipo de Pedido
+                </label>
+                <div className="flex gap-2">
+                  {(["para_llevar", "domicilio"] as TipoOrden[]).map((tipo) => (
                     <button
                       key={tipo}
                       type="button"
                       onClick={() => {
                         setTipoOrden(tipo);
-                        setNumeroMesa("");
                         setNombreCliente("");
                         setTelefonoCliente("");
                         setCostoEnvio("");
                       }}
                       className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
                         tipoOrden === tipo
-                          ? tipo === "local"
-                            ? "bg-blue-600 text-white"
-                            : tipo === "para_llevar"
-                              ? "bg-yellow-500 text-white"
-                              : "bg-red-500 text-white"
+                          ? tipo === "para_llevar"
+                            ? "bg-yellow-500 text-white"
+                            : "bg-red-500 text-white"
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                       }`}
                     >
-                      {tipo === "local"
-                        ? "🍽 Local"
-                        : tipo === "para_llevar"
-                          ? "🥡 Para Llevar"
-                          : "🛵 Domicilio"}
+                      {tipo === "para_llevar"
+                        ? "🥡 Para Llevar"
+                        : "🛵 Domicilio"}
                     </button>
-                  ),
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Campos según tipo */}
             {tipoOrden === "local" && (

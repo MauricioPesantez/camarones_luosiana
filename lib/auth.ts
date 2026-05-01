@@ -9,25 +9,34 @@ interface Usuario {
   rol: string;
 }
 
-export function useAuth() {
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
-  const [loading, setLoading] = useState(true);
+const rolRedirects: Record<string, string> = {
+  admin: "/admin",
+  mesero: "/mesero",
+  cocina: "/cocina",
+  digital: "/digital",
+};
+
+export function useAuth(requiredRole?: string) {
   const router = useRouter();
 
+  const [usuario] = useState<Usuario | null>(() => {
+    if (typeof window === "undefined") return null;
+    const saved = localStorage.getItem("usuario");
+    return saved ? (JSON.parse(saved) as Usuario) : null;
+  });
+
   useEffect(() => {
-    const usuarioGuardado = localStorage.getItem("usuario");
-    if (usuarioGuardado) {
-      setUsuario(JSON.parse(usuarioGuardado));
-    } else {
+    if (!usuario) {
       router.push("/login");
+    } else if (requiredRole && usuario.rol !== requiredRole) {
+      router.push(rolRedirects[usuario.rol] ?? "/login");
     }
-    setLoading(false);
-  }, [router]);
+  }, [router, requiredRole, usuario]);
 
   const logout = () => {
     localStorage.removeItem("usuario");
     router.push("/login");
   };
 
-  return { usuario, loading, logout };
+  return { usuario, loading: false, logout };
 }
