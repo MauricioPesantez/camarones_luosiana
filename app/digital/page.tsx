@@ -41,9 +41,9 @@ interface Orden {
   }[];
 }
 
-export default function MeseroPage() {
-  const { usuario, loading: authLoading, logout } = useAuth("mesero");
-  const [vistaActiva, setVistaActiva] = useState<"crear" | "ordenes">("crear");
+export default function DigitalPage() {
+  const { usuario, loading: authLoading, logout } = useAuth("digital");
+  const [vistaActiva, setVistaActiva] = useState<"crear" | "pedidos">("crear");
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [loadingOrdenes, setLoadingOrdenes] = useState(false);
@@ -52,30 +52,27 @@ export default function MeseroPage() {
     useState<MetodoPago>("efectivo");
   const [loadingCobrar, setLoadingCobrar] = useState(false);
 
-  const puedeOrdenCobrarse = (o: Orden): boolean => {
-    const esLocal = !o.tipoOrden || o.tipoOrden === "local";
-    return esLocal
-      ? o.estado === "lista"
-      : !o.cobrada && o.estado !== "cancelada";
-  };
+  // Los pedidos digitales (para_llevar / domicilio) se pueden cobrar desde cualquier
+  // estado activo — el pago se confirma al entregar o al recoger.
+  const puedeOrdenCobrarse = (o: Orden): boolean =>
+    !o.cobrada && o.estado !== "cancelada";
 
-  const ordenesPorCobrar = ordenes.filter(puedeOrdenCobrarse);
+  const pedidosPorCobrar = ordenes.filter(puedeOrdenCobrarse);
 
   const cargarOrdenes = async () => {
     setLoadingOrdenes(true);
     try {
       const res = await fetch("/api/ordenes");
       const data = await res.json();
-      // Filtrar órdenes del mesero actual que no estén cobradas ni canceladas
-      const ordenesDelMesero = data.filter(
+      const misPedidos = data.filter(
         (orden: Orden) =>
           orden.mesero === usuario?.nombre &&
           orden.estado !== "cobrada" &&
           orden.estado !== "cancelada",
       );
-      setOrdenes(ordenesDelMesero);
+      setOrdenes(misPedidos);
     } catch (error) {
-      console.error("Error al cargar órdenes:", error);
+      console.error("Error al cargar pedidos:", error);
     } finally {
       setLoadingOrdenes(false);
     }
@@ -99,18 +96,18 @@ export default function MeseroPage() {
         await cargarOrdenes();
       } else {
         const error = await res.json();
-        alert(error.error || "Error al cobrar la orden");
+        alert(error.error || "Error al cobrar el pedido");
       }
     } catch (error) {
       console.error("Error al cobrar:", error);
-      alert("Error al cobrar la orden");
+      alert("Error al cobrar el pedido");
     } finally {
       setLoadingCobrar(false);
     }
   };
 
   useEffect(() => {
-    if (usuario && vistaActiva === "ordenes") {
+    if (usuario && vistaActiva === "pedidos") {
       cargarOrdenes();
     }
   }, [usuario, vistaActiva]);
@@ -139,27 +136,27 @@ export default function MeseroPage() {
                   : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
             >
-              ➕ Crear Orden
+              ➕ Nuevo Pedido
             </button>
             <button
-              onClick={() => setVistaActiva("ordenes")}
+              onClick={() => setVistaActiva("pedidos")}
               className={`relative px-4 py-2 rounded-lg font-semibold transition-colors ${
-                vistaActiva === "ordenes"
+                vistaActiva === "pedidos"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
             >
-              📋 Mis Órdenes
-              {ordenesPorCobrar.length > 0 && (
+              📋 Mis Pedidos
+              {pedidosPorCobrar.length > 0 && (
                 <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {ordenesPorCobrar.length}
+                  {pedidosPorCobrar.length}
                 </span>
               )}
             </button>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-white">
-              Usuario: <span className="font-bold">{usuario.nombre}</span>
+              📱 <span className="font-bold">{usuario.nombre}</span>
             </span>
             <button
               onClick={logout}
@@ -178,7 +175,7 @@ export default function MeseroPage() {
         <div className="p-6 max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800">
-              Mis Órdenes Activas
+              Mis Pedidos Activos
             </h1>
             <button
               onClick={cargarOrdenes}
@@ -189,26 +186,26 @@ export default function MeseroPage() {
           </div>
 
           {loadingOrdenes ? (
-            <div className="text-center py-12">Cargando órdenes...</div>
+            <div className="text-center py-12">Cargando pedidos...</div>
           ) : ordenes.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
-              No tienes órdenes activas
+              No tienes pedidos activos
             </div>
           ) : (
             <>
-              {ordenesPorCobrar.length > 0 && (
+              {pedidosPorCobrar.length > 0 && (
                 <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-6 flex items-center gap-3">
                   <span className="text-2xl">💵</span>
                   <div>
                     <p className="font-bold text-green-800">
-                      {ordenesPorCobrar.length}{" "}
-                      {ordenesPorCobrar.length === 1
-                        ? "orden lista para cobrar"
-                        : "órdenes listas para cobrar"}
+                      {pedidosPorCobrar.length}{" "}
+                      {pedidosPorCobrar.length === 1
+                        ? "pedido por cobrar"
+                        : "pedidos por cobrar"}
                     </p>
                     <p className="text-sm text-green-700">
                       Las tarjetas con borde verde tienen el botón{" "}
-                      <strong>💵 Cobrar Orden</strong>
+                      <strong>💵 Cobrar Pedido</strong>
                     </p>
                   </div>
                 </div>
@@ -216,10 +213,6 @@ export default function MeseroPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {ordenes.map((orden) => {
                   const puedeCobrarse = puedeOrdenCobrarse(orden);
-                  const tituloOrden =
-                    !orden.tipoOrden || orden.tipoOrden === "local"
-                      ? `Mesa ${orden.numeroMesa}`
-                      : (orden.nombreCliente ?? "Sin nombre");
                   return (
                     <div
                       key={orden.id}
@@ -237,20 +230,16 @@ export default function MeseroPage() {
                               className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                                 orden.tipoOrden === "domicilio"
                                   ? "bg-purple-100 text-purple-700"
-                                  : orden.tipoOrden === "para_llevar"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-gray-100 text-gray-600"
+                                  : "bg-yellow-100 text-yellow-700"
                               }`}
                             >
                               {orden.tipoOrden === "domicilio"
                                 ? "🛵 Domicilio"
-                                : orden.tipoOrden === "para_llevar"
-                                  ? "🥡 Para llevar"
-                                  : "🪑 Local"}
+                                : "🥡 Para llevar"}
                             </span>
                           </div>
                           <h2 className="text-xl font-bold text-gray-800">
-                            {tituloOrden}
+                            {orden.nombreCliente ?? "Sin nombre"}
                           </h2>
                           {orden.tipoOrden === "domicilio" &&
                             orden.telefonoCliente && (
@@ -265,7 +254,7 @@ export default function MeseroPage() {
                         <div className="flex flex-col items-end gap-1">
                           {orden.modificada && (
                             <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">
-                              🔄 Modificada
+                              🔄 Modificado
                             </span>
                           )}
                           <span
@@ -280,11 +269,11 @@ export default function MeseroPage() {
                             }`}
                           >
                             {orden.estado === "lista"
-                              ? "✅ Lista"
+                              ? "✅ Listo"
                               : orden.estado === "en_preparacion"
                                 ? "🍳 En preparación"
                                 : orden.estado === "entregada"
-                                  ? "📦 Entregada"
+                                  ? "📦 Entregado"
                                   : "⏳ Pendiente"}
                           </span>
                         </div>
@@ -300,7 +289,7 @@ export default function MeseroPage() {
                             item.esCortesia ? (
                               <div
                                 key={idx}
-                                className="flex items-center gap-2 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-300 rounded-lg px-2.5 py-1.5"
+                                className="flex items-center gap-2 bg-linear-to-r from-amber-50 to-yellow-50 border border-amber-300 rounded-lg px-2.5 py-1.5"
                               >
                                 <span className="text-base leading-none">
                                   🎁
@@ -321,15 +310,27 @@ export default function MeseroPage() {
                         </div>
                       </div>
 
-                      {/* Total */}
-                      <div className="border-t pt-3 mb-4">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-gray-700">
-                            Total:
-                          </span>
-                          <span className="text-xl font-bold text-green-600">
-                            ${Number(orden.total).toFixed(2)}
-                          </span>
+                      {/* Desglose de precios */}
+                      <div className="border-t pt-3 mb-4 space-y-1">
+                        {orden.recargo !== null &&
+                          Number(orden.recargo) > 0 && (
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>Recargo envase:</span>
+                              <span>${Number(orden.recargo).toFixed(2)}</span>
+                            </div>
+                          )}
+                        {orden.costoEnvio !== null &&
+                          Number(orden.costoEnvio) > 0 && (
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>Costo de envío:</span>
+                              <span>
+                                ${Number(orden.costoEnvio).toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                        <div className="flex justify-between items-center text-xl font-bold text-green-600 pt-1 border-t">
+                          <span>Total:</span>
+                          <span>${Number(orden.total).toFixed(2)}</span>
                         </div>
                       </div>
 
@@ -343,7 +344,7 @@ export default function MeseroPage() {
                             }}
                             className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition-colors"
                           >
-                            💵 Cobrar Orden
+                            💵 Cobrar Pedido
                           </button>
                         )}
                         <button
@@ -356,7 +357,7 @@ export default function MeseroPage() {
                         >
                           {orden.estado === "lista"
                             ? "➕ Agregar más items"
-                            : "✏️ Editar Orden"}
+                            : "✏️ Editar Pedido"}
                         </button>
                       </div>
                     </div>
@@ -373,14 +374,21 @@ export default function MeseroPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
             <h3 className="text-xl font-bold mb-2 text-gray-800">
-              💵 Cobrar Orden
+              💵 Cobrar Pedido
             </h3>
-            <p className="text-gray-600 mb-1">
-              {!ordenACobrar.tipoOrden || ordenACobrar.tipoOrden === "local"
-                ? `Mesa ${ordenACobrar.numeroMesa}`
-                : ordenACobrar.nombreCliente}
-            </p>
-            <p className="text-2xl font-bold text-green-600 mb-5">
+            <p className="text-gray-600 mb-0.5">{ordenACobrar.nombreCliente}</p>
+            <span
+              className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                ordenACobrar.tipoOrden === "domicilio"
+                  ? "bg-purple-100 text-purple-700"
+                  : "bg-yellow-100 text-yellow-700"
+              }`}
+            >
+              {ordenACobrar.tipoOrden === "domicilio"
+                ? "🛵 Domicilio"
+                : "🥡 Para llevar"}
+            </span>
+            <p className="text-2xl font-bold text-green-600 mt-3 mb-5">
               ${Number(ordenACobrar.total).toFixed(2)}
             </p>
 

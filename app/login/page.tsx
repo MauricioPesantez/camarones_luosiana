@@ -124,6 +124,8 @@ export default function LoginPage() {
       router.push("/mesero");
     } else if (usuario.rol === "cocina") {
       router.push("/cocina");
+    } else if (usuario.rol === "digital") {
+      router.push("/digital");
     } else {
       router.push("/mesero");
     }
