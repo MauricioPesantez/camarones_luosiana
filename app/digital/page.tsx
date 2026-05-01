@@ -285,10 +285,10 @@ export default function DigitalPage() {
                           Items:
                         </h3>
                         <div className="space-y-1.5">
-                          {orden.items.map((item, idx) =>
+                          {orden.items.map((item) =>
                             item.esCortesia ? (
                               <div
-                                key={idx}
+                                key={item.id}
                                 className="flex items-center gap-2 bg-linear-to-r from-amber-50 to-yellow-50 border border-amber-300 rounded-lg px-2.5 py-1.5"
                               >
                                 <span className="text-base leading-none">
@@ -302,7 +302,7 @@ export default function DigitalPage() {
                                 </span>
                               </div>
                             ) : (
-                              <div key={idx} className="text-sm text-gray-600">
+                              <div key={item.id} className="text-sm text-gray-600">
                                 {item.cantidad}x {item.producto.nombre}
                               </div>
                             ),
