@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const productos = await prisma.producto.findMany({
       where: { disponible: true },
-      orderBy: [{ categoria: 'asc' }, { nombre: 'asc' }],
+      orderBy: [{ createdAt: 'asc' }],
     });
     return NextResponse.json(productos);
   } catch (error) {
