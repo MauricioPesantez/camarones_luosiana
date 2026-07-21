@@ -1,0 +1,176 @@
+// Camarones Louisiana - esquema Prisma
+// Conexión Neon: DATABASE_URL pooled (runtime), DIRECT_URL directo (migraciones).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  MESERO
+  COCINA
+  OPERADOR
+  ADMIN
+}
+
+enum OrderChannel {
+  SALON
+  DELIVERY
+  RETIRAR
+}
+
+enum OrderStatus {
+  ABIERTA
+  ENVIADA_A_COCINA
+  EN_PREPARACION
+  LISTA
+  ENTREGADA
+  COBRADA
+  CERRADA
+  CANCELADA
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+}
+
+enum Libro {
+  EFECTIVO
+  TRANSFERENCIA
+}
+
+enum TipoMovimiento {
+  APERTURA
+  VENTA_EFECTIVO
+  VENTA_TRANSFERENCIA
+  PAGO_CARRERA
+  PAGO_PROVEEDOR
+  COMPRA_MENOR
+  INGRESO_MANUAL
+  RETIRO_MANUAL
+  CIERRE
+}
+
+enum CajaEstado {
+  ABIERTA
+  CERRADA
+}
+
+model User {
+  id          String           @id @default(cuid())
+  usuario     String           @unique
+  claveHash   String
+  nombre      String
+  roles       Role[]
+  puedeCobrar Boolean          @default(false)
+  activo      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  ordenes     Order[]
+  movimientos MovimientoCaja[]
+  auditorias  AuditEntry[]
+}
+
+model Category {
+  id     String     @id @default(cuid())
+  nombre String     @unique
+  items  MenuItem[]
+}
+
+model MenuItem {
+  id          String      @id @default(cuid())
+  nombre      String
+  categoriaId String
+  categoria   Category    @relation(fields: [categoriaId], references: [id])
+  precio      Decimal     @db.Decimal(10, 2)
+  fotoUrl     String?
+  stockDelDia Int         @default(0)
+  disponible  Boolean     @default(true)
+  items       OrderItem[]
+}
+
+model Order {
+  id               String           @id @default(cuid())
+  numero           Int              @unique @default(autoincrement())
+  canal            OrderChannel
+  estado           OrderStatus      @default(ABIERTA)
+  mesa             Int?
+  clienteNombre    String?
+  clienteDireccion String?
+  clienteTelefono  String?
+  envio            Decimal          @default(0) @db.Decimal(10, 2)
+  envases          Decimal          @default(0) @db.Decimal(10, 2)
+  subtotal         Decimal          @default(0) @db.Decimal(10, 2)
+  total            Decimal          @default(0) @db.Decimal(10, 2)
+  metodoPago       MetodoPago?
+  comprobanteUrl   String?
+  creadoPorId      String
+  creadoPor        User             @relation(fields: [creadoPorId], references: [id])
+  items            OrderItem[]
+  movimientos      MovimientoCaja[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([estado])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId  String
+  menuItem    MenuItem @relation(fields: [menuItemId], references: [id])
+  nombrePlato String // snapshot del nombre al momento del pedido
+  precioUnit  Decimal  @db.Decimal(10, 2) // snapshot del precio
+  cantidad    Int
+}
+
+model CajaSession {
+  id              String           @id @default(cuid())
+  fecha           DateTime
+  fondoInicial    Decimal          @db.Decimal(10, 2)
+  estado          CajaEstado       @default(ABIERTA)
+  efectivoContado Decimal?         @db.Decimal(10, 2)
+  diferencia      Decimal?         @db.Decimal(10, 2)
+  firmadoPorId    String?
+  movimientos     MovimientoCaja[]
+  createdAt       DateTime         @default(now())
+  closedAt        DateTime?
+}
+
+model MovimientoCaja {
+  id                   String         @id @default(cuid())
+  sesionId             String
+  sesion               CajaSession    @relation(fields: [sesionId], references: [id])
+  tipo                 TipoMovimiento
+  libro                Libro
+  monto                Decimal        @db.Decimal(10, 2) // con signo
+  orderId              String?
+  order                Order?         @relation(fields: [orderId], references: [id])
+  categoria            String?
+  esCarreraPassthrough Boolean        @default(false)
+  empleadoId           String
+  empleado             User           @relation(fields: [empleadoId], references: [id])
+  nota                 String?
+  timestamp            DateTime       @default(now())
+
+  @@index([sesionId, libro])
+}
+
+model AuditEntry {
+  id          String   @id @default(cuid())
+  usuarioId   String
+  usuario     User     @relation(fields: [usuarioId], references: [id])
+  accion      String // p.ej. CANCELAR_ORDEN, ABRIR_CAJA, OVERRIDE_PRECIO
+  entidadTipo String // Order, CajaSession, MenuItem
+  entidadId   String
+  detalle     Json?
+  timestamp   DateTime @default(now())
+
+  @@index([timestamp])
+}

@@ -1,0 +1,240 @@
+{
+  "pbtResults": {},
+  "executionHistory": {
+    "7. Definir los puertos de la capa de aplicación": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179424882
+      },
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179441373
+      },
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179810083
+      }
+    ],
+    "8.1 Escribir `prisma/schema.prisma` con todos los modelos y enums del diseño": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179424948
+      },
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179817736
+      }
+    ],
+    "8.2 Crear el cliente Prisma singleton (seguro para serverless)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425009
+      }
+    ],
+    "9. Implementar los repositorios Prisma": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425064
+      }
+    ],
+    "10.1 Implementar `JwtAuthService` (bcrypt/argon2 + JWT en cookie firmada)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425158
+      }
+    ],
+    "10.2 Implementar `S3StorageService` para comprobantes de transferencia": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425206
+      }
+    ],
+    "10.3 Implementar `PollingNotifier` y `SystemClock`": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425259
+      }
+    ],
+    "10.4 Crear el contenedor de inyección de dependencias `infrastructure/di/container.ts`": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425308
+      }
+    ],
+    "11.1 Implementar `Login` (busca por usuario, `verificarClave`, emite sesión)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425364
+      }
+    ],
+    "11.2 Implementar `GestionarUsuarios` (CRUD, asignar/revocar roles y `puedeCobrar`)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425425
+      }
+    ],
+    "12. Implementar los casos de uso del menú": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425475
+      }
+    ],
+    "13.1 Implementar `CrearOrden` con validación por canal": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425537
+      }
+    ],
+    "13.2 Implementar `AgregarItemAOrden` y `QuitarItem` (transaccional, con ajuste de stock y auto-86)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425622
+      }
+    ],
+    "13.3 Implementar `EnviarACocina`, `IniciarPreparacion`, `EntregarOrden`": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425668
+      }
+    ],
+    "13.4 Implementar `CancelarOrden` con autorización admin, restauración de stock y auditoría": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425718
+      }
+    ],
+    "14. Implementar el caso de uso de cobro": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425774
+      },
+      {
+        "executionId": "b4bd4dc7-5f3a-4f59-becd-31528841b31d",
+        "chatSessionId": "sess_a4a527bf-aa46-4506-ae8c-b9836300ea2d",
+        "timestamp": 1783737830203
+      },
+      {
+        "executionId": "b4bd4dc7-5f3a-4f59-becd-31528841b31d",
+        "chatSessionId": "sess_a4a527bf-aa46-4506-ae8c-b9836300ea2d",
+        "timestamp": 1783738345359
+      }
+    ],
+    "15.1 Implementar `AbrirCaja` (rechaza si hay sesión abierta, crea movimiento APERTURA, solo admin)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425832
+      }
+    ],
+    "15.2 Implementar `RegistrarPagoProveedor`, `RegistrarCompraMenor`, `IngresoRetiroManual`": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425890
+      }
+    ],
+    "15.3 Implementar `CerrarCaja` (calcula esperado/diferencia/puente, marca CERRADA, bloquea edición, solo admin, audita)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425939
+      }
+    ],
+    "16. Implementar el caso de uso de cocina": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179425991
+      }
+    ],
+    "17.1 Crear `POST /api/auth/login` y el manejo de la cookie de sesión": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426042
+      }
+    ],
+    "17.2 Crear `middleware.ts` con protección de rutas por rol/permiso": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426134
+      }
+    ],
+    "18. Implementar los route handlers / server actions de cada dominio": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426190
+      }
+    ],
+    "19. Implementar el Proveedor_UI (confirmaciones y toasts accesibles)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426244
+      }
+    ],
+    "20. Implementar la pantalla de toma de orden (Mesero/Operador)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426292
+      }
+    ],
+    "21. Implementar la pantalla KDS (cocina)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426341
+      }
+    ],
+    "22. Implementar la pantalla de cobro": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426393
+      }
+    ],
+    "23. Implementar las pantallas de caja y cierre (admin)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426446
+      }
+    ],
+    "24. Implementar las pantallas de administración (menú, usuarios, auditoría)": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426498
+      }
+    ],
+    "25. Verificación de accesibilidad y cuadre final": [
+      {
+        "executionId": "d86b2cb1-a0ae-4adb-98a4-509cae7fb7df",
+        "chatSessionId": "sess_bb287533-5f27-49e6-ad2d-4f3ce7709686",
+        "timestamp": 1782179426547
+      }
+    ]
+  }
+}
