@@ -43,9 +43,9 @@ model Orden {
   tipoOrden           String           @default("local")    // "local" | "para_llevar" | "domicilio"
   nivelPicante        String           @default("natural")  // "natural" | "picante_1" | "picante_2" | "picante_3"
   numeroMesa          Int?                                   // Solo para tipo "local"
-  nombreCliente       String?                                // Para "para_llevar" y "domicilio"
+  nombreCliente       String?                                // Obligatorio para "para_llevar", opcional para "domicilio"
   telefonoCliente     String?                                // Solo para "domicilio"
-  recargo             Decimal?         @db.Decimal(10, 2)   // $0.50 para "para_llevar" y "domicilio"
+  recargo             Decimal?         @db.Decimal(10, 2)   // $1.25 por recipientes para "para_llevar" y "domicilio"
   costoEnvio          Decimal?         @db.Decimal(10, 2)   // Solo para "domicilio"
   metodoPago          String?                                // "efectivo" | "transferencia"
   cobrada             Boolean          @default(false)

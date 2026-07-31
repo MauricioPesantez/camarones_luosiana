@@ -77,7 +77,9 @@ export class PrinterService {
       if (tipoOrden === 'local') {
         this.printer.println(`Mesa: ${orden.numeroMesa}`);
       } else {
-        this.printer.println(`Cliente: ${orden.nombreCliente}`);
+        if (orden.nombreCliente) {
+          this.printer.println(`Cliente: ${orden.nombreCliente}`);
+        }
         if (tipoOrden === 'domicilio' && orden.telefonoCliente) {
           this.printer.println(`Telefono: ${orden.telefonoCliente}`);
         }
@@ -119,7 +121,7 @@ export class PrinterService {
       const subtotal = Number(orden.total) - Number(orden.recargo ?? 0) - Number(orden.costoEnvio ?? 0);
       this.printer.println(`Subtotal:   $${subtotal.toFixed(2)}`);
       if (Number(orden.recargo ?? 0) > 0) {
-        this.printer.println(`Recargo:    $${Number(orden.recargo).toFixed(2)}`);
+        this.printer.println(`Recipientes: $${Number(orden.recargo).toFixed(2)}`);
       }
       if (Number(orden.costoEnvio ?? 0) > 0) {
         this.printer.println(`Envio:      $${Number(orden.costoEnvio).toFixed(2)}`);

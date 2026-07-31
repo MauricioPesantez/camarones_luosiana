@@ -315,7 +315,7 @@ export default function DigitalPage() {
                         {orden.recargo !== null &&
                           Number(orden.recargo) > 0 && (
                             <div className="flex justify-between text-xs text-gray-500">
-                              <span>Recargo envase:</span>
+                              <span>Recargo por recipientes:</span>
                               <span>${Number(orden.recargo).toFixed(2)}</span>
                             </div>
                           )}
@@ -376,7 +376,11 @@ export default function DigitalPage() {
             <h3 className="text-xl font-bold mb-2 text-gray-800">
               💵 Cobrar Pedido
             </h3>
-            <p className="text-gray-600 mb-0.5">{ordenACobrar.nombreCliente}</p>
+            <p className="text-gray-600 mb-0.5">
+              {ordenACobrar.nombreCliente ??
+                ordenACobrar.telefonoCliente ??
+                "Cliente"}
+            </p>
             <span
               className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                 ordenACobrar.tipoOrden === "domicilio"

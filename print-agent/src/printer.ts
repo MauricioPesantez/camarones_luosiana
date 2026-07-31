@@ -53,9 +53,11 @@ function linesForPayload(payload: PrintJobPayload): string[] {
     ...(spiceLevelLabel(order.spiceLevel)
       ? [`Picante: ${spiceLevelLabel(order.spiceLevel)}`]
       : []),
-    order.type === 'local'
-      ? `Mesa: ${order.tableNumber ?? '-'}`
-      : `Cliente: ${order.customerName ?? '-'}`,
+    ...(order.type === 'local'
+      ? [`Mesa: ${order.tableNumber ?? '-'}`]
+      : order.customerName
+        ? [`Cliente: ${order.customerName}`]
+        : []),
     ...(order.customerPhone ? [`Telefono: ${order.customerPhone}`] : []),
     `Mesero: ${order.waiterName}`,
     `Hora: ${new Date(order.createdAt).toLocaleString('es-EC')}`,

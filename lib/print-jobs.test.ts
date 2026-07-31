@@ -31,9 +31,9 @@ function createOrder(): PrintOrderSource {
     telefonoCliente: '0999999999',
     mesero: 'Maria',
     observaciones: 'Sin picante',
-    recargo: '0.50',
+    recargo: '1.25',
     costoEnvio: { toNumber: () => 2 },
-    total: '15.50',
+    total: '16.25',
     createdAt: new Date('2026-07-31T18:58:00.000Z'),
     items: [
       {
@@ -59,7 +59,8 @@ async function run(): Promise<void> {
   assert.equal(payload.ticketLabel, 'ORDEN');
   assert.equal(payload.order.shortCode, 'abcdef');
   assert.equal(payload.order.spiceLevel, 'picante_2');
-  assert.equal(payload.order.total, 15.5);
+  assert.equal(payload.order.surcharge, 1.25);
+  assert.equal(payload.order.total, 16.25);
   assert.equal(payload.order.items[0].unitPrice, 6.5);
   assert.equal(payload.generatedAt, FIXED_NOW.toISOString());
 

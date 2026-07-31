@@ -378,7 +378,9 @@ export default function MeseroPage() {
             <p className="text-gray-600 mb-1">
               {!ordenACobrar.tipoOrden || ordenACobrar.tipoOrden === "local"
                 ? `Mesa ${ordenACobrar.numeroMesa}`
-                : ordenACobrar.nombreCliente}
+                : (ordenACobrar.nombreCliente ??
+                  ordenACobrar.telefonoCliente ??
+                  "Cliente")}
             </p>
             <p className="text-2xl font-bold text-green-600 mb-5">
               ${Number(ordenACobrar.total).toFixed(2)}

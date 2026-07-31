@@ -38,6 +38,19 @@ interface Orden {
   }[];
 }
 
+function obtenerTituloOrden(orden: {
+  tipoOrden?: string | null;
+  numeroMesa: number | null;
+  nombreCliente: string | null;
+  telefonoCliente?: string | null;
+}): string {
+  if (!orden.tipoOrden || orden.tipoOrden === "local") {
+    return `Mesa ${orden.numeroMesa}`;
+  }
+
+  return orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente";
+}
+
 export default function AdminPage() {
   const { usuario, loading: authLoading, logout } = useAuth();
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
@@ -341,9 +354,7 @@ export default function AdminPage() {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-semibold text-lg">
-                            {!orden.tipoOrden || orden.tipoOrden === "local"
-                              ? `Mesa ${orden.numeroMesa}`
-                              : orden.nombreCliente}{" "}
+                            {obtenerTituloOrden(orden)}{" "}
                             - {orden.mesero}
                           </p>
                           <p className="text-sm text-gray-600">
@@ -454,10 +465,7 @@ export default function AdminPage() {
                 Aprobar Orden sin Stock
               </h3>
               <p className="text-gray-700 mb-4">
-                {!ordenParaAprobar.tipoOrden ||
-                ordenParaAprobar.tipoOrden === "local"
-                  ? `Mesa ${ordenParaAprobar.numeroMesa}`
-                  : ordenParaAprobar.nombreCliente}{" "}
+                {obtenerTituloOrden(ordenParaAprobar)}{" "}
                 - {ordenParaAprobar.mesero}
               </p>
               <div className="mb-4">
@@ -615,9 +623,7 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-700">
-                          {!orden.tipoOrden || orden.tipoOrden === "local"
-                            ? `Mesa ${orden.numeroMesa}`
-                            : orden.nombreCliente}
+                          {obtenerTituloOrden(orden)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">
                           {orden.mesero}
@@ -769,9 +775,7 @@ export default function AdminPage() {
               💵 Cobrar Orden
             </h3>
             <p className="text-gray-600 mb-1">
-              {!ordenACobrar.tipoOrden || ordenACobrar.tipoOrden === "local"
-                ? `Mesa ${ordenACobrar.numeroMesa}`
-                : ordenACobrar.nombreCliente}{" "}
+              {obtenerTituloOrden(ordenACobrar)}{" "}
               — {ordenACobrar.mesero}
             </p>
             <p className="text-2xl font-bold text-green-600 mb-5">

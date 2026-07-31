@@ -2,7 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PrinterService } from '@/lib/printer';
 import { ItemSinStock } from '@/types/stock';
-import { CrearOrdenRequest, TipoOrden, esNivelPicante } from '@/types/orden';
+import {
+  CrearOrdenRequest,
+  RECARGO_RECIPIENTES,
+  TipoOrden,
+  esNivelPicante,
+} from '@/types/orden';
 import { Prisma } from '@prisma/client';
 import { notificarClientes } from '@/lib/sse';
 import {
@@ -11,8 +16,6 @@ import {
   shouldEnqueuePrintJob,
 } from '@/lib/print-jobs';
 import { isDirectPrintEnabled } from '@/lib/print-config';
-
-const RECARGO_FIJO = 0.50; // $0.50 para para_llevar y domicilio
 
 const ORDEN_INCLUDE = {
   items: {
@@ -66,10 +69,10 @@ export async function POST(request: Request) {
     if (tipoOrden === 'local' && !body.numeroMesa) {
       return NextResponse.json({ error: 'El número de mesa es requerido para órdenes locales' }, { status: 400 });
     }
-    if ((tipoOrden === 'para_llevar' || tipoOrden === 'domicilio') && !body.nombreCliente) {
+    if (tipoOrden === 'para_llevar' && !body.nombreCliente?.trim()) {
       return NextResponse.json({ error: 'El nombre del cliente es requerido' }, { status: 400 });
     }
-    if (tipoOrden === 'domicilio' && !body.telefonoCliente) {
+    if (tipoOrden === 'domicilio' && !body.telefonoCliente?.trim()) {
       return NextResponse.json({ error: 'El teléfono del cliente es requerido para domicilio' }, { status: 400 });
     }
     if (tipoOrden === 'domicilio' && (body.costoEnvio === undefined || body.costoEnvio < 0)) {
@@ -77,7 +80,7 @@ export async function POST(request: Request) {
     }
 
     // Recargo y costo de envío
-    const recargo = tipoOrden !== 'local' ? RECARGO_FIJO : 0;
+    const recargo = tipoOrden !== 'local' ? RECARGO_RECIPIENTES : 0;
     const costoEnvio = tipoOrden === 'domicilio' ? (body.costoEnvio ?? 0) : 0;
 
     // Obtener productos con sus tiempos de preparación y stock
@@ -188,8 +191,10 @@ export async function POST(request: Request) {
           tipoOrden,
           nivelPicante: body.nivelPicante,
           numeroMesa: tipoOrden === 'local' ? (body.numeroMesa ?? null) : null,
-          nombreCliente: tipoOrden !== 'local' ? body.nombreCliente : null,
-          telefonoCliente: tipoOrden === 'domicilio' ? body.telefonoCliente : null,
+          nombreCliente:
+            tipoOrden !== 'local' ? body.nombreCliente?.trim() || null : null,
+          telefonoCliente:
+            tipoOrden === 'domicilio' ? body.telefonoCliente?.trim() : null,
           recargo: recargo > 0 ? recargo : null,
           costoEnvio: costoEnvio > 0 ? costoEnvio : null,
           mesero: body.mesero,
@@ -318,6 +323,7 @@ export async function POST(request: Request) {
         nivelPicante: orden.nivelPicante,
         numeroMesa: orden.numeroMesa,
         nombreCliente: orden.nombreCliente,
+        telefonoCliente: orden.telefonoCliente,
         mesero: orden.mesero,
         tiempoEstimado: orden.tiempoEstimado,
         itemsCount: orden.items.length,

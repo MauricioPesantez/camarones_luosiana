@@ -165,7 +165,7 @@ export default function DetalleOrdenModal({
             <h2 className="text-2xl font-bold text-gray-800">
               {!orden.tipoOrden || orden.tipoOrden === "local"
                 ? `Mesa ${orden.numeroMesa}`
-                : orden.nombreCliente}
+                : (orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente")}
             </h2>
             <p className="text-sm text-gray-500">
               {new Date(orden.createdAt).toLocaleString("es-EC")}
@@ -467,7 +467,7 @@ export default function DetalleOrdenModal({
                                 colSpan={4}
                                 className="px-4 py-2 text-right text-sm text-gray-600"
                               >
-                                Recargo (
+                                Recargo por recipientes (
                                 {orden.tipoOrden === "domicilio"
                                   ? "domicilio"
                                   : "para llevar"}

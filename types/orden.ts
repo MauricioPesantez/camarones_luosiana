@@ -4,6 +4,8 @@ import { ItemSinStock } from './stock';
 
 export type TipoOrden = 'local' | 'para_llevar' | 'domicilio';
 
+export const RECARGO_RECIPIENTES = 1.25;
+
 export const NIVELES_PICANTE = [
   { value: 'natural', label: 'Natural' },
   { value: 'picante_1', label: 'Picante 1' },
@@ -37,7 +39,7 @@ export type EstadoOrden =
 
 export interface DesglosePrecio {
   subtotalProductos: number;
-  recargo: number;       // $0.50 para para_llevar y domicilio
+  recargo: number;       // $1.25 por recipientes para para_llevar y domicilio
   costoEnvio: number;    // Solo para domicilio
   total: number;         // subtotalProductos + recargo + costoEnvio
 }
@@ -47,7 +49,7 @@ export interface CrearOrdenRequest {
   nivelPicante: NivelPicante;
   // Solo local
   numeroMesa?: number;
-  // Para llevar y domicilio
+  // Obligatorio para llevar; opcional para domicilio
   nombreCliente?: string;
   // Solo domicilio
   telefonoCliente?: string;
@@ -115,6 +117,7 @@ export interface OrdenPendienteAprobacion {
   nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
+  telefonoCliente: string | null;
   mesero: string;
   total: number;
   itemsSinStock: ItemSinStock[];

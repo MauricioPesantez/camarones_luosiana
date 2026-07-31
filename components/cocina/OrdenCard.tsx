@@ -205,7 +205,7 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
         <h2 className="text-2xl font-bold text-gray-800">
           {!orden.tipoOrden || orden.tipoOrden === "local"
             ? `Mesa ${orden.numeroMesa}`
-            : orden.nombreCliente}
+            : (orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente")}
         </h2>
         {orden.tipoOrden === "domicilio" && orden.telefonoCliente && (
           <p className="text-gray-600 text-sm">Telf: {orden.telefonoCliente}</p>

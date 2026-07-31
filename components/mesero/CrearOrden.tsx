@@ -24,10 +24,9 @@ import { useAuth } from "@/lib/auth";
 import {
   NIVELES_PICANTE,
   NivelPicante,
+  RECARGO_RECIPIENTES,
   TipoOrden,
 } from "@/types/orden";
-
-const RECARGO_FIJO = 0.5;
 
 export default function CrearOrden() {
   const { usuario, loading: authLoading } = useAuth();
@@ -154,7 +153,8 @@ export default function CrearOrden() {
     );
   };
 
-  const calcularRecargo = () => (tipoOrden !== "local" ? RECARGO_FIJO : 0);
+  const calcularRecargo = () =>
+    tipoOrden !== "local" ? RECARGO_RECIPIENTES : 0;
 
   const calcularCostoEnvio = () =>
     tipoOrden === "domicilio" ? parseFloat(costoEnvio) || 0 : 0;
@@ -192,10 +192,7 @@ export default function CrearOrden() {
     if (!nivelPicante) return "Selecciona el nivel de picante";
     if (tipoOrden === "local" && !numeroMesa)
       return "Ingresa el número de mesa";
-    if (
-      (tipoOrden === "para_llevar" || tipoOrden === "domicilio") &&
-      !nombreCliente.trim()
-    )
+    if (tipoOrden === "para_llevar" && !nombreCliente.trim())
       return "Ingresa el nombre del cliente";
     if (tipoOrden === "domicilio" && !telefonoCliente.trim())
       return "Ingresa el teléfono del cliente";
@@ -236,7 +233,9 @@ export default function CrearOrden() {
           nivelPicante,
           numeroMesa: tipoOrden === "local" ? parseInt(numeroMesa) : undefined,
           nombreCliente:
-            tipoOrden !== "local" ? nombreCliente.trim() : undefined,
+            tipoOrden !== "local"
+              ? nombreCliente.trim() || undefined
+              : undefined,
           telefonoCliente:
             tipoOrden === "domicilio" ? telefonoCliente.trim() : undefined,
           costoEnvio:
@@ -366,11 +365,13 @@ export default function CrearOrden() {
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-2 text-gray-800">
                   Nombre del Cliente
+                  {tipoOrden === "domicilio" ? " (opcional)" : " *"}
                 </label>
                 <input
                   type="text"
                   value={nombreCliente}
                   onChange={(e) => setNombreCliente(e.target.value)}
+                  required={tipoOrden === "para_llevar"}
                   className="w-full border rounded-lg px-4 py-2 text-black"
                   placeholder="Ej: Juan Pérez"
                 />
@@ -381,12 +382,13 @@ export default function CrearOrden() {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-800">
-                    Teléfono
+                    Teléfono *
                   </label>
                   <input
-                    type="text"
+                    type="tel"
                     value={telefonoCliente}
                     onChange={(e) => setTelefonoCliente(e.target.value)}
+                    required
                     className="w-full border rounded-lg px-4 py-2 text-black"
                     placeholder="Ej: 0991234567"
                   />
@@ -637,7 +639,7 @@ export default function CrearOrden() {
               </div>
               {tipoOrden !== "local" && (
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Recargo:</span>
+                  <span>Recargo por recipientes:</span>
                   <span>${calcularRecargo().toFixed(2)}</span>
                 </div>
               )}

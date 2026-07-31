@@ -34,6 +34,7 @@ export async function GET() {
       nivelPicante: orden.nivelPicante as OrdenPendienteAprobacion['nivelPicante'],
       numeroMesa: orden.numeroMesa,
       nombreCliente: orden.nombreCliente,
+      telefonoCliente: orden.telefonoCliente,
       mesero: orden.mesero,
       total: Number(orden.total),
       itemsSinStock: Array.isArray(orden.itemsSinStock)
