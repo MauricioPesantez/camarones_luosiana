@@ -6,6 +6,8 @@ async function main() {
   console.log('🔄 Limpiando datos anteriores...');
 
   // Limpiar en orden por dependencias FK
+  await prisma.printJob.deleteMany();
+  await prisma.printAgent.deleteMany();
   await prisma.historialOrden.deleteMany();
   await prisma.item.deleteMany();
   await prisma.orden.deleteMany();
@@ -75,7 +77,11 @@ async function main() {
     { nombre: 'Juan Pérez', rol: 'mesero', password: null },
     { nombre: 'María García', rol: 'mesero', password: null },
     { nombre: 'Carlos López', rol: 'cocina', password: null },
-    { nombre: 'Admin', rol: 'admin', password: 'admin123' },
+    {
+      nombre: 'Admin',
+      rol: 'admin',
+      password: process.env.SEED_ADMIN_PASSWORD ?? 'admin123',
+    },
   ];
 
   for (const u of usuarios) {

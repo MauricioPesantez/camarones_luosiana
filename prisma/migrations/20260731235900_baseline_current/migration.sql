@@ -1,4 +1,9 @@
--- CreateTable
+-- Baseline completo generado desde prisma/schema.prisma.
+-- Sustituye el historial parcial usado durante preproduccion.
+
+CREATE TYPE "PrintJobType" AS ENUM ('ORDER', 'AMENDMENT', 'REPRINT');
+CREATE TYPE "PrintJobStatus" AS ENUM ('PENDING', 'PROCESSING', 'RETRY', 'SUCCEEDED', 'NEEDS_REVIEW', 'DISCARDED', 'FAILED');
+
 CREATE TABLE "Producto" (
     "id" TEXT NOT NULL,
     "nombre" TEXT NOT NULL,
@@ -11,14 +16,21 @@ CREATE TABLE "Producto" (
     "stockMinimo" INTEGER DEFAULT 5,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-
     CONSTRAINT "Producto_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "Orden" (
     "id" TEXT NOT NULL,
-    "numeroMesa" INTEGER NOT NULL,
+    "tipoOrden" TEXT NOT NULL DEFAULT 'local',
+    "numeroMesa" INTEGER,
+    "nombreCliente" TEXT,
+    "telefonoCliente" TEXT,
+    "recargo" DECIMAL(10,2),
+    "costoEnvio" DECIMAL(10,2),
+    "metodoPago" TEXT,
+    "cobrada" BOOLEAN NOT NULL DEFAULT false,
+    "fechaCobro" TIMESTAMP(3),
+    "cobradaPor" TEXT,
     "mesero" TEXT NOT NULL,
     "estado" TEXT NOT NULL DEFAULT 'pendiente',
     "observaciones" TEXT,
@@ -32,11 +44,50 @@ CREATE TABLE "Orden" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "impresa" BOOLEAN NOT NULL DEFAULT false,
-
+    "printRevision" INTEGER NOT NULL DEFAULT 0,
     CONSTRAINT "Orden_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
+CREATE TABLE "PrintJob" (
+    "id" TEXT NOT NULL,
+    "ordenId" TEXT NOT NULL,
+    "type" "PrintJobType" NOT NULL,
+    "status" "PrintJobStatus" NOT NULL DEFAULT 'PENDING',
+    "dedupeKey" TEXT NOT NULL,
+    "revision" INTEGER NOT NULL,
+    "payloadVersion" INTEGER NOT NULL DEFAULT 1,
+    "payload" JSONB NOT NULL,
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "maxAttempts" INTEGER NOT NULL DEFAULT 10,
+    "availableAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "autoPrintUntil" TIMESTAMP(3) NOT NULL,
+    "workerId" TEXT,
+    "leasedAt" TIMESTAMP(3),
+    "leaseExpiresAt" TIMESTAMP(3),
+    "lastErrorCode" TEXT,
+    "lastError" TEXT,
+    "printedAt" TIMESTAMP(3),
+    "reviewedAt" TIMESTAMP(3),
+    "reviewedBy" TEXT,
+    "reviewReason" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "PrintJob_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "PrintAgent" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "version" TEXT,
+    "lastSeenAt" TIMESTAMP(3),
+    "lastPrinterCheckAt" TIMESTAMP(3),
+    "printerReachable" BOOLEAN,
+    "lastError" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "PrintAgent_pkey" PRIMARY KEY ("id")
+);
+
 CREATE TABLE "Item" (
     "id" TEXT NOT NULL,
     "ordenId" TEXT NOT NULL,
@@ -45,22 +96,20 @@ CREATE TABLE "Item" (
     "precioUnitario" DECIMAL(10,2) NOT NULL,
     "subtotal" DECIMAL(10,2) NOT NULL,
     "observaciones" TEXT,
+    "esCortesia" BOOLEAN NOT NULL DEFAULT false,
+    "adminCortesia" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT "Item_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "Mesa" (
     "id" TEXT NOT NULL,
     "numero" INTEGER NOT NULL,
     "capacidad" INTEGER NOT NULL,
     "disponible" BOOLEAN NOT NULL DEFAULT true,
-
     CONSTRAINT "Mesa_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "Usuario" (
     "id" TEXT NOT NULL,
     "nombre" TEXT NOT NULL,
@@ -68,11 +117,9 @@ CREATE TABLE "Usuario" (
     "password" TEXT,
     "activo" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT "Usuario_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "HistorialOrden" (
     "id" TEXT NOT NULL,
     "ordenId" TEXT NOT NULL,
@@ -86,27 +133,20 @@ CREATE TABLE "HistorialOrden" (
     "razon" TEXT,
     "diferenciaTotal" DECIMAL(10,2),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
     CONSTRAINT "HistorialOrden_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
+CREATE UNIQUE INDEX "PrintJob_dedupeKey_key" ON "PrintJob"("dedupeKey");
+CREATE INDEX "PrintJob_status_availableAt_idx" ON "PrintJob"("status", "availableAt");
+CREATE INDEX "PrintJob_ordenId_createdAt_idx" ON "PrintJob"("ordenId", "createdAt");
+CREATE INDEX "PrintJob_leaseExpiresAt_idx" ON "PrintJob"("leaseExpiresAt");
+CREATE INDEX "PrintAgent_lastSeenAt_idx" ON "PrintAgent"("lastSeenAt");
 CREATE UNIQUE INDEX "Mesa_numero_key" ON "Mesa"("numero");
-
--- CreateIndex
 CREATE INDEX "HistorialOrden_ordenId_idx" ON "HistorialOrden"("ordenId");
-
--- CreateIndex
 CREATE INDEX "HistorialOrden_createdAt_idx" ON "HistorialOrden"("createdAt");
 
--- AddForeignKey
 ALTER TABLE "Orden" ADD CONSTRAINT "Orden_aprobadaPorId_fkey" FOREIGN KEY ("aprobadaPorId") REFERENCES "Usuario"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
+ALTER TABLE "PrintJob" ADD CONSTRAINT "PrintJob_ordenId_fkey" FOREIGN KEY ("ordenId") REFERENCES "Orden"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "Item" ADD CONSTRAINT "Item_ordenId_fkey" FOREIGN KEY ("ordenId") REFERENCES "Orden"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Item" ADD CONSTRAINT "Item_productoId_fkey" FOREIGN KEY ("productoId") REFERENCES "Producto"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "HistorialOrden" ADD CONSTRAINT "HistorialOrden_ordenId_fkey" FOREIGN KEY ("ordenId") REFERENCES "Orden"("id") ON DELETE CASCADE ON UPDATE CASCADE;
