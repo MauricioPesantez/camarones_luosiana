@@ -7,6 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum PrintJobType {
+  ORDER
+  AMENDMENT
+  REPRINT
+}
+
+enum PrintJobStatus {
+  PENDING
+  PROCESSING
+  RETRY
+  SUCCEEDED
+  NEEDS_REVIEW
+  DISCARDED
+  FAILED
+}
+
 model Producto {
   id                String   @id @default(cuid())
   nombre            String
@@ -50,6 +66,53 @@ model Orden {
   items               Item[]
   historial           HistorialOrden[]
   impresa             Boolean          @default(false)
+  printRevision       Int              @default(0)
+  printJobs           PrintJob[]
+}
+
+model PrintJob {
+  id             String         @id @default(cuid())
+  ordenId        String
+  orden          Orden          @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  type           PrintJobType
+  status         PrintJobStatus @default(PENDING)
+  dedupeKey      String         @unique
+  revision       Int
+  payloadVersion Int            @default(1)
+  payload        Json
+  attempts       Int            @default(0)
+  maxAttempts    Int            @default(10)
+  availableAt    DateTime       @default(now())
+  autoPrintUntil DateTime
+  workerId       String?
+  leasedAt       DateTime?
+  leaseExpiresAt DateTime?
+  lastErrorCode  String?
+  lastError      String?
+  printedAt      DateTime?
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  reviewReason   String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([status, availableAt])
+  @@index([ordenId, createdAt])
+  @@index([leaseExpiresAt])
+}
+
+model PrintAgent {
+  id                 String   @id
+  name               String
+  version            String?
+  lastSeenAt         DateTime?
+  lastPrinterCheckAt DateTime?
+  printerReachable   Boolean?
+  lastError          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([lastSeenAt])
 }
 
 model Item {

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { AprobarOrdenRequest } from '@/types/orden';
+import {
+  PRINT_JOB_TYPES,
+  enqueueOrderPrintJob,
+  shouldEnqueuePrintJob,
+} from '@/lib/print-jobs';
+
+class ApprovalConflictError extends Error {}
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,25 +68,42 @@ export async function POST(request: NextRequest) {
 
     // Descontar el stock de los productos
     // Usamos una transacción para asegurar atomicidad
-    const ordenAprobada = await prisma.$transaction(async (tx) => {
-      // Descontar stock de cada item
-      for (const item of orden.items) {
-        const nuevoStock = item.producto.stock - item.cantidad;
-
-        await tx.producto.update({
-          where: { id: item.productoId },
-          data: { stock: nuevoStock },
-        });
-      }
-
-      // Actualizar la orden
-      const ordenActualizada = await tx.orden.update({
-        where: { id: ordenId },
+    const { ordenAprobada, printJobQueued } = await prisma.$transaction(async (tx) => {
+      const transicion = await tx.orden.updateMany({
+        where: {
+          id: ordenId,
+          estado: 'pendiente_aprobacion_stock',
+        },
         data: {
           estado: 'pendiente',
           sinStock: true,
           aprobadaPorId: adminId,
           razonAprobacion: razon || 'Aprobada por administrador',
+        },
+      });
+
+      if (transicion.count !== 1) {
+        throw new ApprovalConflictError(
+          'La orden ya fue procesada por otra solicitud.',
+        );
+      }
+
+      // Descontar stock de cada item
+      for (const item of orden.items) {
+        await tx.producto.update({
+          where: { id: item.productoId },
+          data: { stock: { decrement: item.cantidad } },
+        });
+      }
+
+      const ordenActualizada = await tx.orden.findUniqueOrThrow({
+        where: { id: ordenId },
+        include: {
+          items: {
+            include: {
+              producto: true,
+            },
+          },
         },
       });
 
@@ -97,7 +121,16 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return ordenActualizada;
+      let queued = false;
+      if (shouldEnqueuePrintJob(ordenActualizada.createdAt)) {
+        await enqueueOrderPrintJob(tx, ordenActualizada, {
+          type: PRINT_JOB_TYPES.ORDER,
+          revision: ordenActualizada.printRevision,
+        });
+        queued = true;
+      }
+
+      return { ordenAprobada: ordenActualizada, printJobQueued: queued };
     });
 
     return NextResponse.json({
@@ -108,9 +141,13 @@ export async function POST(request: NextRequest) {
         aprobadaPorId: ordenAprobada.aprobadaPorId,
         razonAprobacion: ordenAprobada.razonAprobacion,
       },
+      impresionEnCola: printJobQueued,
       mensaje: 'Orden aprobada exitosamente',
     });
   } catch (error) {
+    if (error instanceof ApprovalConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     console.error('Error al aprobar orden:', error);
     return NextResponse.json(
       { error: 'Error al aprobar orden' },
