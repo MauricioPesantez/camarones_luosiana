@@ -25,6 +25,7 @@ function createOrder(): PrintOrderSource {
   return {
     id: 'cm-order-abcdef',
     tipoOrden: 'domicilio',
+    nivelPicante: 'picante_2',
     numeroMesa: null,
     nombreCliente: 'Ana',
     telefonoCliente: '0999999999',
@@ -57,6 +58,7 @@ async function run(): Promise<void> {
   assert.equal(payload.jobType, 'ORDER');
   assert.equal(payload.ticketLabel, 'ORDEN');
   assert.equal(payload.order.shortCode, 'abcdef');
+  assert.equal(payload.order.spiceLevel, 'picante_2');
   assert.equal(payload.order.total, 15.5);
   assert.equal(payload.order.items[0].unitPrice, 6.5);
   assert.equal(payload.generatedAt, FIXED_NOW.toISOString());

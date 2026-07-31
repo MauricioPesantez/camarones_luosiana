@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import type { NivelPicante } from '@/types/orden';
 
 export const PRINT_PAYLOAD_VERSION = 1 as const;
 export const DEFAULT_AUTO_PRINT_WINDOW_MINUTES = 5;
@@ -61,6 +62,7 @@ export interface PrintItemSource {
 export interface PrintOrderSource {
   id: string;
   tipoOrden?: string | null;
+  nivelPicante?: string | null;
   numeroMesa?: number | null;
   nombreCliente?: string | null;
   telefonoCliente?: string | null;
@@ -89,6 +91,7 @@ export interface PrintOrderSnapshot {
   id: string;
   shortCode: string;
   type: 'local' | 'para_llevar' | 'domicilio';
+  spiceLevel: NivelPicante;
   tableNumber: number | null;
   customerName: string | null;
   customerPhone: string | null;
@@ -234,6 +237,19 @@ function normalizeOrderType(
   return 'local';
 }
 
+function normalizeSpiceLevel(
+  value: string | null | undefined,
+): NivelPicante {
+  if (
+    value === 'picante_1' ||
+    value === 'picante_2' ||
+    value === 'picante_3'
+  ) {
+    return value;
+  }
+  return 'natural';
+}
+
 function normalizeRequiredText(value: string, field: string): string {
   const normalized = value.trim();
   if (!normalized) throw new Error(`${field} es requerido`);
@@ -255,6 +271,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
     id,
     shortCode: id.slice(-6),
     type: normalizeOrderType(order.tipoOrden),
+    spiceLevel: normalizeSpiceLevel(order.nivelPicante),
     tableNumber: order.numeroMesa ?? null,
     customerName: normalizeOptionalText(order.nombreCliente),
     customerPhone: normalizeOptionalText(order.telefonoCliente),

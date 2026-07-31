@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import OrdenCard from "@/components/cocina/OrdenCard";
 import { useAuth } from "@/lib/auth";
+import { NivelPicante } from "@/types/orden";
 
 interface Producto {
   id: string;
@@ -25,6 +26,7 @@ interface Item {
 interface Orden {
   id: string;
   tipoOrden: string;
+  nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;

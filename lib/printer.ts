@@ -1,4 +1,5 @@
 import ThermalPrinter from 'node-thermal-printer';
+import { esNivelPicante, obtenerEtiquetaNivelPicante } from '@/types/orden';
 
 // Representa un valor numérico que puede ser un Decimal de Prisma, number o string
 type NumericValue = number | string | { toNumber(): number; toFixed(d?: number): string };
@@ -14,6 +15,7 @@ interface ItemComanda {
 interface OrdenComanda {
   id: string;
   tipoOrden?: string | null;
+  nivelPicante?: string | null;
   numeroMesa?: number | null;
   nombreCliente?: string | null;
   telefonoCliente?: string | null;
@@ -59,8 +61,14 @@ export class PrinterService {
       const labelTipo = tipoOrden === 'para_llevar' ? 'PARA LLEVAR'
         : tipoOrden === 'domicilio' ? 'DOMICILIO'
           : 'LOCAL';
+      const nivelPicante = esNivelPicante(orden.nivelPicante)
+        ? orden.nivelPicante
+        : 'natural';
       this.printer.bold(true);
       this.printer.println(`TIPO: ${labelTipo}`);
+      this.printer.println(
+        `PICANTE: ${obtenerEtiquetaNivelPicante(nivelPicante).toUpperCase()}`,
+      );
       this.printer.bold(false);
 
       // Información de la orden

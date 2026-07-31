@@ -21,7 +21,11 @@ interface ItemCarrito {
 }
 
 import { useAuth } from "@/lib/auth";
-import { TipoOrden } from "@/types/orden";
+import {
+  NIVELES_PICANTE,
+  NivelPicante,
+  TipoOrden,
+} from "@/types/orden";
 
 const RECARGO_FIJO = 0.5;
 
@@ -32,6 +36,7 @@ export default function CrearOrden() {
   const [tipoOrden, setTipoOrden] = useState<TipoOrden>(() =>
     usuario?.rol === "digital" ? "para_llevar" : "local",
   );
+  const [nivelPicante, setNivelPicante] = useState<NivelPicante | "">("");
   const [numeroMesa, setNumeroMesa] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
   const [telefonoCliente, setTelefonoCliente] = useState("");
@@ -184,6 +189,7 @@ export default function CrearOrden() {
 
   const validarCampos = (): string | null => {
     if (carrito.length === 0) return "Agrega al menos un producto al carrito";
+    if (!nivelPicante) return "Selecciona el nivel de picante";
     if (tipoOrden === "local" && !numeroMesa)
       return "Ingresa el número de mesa";
     if (
@@ -227,6 +233,7 @@ export default function CrearOrden() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tipoOrden,
+          nivelPicante,
           numeroMesa: tipoOrden === "local" ? parseInt(numeroMesa) : undefined,
           nombreCliente:
             tipoOrden !== "local" ? nombreCliente.trim() : undefined,
@@ -259,6 +266,7 @@ export default function CrearOrden() {
         setNombreCliente("");
         setTelefonoCliente("");
         setCostoEnvio("");
+        setNivelPicante("");
         setObservaciones("");
         setMostrarModalStock(false);
         setItemsSinStock([]);
@@ -399,6 +407,34 @@ export default function CrearOrden() {
                 </div>
               </div>
             )}
+
+            <div className="mb-4">
+              <label
+                htmlFor="nivelPicante"
+                className="block text-sm font-medium mb-2 text-gray-800"
+              >
+                Nivel de Picante <span className="text-red-600">*</span>
+              </label>
+              <select
+                id="nivelPicante"
+                value={nivelPicante}
+                onChange={(e) =>
+                  setNivelPicante(e.target.value as NivelPicante | "")
+                }
+                required
+                aria-required="true"
+                className="w-full border rounded-lg px-4 py-2 text-black bg-white"
+              >
+                <option value="" disabled>
+                  Selecciona una opción
+                </option>
+                {NIVELES_PICANTE.map((nivel) => (
+                  <option key={nivel.value} value={nivel.value}>
+                    {nivel.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Filtros de categoría */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-2">

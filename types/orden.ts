@@ -4,6 +4,26 @@ import { ItemSinStock } from './stock';
 
 export type TipoOrden = 'local' | 'para_llevar' | 'domicilio';
 
+export const NIVELES_PICANTE = [
+  { value: 'natural', label: 'Natural' },
+  { value: 'picante_1', label: 'Picante 1' },
+  { value: 'picante_2', label: 'Picante 2' },
+  { value: 'picante_3', label: 'Picante 3' },
+] as const;
+
+export type NivelPicante = (typeof NIVELES_PICANTE)[number]['value'];
+
+export function esNivelPicante(valor: unknown): valor is NivelPicante {
+  return (
+    typeof valor === 'string' &&
+    NIVELES_PICANTE.some((nivel) => nivel.value === valor)
+  );
+}
+
+export function obtenerEtiquetaNivelPicante(nivel: NivelPicante): string {
+  return NIVELES_PICANTE.find((opcion) => opcion.value === nivel)?.label ?? nivel;
+}
+
 export type MetodoPago = 'efectivo' | 'transferencia';
 
 export type EstadoOrden =
@@ -24,6 +44,7 @@ export interface DesglosePrecio {
 
 export interface CrearOrdenRequest {
   tipoOrden: TipoOrden;
+  nivelPicante: NivelPicante;
   // Solo local
   numeroMesa?: number;
   // Para llevar y domicilio
@@ -46,6 +67,7 @@ export interface CrearOrdenRequest {
 export interface OrdenConStock {
   id: string;
   tipoOrden: TipoOrden;
+  nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;
@@ -90,6 +112,7 @@ export interface RechazarOrdenRequest {
 export interface OrdenPendienteAprobacion {
   id: string;
   tipoOrden: TipoOrden;
+  nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
   mesero: string;

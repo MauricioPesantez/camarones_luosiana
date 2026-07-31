@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  NivelPicante,
+  obtenerEtiquetaNivelPicante,
+} from "@/types/orden";
 
 interface Producto {
   id: string;
@@ -25,6 +29,7 @@ interface Item {
 interface Orden {
   id: string;
   tipoOrden: string;
+  nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;
@@ -206,6 +211,19 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
           <p className="text-gray-600 text-sm">Telf: {orden.telefonoCliente}</p>
         )}
         <p className="text-gray-600 text-sm mt-1">Mesero: {orden.mesero}</p>
+        <div
+          className={`inline-flex items-center gap-2 mt-3 px-3 py-2 rounded-lg border-2 font-bold ${
+            orden.nivelPicante === "natural"
+              ? "bg-green-50 border-green-500 text-green-800"
+              : orden.nivelPicante === "picante_1"
+                ? "bg-yellow-50 border-yellow-500 text-yellow-800"
+                : orden.nivelPicante === "picante_2"
+                  ? "bg-orange-50 border-orange-500 text-orange-800"
+                  : "bg-red-50 border-red-600 text-red-800"
+          }`}
+        >
+          🌶️ Nivel: {obtenerEtiquetaNivelPicante(orden.nivelPicante)}
+        </div>
       </div>
 
       {/* Información de tiempo */}

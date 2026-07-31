@@ -41,6 +41,7 @@ model Producto {
 model Orden {
   id                  String           @id @default(cuid())
   tipoOrden           String           @default("local")    // "local" | "para_llevar" | "domicilio"
+  nivelPicante        String           @default("natural")  // "natural" | "picante_1" | "picante_2" | "picante_3"
   numeroMesa          Int?                                   // Solo para tipo "local"
   nombreCliente       String?                                // Para "para_llevar" y "domicilio"
   telefonoCliente     String?                                // Solo para "domicilio"

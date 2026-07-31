@@ -28,6 +28,16 @@ function centered(value: string): string {
   return `${' '.repeat(Math.max(0, Math.floor((LINE_WIDTH - clean.length) / 2)))}${clean}`;
 }
 
+function spiceLevelLabel(
+  value: PrintJobPayload['order']['spiceLevel'],
+): string | null {
+  if (!value) return null;
+  if (value === 'picante_1') return 'PICANTE 1';
+  if (value === 'picante_2') return 'PICANTE 2';
+  if (value === 'picante_3') return 'PICANTE 3';
+  return 'NATURAL';
+}
+
 function linesForPayload(payload: PrintJobPayload): string[] {
   if (payload.payloadVersion !== 1 || !payload.order?.id) {
     throw new PrinterError('Payload de impresion no soportado', 'INVALID_PAYLOAD');
@@ -40,6 +50,9 @@ function linesForPayload(payload: PrintJobPayload): string[] {
     centered(`ORDEN #${order.shortCode}  REV ${payload.revision}`),
     '='.repeat(LINE_WIDTH),
     `Tipo: ${order.type === 'para_llevar' ? 'PARA LLEVAR' : order.type === 'domicilio' ? 'DOMICILIO' : 'LOCAL'}`,
+    ...(spiceLevelLabel(order.spiceLevel)
+      ? [`Picante: ${spiceLevelLabel(order.spiceLevel)}`]
+      : []),
     order.type === 'local'
       ? `Mesa: ${order.tableNumber ?? '-'}`
       : `Cliente: ${order.customerName ?? '-'}`,

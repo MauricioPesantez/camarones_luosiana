@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PrinterService } from '@/lib/printer';
 import { ItemSinStock } from '@/types/stock';
-import { CrearOrdenRequest, TipoOrden } from '@/types/orden';
+import { CrearOrdenRequest, TipoOrden, esNivelPicante } from '@/types/orden';
 import { Prisma } from '@prisma/client';
 import { notificarClientes } from '@/lib/sse';
 import {
@@ -54,6 +54,13 @@ export async function POST(request: Request) {
     const body: CrearOrdenRequest = await request.json();
 
     const tipoOrden: TipoOrden = body.tipoOrden ?? 'local';
+
+    if (!esNivelPicante(body.nivelPicante)) {
+      return NextResponse.json(
+        { error: 'El nivel de picante es requerido y debe ser válido' },
+        { status: 400 },
+      );
+    }
 
     // Validaciones por tipo de orden
     if (tipoOrden === 'local' && !body.numeroMesa) {
@@ -179,6 +186,7 @@ export async function POST(request: Request) {
       const nuevaOrden = await tx.orden.create({
         data: {
           tipoOrden,
+          nivelPicante: body.nivelPicante,
           numeroMesa: tipoOrden === 'local' ? (body.numeroMesa ?? null) : null,
           nombreCliente: tipoOrden !== 'local' ? body.nombreCliente : null,
           telefonoCliente: tipoOrden === 'domicilio' ? body.telefonoCliente : null,
@@ -237,6 +245,7 @@ export async function POST(request: Request) {
           descripcion,
           datosDespues: {
             tipoOrden,
+            nivelPicante: body.nivelPicante,
             items: nuevaOrden.items.map((item) => ({
               nombre: item.producto.nombre,
               cantidad: item.cantidad,
@@ -306,6 +315,7 @@ export async function POST(request: Request) {
       notificarClientes('nueva-orden', {
         id: orden.id,
         tipoOrden,
+        nivelPicante: orden.nivelPicante,
         numeroMesa: orden.numeroMesa,
         nombreCliente: orden.nombreCliente,
         mesero: orden.mesero,

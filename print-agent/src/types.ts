@@ -4,6 +4,7 @@ export interface PrintOrderSnapshot {
   id: string;
   shortCode: string;
   type: 'local' | 'para_llevar' | 'domicilio';
+  spiceLevel?: 'natural' | 'picante_1' | 'picante_2' | 'picante_3';
   tableNumber: number | null;
   customerName: string | null;
   customerPhone: string | null;
