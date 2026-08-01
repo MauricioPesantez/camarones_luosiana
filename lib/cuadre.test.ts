@@ -39,6 +39,9 @@ const resumen = calcularResumenCuadre([
 assert.deepEqual(resumen, {
   totalOrdenes: 5,
   ordenesCobradas: 4,
+  ordenesSinCobrar: 1,
+  montoTotalOrdenes: 210,
+  montoSinCobrar: 100,
   totalCobrado: 110,
   efectivoVentasDirectas: 25,
   efectivoCobradoMotorizados: 25,
@@ -57,6 +60,8 @@ const pagadaPeroAunEnPreparacion = calcularResumenCuadre([
 ]);
 
 assert.equal(pagadaPeroAunEnPreparacion.ordenesCobradas, 1);
+assert.equal(pagadaPeroAunEnPreparacion.montoTotalOrdenes, 12.5);
+assert.equal(pagadaPeroAunEnPreparacion.montoSinCobrar, 0);
 assert.equal(pagadaPeroAunEnPreparacion.efectivoEnCaja, 12.5);
 
 const sinErrorDePuntoFlotante = calcularResumenCuadre([
@@ -75,5 +80,18 @@ const sinErrorDePuntoFlotante = calcularResumenCuadre([
 ]);
 
 assert.equal(sinErrorDePuntoFlotante.efectivoEnCaja, 0.3);
+
+const cobradaSinMetodoLegado = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "local",
+    total: 9,
+    metodoPago: null,
+  },
+]);
+
+assert.equal(cobradaSinMetodoLegado.ordenesCobradas, 1);
+assert.equal(cobradaSinMetodoLegado.totalCobrado, 9);
+assert.equal(cobradaSinMetodoLegado.efectivoEnCaja, 0);
 
 console.log("cuadre tests passed");

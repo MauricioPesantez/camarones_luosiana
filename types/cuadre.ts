@@ -11,6 +11,9 @@ export interface OrdenParaCuadre {
 export interface ResumenCuadre {
   totalOrdenes: number;
   ordenesCobradas: number;
+  ordenesSinCobrar: number;
+  montoTotalOrdenes: number;
+  montoSinCobrar: number;
   totalCobrado: number;
   efectivoVentasDirectas: number;
   efectivoCobradoMotorizados: number;
@@ -39,14 +42,23 @@ export function calcularResumenCuadre(
 ): ResumenCuadre {
   const resumen = ordenes.reduce(
     (acumulado, orden) => {
-      if (!orden.cobrada || !esMetodoPago(orden.metodoPago)) {
+      const total = aCentavos(orden.total);
+      acumulado.montoTotalOrdenes += total;
+
+      if (!orden.cobrada) {
+        acumulado.ordenesSinCobrar += 1;
+        acumulado.montoSinCobrar += total;
         return acumulado;
       }
 
-      const total = aCentavos(orden.total);
-      const costoEnvio = Math.max(0, aCentavos(orden.costoEnvio));
       acumulado.ordenesCobradas += 1;
       acumulado.totalCobrado += total;
+
+      if (!esMetodoPago(orden.metodoPago)) {
+        return acumulado;
+      }
+
+      const costoEnvio = Math.max(0, aCentavos(orden.costoEnvio));
 
       if (orden.tipoOrden === "domicilio") {
         if (orden.metodoPago === "efectivo") {
@@ -71,6 +83,9 @@ export function calcularResumenCuadre(
     },
     {
       ordenesCobradas: 0,
+      ordenesSinCobrar: 0,
+      montoTotalOrdenes: 0,
+      montoSinCobrar: 0,
       totalCobrado: 0,
       efectivoVentasDirectas: 0,
       efectivoCobradoMotorizados: 0,
@@ -82,6 +97,9 @@ export function calcularResumenCuadre(
   return {
     totalOrdenes: ordenes.length,
     ordenesCobradas: resumen.ordenesCobradas,
+    ordenesSinCobrar: resumen.ordenesSinCobrar,
+    montoTotalOrdenes: aDolares(resumen.montoTotalOrdenes),
+    montoSinCobrar: aDolares(resumen.montoSinCobrar),
     totalCobrado: aDolares(resumen.totalCobrado),
     efectivoVentasDirectas: aDolares(resumen.efectivoVentasDirectas),
     efectivoCobradoMotorizados: aDolares(

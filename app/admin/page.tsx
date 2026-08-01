@@ -82,7 +82,9 @@ export default function AdminPage() {
     obtenerFechaEcuador,
   );
   const [rolCreadorFiltro, setRolCreadorFiltro] = useState("todos");
+  const [usuarioCreadorFiltro, setUsuarioCreadorFiltro] = useState("todos");
   const [tipoOrdenFiltro, setTipoOrdenFiltro] = useState("todos");
+  const [estadoCobroFiltro, setEstadoCobroFiltro] = useState("todos");
   const [loading, setLoading] = useState(false);
   const [productosStockBajo, setProductosStockBajo] = useState<
     ProductoStockBajo[]
@@ -277,11 +279,31 @@ export default function AdminPage() {
     };
   };
 
+  const creadoresDisponibles = Array.from(
+    new Map(
+      ordenes
+        .filter(
+          (orden) =>
+            rolCreadorFiltro === "todos" ||
+            orden.creadorRol === rolCreadorFiltro,
+        )
+        .map((orden) => [
+          orden.creadorNombre,
+          { nombre: orden.creadorNombre, rol: orden.creadorRol },
+        ]),
+    ).values(),
+  ).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+
   const ordenesFiltradas = ordenes.filter(
     (orden) =>
       (rolCreadorFiltro === "todos" ||
         orden.creadorRol === rolCreadorFiltro) &&
-      (tipoOrdenFiltro === "todos" || orden.tipoOrden === tipoOrdenFiltro),
+      (usuarioCreadorFiltro === "todos" ||
+        orden.creadorNombre === usuarioCreadorFiltro) &&
+      (tipoOrdenFiltro === "todos" || orden.tipoOrden === tipoOrdenFiltro) &&
+      (estadoCobroFiltro === "todos" ||
+        (estadoCobroFiltro === "cobradas" && orden.cobrada) ||
+        (estadoCobroFiltro === "sin_cobrar" && !orden.cobrada)),
   );
   const resumenCuadre = calcularResumenCuadre(ordenesFiltradas);
 
@@ -340,7 +362,7 @@ export default function AdminPage() {
 
         {/* Filtros del cuadre */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
             <label className="text-sm font-semibold text-gray-700">
               Fecha del cuadre
               <input
@@ -354,7 +376,10 @@ export default function AdminPage() {
               Rol que creó la orden
               <select
                 value={rolCreadorFiltro}
-                onChange={(e) => setRolCreadorFiltro(e.target.value)}
+                onChange={(e) => {
+                  setRolCreadorFiltro(e.target.value);
+                  setUsuarioCreadorFiltro("todos");
+                }}
                 className="mt-1 block w-full border rounded-lg px-4 py-2 text-black bg-white"
               >
                 <option value="todos">Todos los roles</option>
@@ -366,6 +391,21 @@ export default function AdminPage() {
                 {ordenes.some((orden) => orden.creadorRol === "desconocido") && (
                   <option value="desconocido">Sin rol identificado</option>
                 )}
+              </select>
+            </label>
+            <label className="text-sm font-semibold text-gray-700">
+              Usuario creador
+              <select
+                value={usuarioCreadorFiltro}
+                onChange={(e) => setUsuarioCreadorFiltro(e.target.value)}
+                className="mt-1 block w-full border rounded-lg px-4 py-2 text-black bg-white"
+              >
+                <option value="todos">Todos los usuarios</option>
+                {creadoresDisponibles.map((creador) => (
+                  <option key={creador.nombre} value={creador.nombre}>
+                    {creador.nombre} · {obtenerEtiquetaRol(creador.rol)}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="text-sm font-semibold text-gray-700">
@@ -381,11 +421,24 @@ export default function AdminPage() {
                 <option value="domicilio">Domicilio</option>
               </select>
             </label>
+            <label className="text-sm font-semibold text-gray-700">
+              Estado de cobro
+              <select
+                value={estadoCobroFiltro}
+                onChange={(e) => setEstadoCobroFiltro(e.target.value)}
+                className="mt-1 block w-full border rounded-lg px-4 py-2 text-black bg-white"
+              >
+                <option value="todos">Todas</option>
+                <option value="cobradas">Cobradas</option>
+                <option value="sin_cobrar">No cobradas</option>
+              </select>
+            </label>
           </div>
           <div className="mt-4 flex items-center justify-between gap-4">
             <p className="text-sm text-gray-500">
               El reporte incluye órdenes creadas en Ecuador durante la fecha
-              seleccionada y solo suma dinero de órdenes cobradas.
+              seleccionada. El monto de órdenes incluye cobradas y no cobradas;
+              la caja y las transferencias solo incluyen pagos confirmados.
             </p>
             <button
               onClick={cargarOrdenes}
@@ -579,11 +632,33 @@ export default function AdminPage() {
               </p>
             </div>
             <p className="text-sm text-slate-300">
-              {resumenCuadre.ordenesCobradas} de {resumenCuadre.totalOrdenes}{" "}
-              órdenes cobradas
+              {resumenCuadre.ordenesCobradas} cobradas ·{" "}
+              {resumenCuadre.ordenesSinCobrar} no cobradas
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="rounded-lg bg-violet-500 p-4 text-white">
+              <h3 className="text-sm font-semibold text-violet-50">
+                🧾 Monto total de órdenes
+              </h3>
+              <p className="mt-1 text-3xl font-black">
+                ${resumenCuadre.montoTotalOrdenes.toFixed(2)}
+              </p>
+              <p className="mt-2 text-xs text-violet-50">
+                Incluye órdenes cobradas y no cobradas según los filtros
+              </p>
+            </div>
+            <div className="rounded-lg bg-amber-500 p-4 text-white">
+              <h3 className="text-sm font-semibold text-amber-50">
+                ⏳ Pendiente por cobrar
+              </h3>
+              <p className="mt-1 text-3xl font-black">
+                ${resumenCuadre.montoSinCobrar.toFixed(2)}
+              </p>
+              <p className="mt-2 text-xs text-amber-50">
+                Total de las órdenes que todavía no registran pago
+              </p>
+            </div>
             <div className="rounded-lg bg-emerald-500 p-4 text-white">
               <h3 className="text-sm font-semibold text-emerald-50">
                 💰 Efectivo que debe haber en caja
