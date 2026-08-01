@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import GestionStock from "@/components/admin/GestionStock";
+import GestionMenu from "@/components/admin/GestionMenu";
 
 type Pestana = "stock" | "menu";
 
@@ -71,7 +72,7 @@ export default function ProductosPage() {
         </div>
       </div>
 
-      {pestana === "stock" ? <GestionStock /> : null}
+      {pestana === "stock" ? <GestionStock /> : <GestionMenu />}
     </div>
   );
 }
