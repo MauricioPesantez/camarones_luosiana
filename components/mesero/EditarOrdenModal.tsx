@@ -25,6 +25,7 @@ interface Orden {
   estado: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
+  telefonoCliente?: string | null;
   recargo: number | null;
   costoEnvio: number | null;
   total: number;
@@ -286,7 +287,7 @@ export default function EditarOrdenModal({
               {orden.tipoOrden === "para_llevar" &&
                 `🥡 Para Llevar · ${orden.nombreCliente ?? ""}`}
               {orden.tipoOrden === "domicilio" &&
-                `🛵 Domicilio · ${orden.nombreCliente ?? ""}`}
+                `🛵 Domicilio · ${orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente"}`}
             </p>
           </div>
           <button
@@ -472,7 +473,7 @@ export default function EditarOrdenModal({
             {Number(orden.recargo ?? 0) > 0 && (
               <div className="flex justify-between mb-2 text-sm">
                 <span className="text-yellow-700">
-                  Recargo (
+                  Recargo por recipientes (
                   {orden.tipoOrden === "para_llevar"
                     ? "Para Llevar"
                     : "Domicilio"}

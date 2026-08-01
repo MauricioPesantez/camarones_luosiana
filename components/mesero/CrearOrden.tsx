@@ -21,9 +21,13 @@ interface ItemCarrito {
 }
 
 import { useAuth } from "@/lib/auth";
-import { TipoOrden } from "@/types/orden";
-
-const RECARGO_FIJO = 0.5;
+import {
+  MetodoPago,
+  NIVELES_PICANTE,
+  NivelPicante,
+  RECARGO_RECIPIENTES,
+  TipoOrden,
+} from "@/types/orden";
 
 export default function CrearOrden() {
   const { usuario, loading: authLoading } = useAuth();
@@ -32,10 +36,15 @@ export default function CrearOrden() {
   const [tipoOrden, setTipoOrden] = useState<TipoOrden>(() =>
     usuario?.rol === "digital" ? "para_llevar" : "local",
   );
+  const [nivelPicante, setNivelPicante] = useState<NivelPicante | "">("");
   const [numeroMesa, setNumeroMesa] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
   const [telefonoCliente, setTelefonoCliente] = useState("");
   const [costoEnvio, setCostoEnvio] = useState("");
+  // Solo domicilio: define si al motorizado se le cobra o se le entrega dinero.
+  const [metodoPagoPrevisto, setMetodoPagoPrevisto] = useState<MetodoPago | "">(
+    "",
+  );
   const [observaciones, setObservaciones] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("Todas");
   const [loading, setLoading] = useState(false);
@@ -149,7 +158,8 @@ export default function CrearOrden() {
     );
   };
 
-  const calcularRecargo = () => (tipoOrden !== "local" ? RECARGO_FIJO : 0);
+  const calcularRecargo = () =>
+    tipoOrden !== "local" ? RECARGO_RECIPIENTES : 0;
 
   const calcularCostoEnvio = () =>
     tipoOrden === "domicilio" ? parseFloat(costoEnvio) || 0 : 0;
@@ -184,12 +194,10 @@ export default function CrearOrden() {
 
   const validarCampos = (): string | null => {
     if (carrito.length === 0) return "Agrega al menos un producto al carrito";
+    if (!nivelPicante) return "Selecciona el nivel de picante";
     if (tipoOrden === "local" && !numeroMesa)
       return "Ingresa el número de mesa";
-    if (
-      (tipoOrden === "para_llevar" || tipoOrden === "domicilio") &&
-      !nombreCliente.trim()
-    )
+    if (tipoOrden === "para_llevar" && !nombreCliente.trim())
       return "Ingresa el nombre del cliente";
     if (tipoOrden === "domicilio" && !telefonoCliente.trim())
       return "Ingresa el teléfono del cliente";
@@ -198,6 +206,8 @@ export default function CrearOrden() {
       (!costoEnvio || parseFloat(costoEnvio) < 0)
     )
       return "Ingresa el costo de envío";
+    if (tipoOrden === "domicilio" && !metodoPagoPrevisto)
+      return "Selecciona la modalidad de pago";
     return null;
   };
 
@@ -227,13 +237,18 @@ export default function CrearOrden() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tipoOrden,
+          nivelPicante,
           numeroMesa: tipoOrden === "local" ? parseInt(numeroMesa) : undefined,
           nombreCliente:
-            tipoOrden !== "local" ? nombreCliente.trim() : undefined,
+            tipoOrden !== "local"
+              ? nombreCliente.trim() || undefined
+              : undefined,
           telefonoCliente:
             tipoOrden === "domicilio" ? telefonoCliente.trim() : undefined,
           costoEnvio:
             tipoOrden === "domicilio" ? parseFloat(costoEnvio) : undefined,
+          metodoPagoPrevisto:
+            tipoOrden === "domicilio" ? metodoPagoPrevisto : undefined,
           mesero: usuario?.nombre || "Desconocido",
           observaciones,
           items: carrito,
@@ -259,6 +274,8 @@ export default function CrearOrden() {
         setNombreCliente("");
         setTelefonoCliente("");
         setCostoEnvio("");
+        setMetodoPagoPrevisto("");
+        setNivelPicante("");
         setObservaciones("");
         setMostrarModalStock(false);
         setItemsSinStock([]);
@@ -320,6 +337,7 @@ export default function CrearOrden() {
                         setNombreCliente("");
                         setTelefonoCliente("");
                         setCostoEnvio("");
+                        setMetodoPagoPrevisto("");
                       }}
                       className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
                         tipoOrden === tipo
@@ -358,11 +376,13 @@ export default function CrearOrden() {
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-2 text-gray-800">
                   Nombre del Cliente
+                  {tipoOrden === "domicilio" ? " (opcional)" : " *"}
                 </label>
                 <input
                   type="text"
                   value={nombreCliente}
                   onChange={(e) => setNombreCliente(e.target.value)}
+                  required={tipoOrden === "para_llevar"}
                   className="w-full border rounded-lg px-4 py-2 text-black"
                   placeholder="Ej: Juan Pérez"
                 />
@@ -373,12 +393,13 @@ export default function CrearOrden() {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-800">
-                    Teléfono
+                    Teléfono *
                   </label>
                   <input
-                    type="text"
+                    type="tel"
                     value={telefonoCliente}
                     onChange={(e) => setTelefonoCliente(e.target.value)}
+                    required
                     className="w-full border rounded-lg px-4 py-2 text-black"
                     placeholder="Ej: 0991234567"
                   />
@@ -399,6 +420,80 @@ export default function CrearOrden() {
                 </div>
               </div>
             )}
+
+            {/* Modalidad de pago: solo domicilio. Define si al motorizado se le
+                cobra el pedido (efectivo) o se le entrega el envío (transferencia). */}
+            {tipoOrden === "domicilio" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 text-gray-800">
+                  Modalidad de Pago <span className="text-red-600">*</span>
+                </label>
+                <div className="flex gap-2">
+                  {(["efectivo", "transferencia"] as MetodoPago[]).map(
+                    (metodo) => (
+                      <button
+                        key={metodo}
+                        type="button"
+                        onClick={() => setMetodoPagoPrevisto(metodo)}
+                        className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
+                          metodoPagoPrevisto === metodo
+                            ? metodo === "efectivo"
+                              ? "bg-green-600 text-white"
+                              : "bg-blue-600 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        {metodo === "efectivo"
+                          ? "💵 Efectivo"
+                          : "🏦 Transferencia"}
+                      </button>
+                    ),
+                  )}
+                </div>
+                {metodoPagoPrevisto === "efectivo" && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    El motorizado cobra ${calcularTotal().toFixed(2)} al cliente
+                    y paga ${(calcularTotal() - calcularCostoEnvio()).toFixed(2)}{" "}
+                    en el local.
+                  </p>
+                )}
+                {metodoPagoPrevisto === "transferencia" && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    El cliente transfiere ${calcularTotal().toFixed(2)} y el
+                    local le entrega ${calcularCostoEnvio().toFixed(2)} al
+                    motorizado.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label
+                htmlFor="nivelPicante"
+                className="block text-sm font-medium mb-2 text-gray-800"
+              >
+                Nivel de Picante <span className="text-red-600">*</span>
+              </label>
+              <select
+                id="nivelPicante"
+                value={nivelPicante}
+                onChange={(e) =>
+                  setNivelPicante(e.target.value as NivelPicante | "")
+                }
+                required
+                aria-required="true"
+                className="w-full border rounded-lg px-4 py-2 text-black bg-white"
+              >
+                <option value="" disabled>
+                  Selecciona una opción
+                </option>
+                {NIVELES_PICANTE.map((nivel) => (
+                  <option key={nivel.value} value={nivel.value}>
+                    {nivel.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* Filtros de categoría */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
@@ -601,7 +696,7 @@ export default function CrearOrden() {
               </div>
               {tipoOrden !== "local" && (
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Recargo:</span>
+                  <span>Recargo por recipientes:</span>
                   <span>${calcularRecargo().toFixed(2)}</span>
                 </div>
               )}

@@ -21,6 +21,7 @@ interface Orden {
   modificada: boolean;
   cobrada: boolean;
   metodoPago: string | null;
+  metodoPagoPrevisto: MetodoPago | null;
   cobradaPor: string | null;
   createdAt: string;
   items: {
@@ -315,7 +316,7 @@ export default function DigitalPage() {
                         {orden.recargo !== null &&
                           Number(orden.recargo) > 0 && (
                             <div className="flex justify-between text-xs text-gray-500">
-                              <span>Recargo envase:</span>
+                              <span>Recargo por recipientes:</span>
                               <span>${Number(orden.recargo).toFixed(2)}</span>
                             </div>
                           )}
@@ -340,7 +341,11 @@ export default function DigitalPage() {
                           <button
                             onClick={() => {
                               setOrdenACobrar(orden);
-                              setMetodoPagoSeleccionado("efectivo");
+                              // En domicilio ya se acordó la modalidad al crear;
+                              // se puede cambiar, pero queda registrado el override.
+                              setMetodoPagoSeleccionado(
+                                orden.metodoPagoPrevisto ?? "efectivo",
+                              );
                             }}
                             className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition-colors"
                           >
@@ -376,7 +381,11 @@ export default function DigitalPage() {
             <h3 className="text-xl font-bold mb-2 text-gray-800">
               💵 Cobrar Pedido
             </h3>
-            <p className="text-gray-600 mb-0.5">{ordenACobrar.nombreCliente}</p>
+            <p className="text-gray-600 mb-0.5">
+              {ordenACobrar.nombreCliente ??
+                ordenACobrar.telefonoCliente ??
+                "Cliente"}
+            </p>
             <span
               className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                 ordenACobrar.tipoOrden === "domicilio"
@@ -417,6 +426,18 @@ export default function DigitalPage() {
                 🏦 Transferencia
               </button>
             </div>
+
+            {ordenACobrar.metodoPagoPrevisto &&
+              metodoPagoSeleccionado !== ordenACobrar.metodoPagoPrevisto && (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 mb-6">
+                  <p className="text-sm text-amber-800">
+                    ⚠️ El pedido se acordó en{" "}
+                    <strong>{ordenACobrar.metodoPagoPrevisto}</strong>. El cambio
+                    queda registrado en el historial y altera la liquidación con
+                    el motorizado.
+                  </p>
+                </div>
+              )}
 
             <div className="flex gap-3">
               <button

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import OrdenCard from "@/components/cocina/OrdenCard";
 import { useAuth } from "@/lib/auth";
+import { NivelPicante } from "@/types/orden";
 
 interface Producto {
   id: string;
@@ -25,6 +26,7 @@ interface Item {
 interface Orden {
   id: string;
   tipoOrden: string;
+  nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;
@@ -46,6 +48,7 @@ interface Notificacion {
   tipoOrden: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
+  telefonoCliente: string | null;
   mesero: string;
   tiempoEstimado: number;
   itemsCount: number;
@@ -150,7 +153,7 @@ export default function CocinaPage() {
         const titulo =
           orden.tipoOrden === "local"
             ? `Mesa ${orden.numeroMesa}`
-            : (orden.nombreCliente ?? "Cliente");
+            : (orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente");
         new Notification(`🍳 Nueva orden — ${titulo}`, {
           body: `Mesero: ${orden.mesero} · ${orden.itemsCount} ítem(s)`,
           icon: "/favicon.ico",
@@ -253,7 +256,11 @@ export default function CocinaPage() {
                         notificacion.tipoOrden === "domicilio"
                           ? "🛵 Domicilio"
                           : "🥡 Para llevar"
-                      } — ${notificacion.nombreCliente}`}
+                      } — ${
+                        notificacion.nombreCliente ??
+                        notificacion.telefonoCliente ??
+                        "Cliente"
+                      }`}
                 </p>
                 <p className="text-sm opacity-90">
                   Mesero: {notificacion.mesero} · {notificacion.itemsCount}

@@ -1,0 +1,21 @@
+[Unit]
+Description=Restaurant POS Print Agent
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=restaurant-print
+Group=restaurant-print
+WorkingDirectory=/opt/restaurant-print-agent
+EnvironmentFile=/etc/restaurant-print-agent.env
+ExecStart=/usr/bin/env node /opt/restaurant-print-agent/dist/index.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
