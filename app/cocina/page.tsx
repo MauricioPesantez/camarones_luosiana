@@ -25,6 +25,9 @@ interface Item {
 
 interface Orden {
   id: string;
+  numeroDiario: number | null;
+  fechaNumeroDiario: string | null;
+  printRevision: number;
   tipoOrden: string;
   nivelPicante: NivelPicante;
   numeroMesa: number | null;
@@ -45,6 +48,9 @@ interface Orden {
 
 interface Notificacion {
   id: string;
+  numeroDiario: number | null;
+  fechaNumeroDiario: string | null;
+  revision: number;
   tipoOrden: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
@@ -165,6 +171,9 @@ export default function CocinaPage() {
     eventSource.addEventListener("regresa-a-cocina", (e: MessageEvent) => {
       const data = JSON.parse(e.data) as {
         ordenId: string;
+        numeroDiario: number | null;
+        fechaNumeroDiario: string | null;
+        revision: number;
         tituloOrden: string;
         itemsNuevos: number;
       };
@@ -177,7 +186,7 @@ export default function CocinaPage() {
         Notification.permission === "granted"
       ) {
         new Notification(`🔄 Orden modificada — ${data.tituloOrden}`, {
-          body: `${data.itemsNuevos} item(s) nuevo(s) agregado(s)`,
+          body: `Orden #${data.numeroDiario ?? data.ordenId.slice(-6)} · Rev ${data.revision} · ${data.itemsNuevos} item(s) nuevo(s)`,
           icon: "/favicon.ico",
         });
       }

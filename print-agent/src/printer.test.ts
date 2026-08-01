@@ -19,6 +19,7 @@ function createPayload(
       id: 'cm-order-a7c219',
       shortCode: 'a7c219',
       dailyNumber: 123,
+      dailyDate: '2026-07-31',
       type,
       spiceLevel: 'natural',
       tableNumber: type === 'local' ? 8 : null,
@@ -40,6 +41,42 @@ function createPayload(
       ],
       ...overrides,
     },
+  };
+}
+
+function createAmendmentPayload(
+  type: PrintJobPayload['order']['type'],
+  amountDelta = 6.5,
+  paymentMethod: PrintJobPayload['order']['paymentMethod'] = 'efectivo',
+): PrintJobPayload {
+  const base = createPayload(type, type === 'local' ? null : 'Carolina', {
+    paymentMethod: type === 'domicilio' ? paymentMethod : null,
+    surcharge: type === 'local' ? 0 : 1.25,
+    deliveryCost: type === 'domicilio' ? 5 : 0,
+    total: type === 'domicilio' ? 38 : type === 'para_llevar' ? 33 : 31.75,
+  });
+
+  return {
+    ...base,
+    jobType: 'AMENDMENT',
+    revision: 2,
+    ticketLabel: 'MODIFICACION',
+    generatedAt: '2026-07-31T19:10:00.000Z',
+    reason: 'Cliente agrego un producto',
+    requestedBy: 'Daniel',
+    changes: [
+      {
+        action: amountDelta >= 0 ? 'ADD' : 'REMOVE',
+        productName: 'Combo Simple',
+        previousQuantity: amountDelta >= 0 ? 0 : 1,
+        quantity: amountDelta >= 0 ? 1 : 0,
+        quantityDelta: amountDelta >= 0 ? 1 : -1,
+        unitPrice: Math.abs(amountDelta),
+        amountDelta,
+        observations: null,
+        complimentary: false,
+      },
+    ],
   };
 }
 
@@ -143,6 +180,51 @@ function run(): void {
   assert.ok(paraLlevar.includes(amountLine('Recipientes:', '$1.25')));
   assert.ok(paraLlevar.includes(amountLine('TOTAL:', '$46.25')));
   assert.doesNotMatch(paraLlevar, /Envio:/);
+
+  // Las modificaciones imprimen únicamente el delta monetario. Los cargos fijos
+  // ya cobrados o acordados nunca se repiten, sin importar el tipo de orden.
+  const amendmentCases = [
+    { type: 'local', paymentMethod: null },
+    { type: 'para_llevar', paymentMethod: null },
+    { type: 'domicilio', paymentMethod: 'efectivo' },
+    { type: 'domicilio', paymentMethod: 'transferencia' },
+  ] as const;
+  for (const { type, paymentMethod } of amendmentCases) {
+    const amendment = buildEscPosTicket(
+      createAmendmentPayload(type, 6.5, paymentMethod),
+    ).toString('ascii');
+    assert.match(amendment, /MODIFICACION/);
+    assert.match(amendment, /ORDEN #123 31-07 REV 2/);
+    assert.match(amendment, /\+ 1x Combo Simple/);
+    assert.ok(amendment.includes(amountLine('  Cambio:', '$6.50')));
+    assert.ok(amendment.includes(amountLine('AJUSTE PRODUCTOS:', '$6.50')));
+    assert.doesNotMatch(amendment, /Recipientes:/);
+    assert.doesNotMatch(amendment, /Envio:/);
+    assert.doesNotMatch(amendment, /Cobra al cliente:/);
+    assert.doesNotMatch(amendment, /^TOTAL:/m);
+
+    if (type === 'local') {
+      assert.doesNotMatch(amendment, /NO REPETIR ENVIO NI RECIPIENTES/);
+    } else {
+      assert.match(amendment, /NO REPETIR ENVIO NI RECIPIENTES/);
+    }
+  }
+
+  const removal = buildEscPosTicket(
+    createAmendmentPayload('para_llevar', -6.5),
+  ).toString('ascii');
+  assert.match(removal, /- 1x Combo Simple/);
+  assert.ok(removal.includes(amountLine('AJUSTE PRODUCTOS:', '-$6.50')));
+
+  const legacyAmendment = createAmendmentPayload('domicilio');
+  if (legacyAmendment.changes?.[0]) {
+    delete legacyAmendment.changes[0].quantityDelta;
+    delete legacyAmendment.changes[0].unitPrice;
+    delete legacyAmendment.changes[0].amountDelta;
+  }
+  const legacyAmendmentText = buildEscPosTicket(legacyAmendment).toString('ascii');
+  assert.match(legacyAmendmentText, /AJUSTE NO DISPONIBLE - REVISAR/);
+  assert.doesNotMatch(legacyAmendmentText, /Envio:/);
 
   const oneBlackPixel = encodeEscPosRaster(
     8,

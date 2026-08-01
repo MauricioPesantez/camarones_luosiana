@@ -121,7 +121,7 @@
       }
 
       main {
-        width: min(1240px, calc(100% - 40px));
+        width: min(1320px, calc(100% - 40px));
         margin: 0 auto;
         padding: 70px 0 88px;
       }
@@ -243,9 +243,37 @@
         font-size: 13px;
       }
 
+      .preview-section + .preview-section {
+        margin-top: 54px;
+      }
+
+      .preview-section__heading {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin: 0 0 18px;
+      }
+
+      .preview-section__heading h2 {
+        margin: 0 0 5px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 30px;
+        font-weight: 500;
+        letter-spacing: -0.035em;
+      }
+
+      .preview-section__heading p {
+        max-width: 680px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
       .preview-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 20px;
       }
 
@@ -334,6 +362,14 @@
           linear-gradient(90deg, rgba(23, 27, 22, 0.025) 1px, transparent 1px),
           #e9e6de;
         background-size: 18px 18px;
+      }
+
+      .preview-card--amendment .preview-stage {
+        min-height: 610px;
+      }
+
+      .preview-card--amendment .ticket {
+        min-height: 520px;
       }
 
       .ticket {
@@ -494,6 +530,30 @@
         font-weight: 900;
       }
 
+      .amount-lines {
+        margin-top: 7px;
+      }
+
+      .amount-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .amount-line + .amount-line {
+        margin-top: 2px;
+      }
+
+      .amount-line--strong {
+        font-weight: 900;
+      }
+
+      .ticket-alert {
+        margin: 5px 0 0;
+        font-weight: 900;
+        text-align: center;
+      }
+
       .footer-note {
         display: flex;
         align-items: center;
@@ -525,12 +585,6 @@
       @media (max-width: 1040px) {
         .preview-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .preview-card:last-child {
-          grid-column: 1 / -1;
-          width: calc(50% - 10px);
-          justify-self: center;
         }
       }
 
@@ -568,9 +622,9 @@
           border-left: 0;
         }
 
-        .preview-card:last-child {
-          grid-column: auto;
-          width: 100%;
+        .preview-section__heading {
+          align-items: flex-start;
+          flex-direction: column;
         }
 
         .footer-note {
@@ -593,6 +647,7 @@
         .topbar,
         .hero,
         .spec-strip,
+        .preview-section__heading,
         .preview-card__header,
         .footer-note {
           display: none !important;
@@ -604,15 +659,19 @@
           padding: 0;
         }
 
-        .preview-grid {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 10mm;
+        .preview-section + .preview-section {
+          margin-top: 8mm;
         }
 
-        .preview-card,
-        .preview-card:last-child {
+        .preview-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 80mm);
+          align-items: start;
+          justify-content: start;
+          gap: 8mm;
+        }
+
+        .preview-card {
           width: auto;
           display: block;
           flex: 0 0 auto;
@@ -646,11 +705,14 @@
           display: none;
         }
 
-        body[data-print-target="local"] .preview-card[data-ticket="local"],
-        body[data-print-target="domicilio"]
-          .preview-card[data-ticket="domicilio"],
-        body[data-print-target="retirar"]
-          .preview-card[data-ticket="retirar"] {
+        body[data-print-target="order-local"] .preview-card[data-ticket="order-local"],
+        body[data-print-target="order-takeaway"] .preview-card[data-ticket="order-takeaway"],
+        body[data-print-target="order-delivery-cash"] .preview-card[data-ticket="order-delivery-cash"],
+        body[data-print-target="order-delivery-transfer"] .preview-card[data-ticket="order-delivery-transfer"],
+        body[data-print-target="amend-local"] .preview-card[data-ticket="amend-local"],
+        body[data-print-target="amend-takeaway"] .preview-card[data-ticket="amend-takeaway"],
+        body[data-print-target="amend-delivery-cash"] .preview-card[data-ticket="amend-delivery-cash"],
+        body[data-print-target="amend-delivery-transfer"] .preview-card[data-ticket="amend-delivery-transfer"] {
           display: block;
         }
       }
@@ -675,11 +737,11 @@
       <section class="hero" aria-labelledby="page-title">
         <div>
           <p class="eyebrow">Comandas de cocina</p>
-          <h1 id="page-title">Tres pedidos.<br />Una lectura inmediata.</h1>
+          <h1 id="page-title">Orden inicial y modificaciones.</h1>
           <p class="intro">
-            Vista previa fiel al ticket térmico de 80 mm. Cada formato prioriza
-            el dato que cocina necesita primero: mesa, teléfono del cliente o
-            nombre de quien retira.
+            Vista previa fiel al ticket térmico de 80 mm. La orden inicial conserva
+            su desglose según tipo y pago; cada modificación usa el número diario,
+            la fecha y la revisión, e imprime solamente el ajuste de productos.
           </p>
         </div>
         <button class="print-all" type="button" onclick="printTickets('all')">
@@ -698,215 +760,162 @@
         </div>
         <div class="spec">
           <span class="spec__number">42</span>
-          <span class="spec__copy"><strong>caracteres</strong>Ancho compartido por ambas impresiones</span>
+          <span class="spec__copy"><strong>caracteres</strong>Ancho usado por el agente</span>
         </div>
         <div class="spec">
-          <span class="spec__number">3</span>
-          <span class="spec__copy"><strong>variantes</strong>Local, domicilio y retirar</span>
+          <span class="spec__number">4</span>
+          <span class="spec__copy"><strong>casos por flujo</strong>Local, llevar y dos pagos de domicilio</span>
         </div>
       </section>
 
-      <section class="preview-grid" aria-label="Vistas previas de tickets">
-        <article class="preview-card" data-ticket="local">
-          <header class="preview-card__header">
-            <div class="case-label">
-              <span class="case-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="M4 11h16M6 11v9M18 11v9M8 7h8l2 4H6l2-4Z" />
-                  <path d="M9 4h6v3H9z" />
-                </svg>
-              </span>
-              <span>
-                <h2>Consumo local</h2>
-                <p>Mesa y total listos para cobrar</p>
-              </span>
-            </div>
-            <button class="ticket-action" type="button" onclick="printTickets('local')" aria-label="Imprimir ticket local" title="Imprimir este ticket">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                <path d="M6 14h12v8H6z" />
-              </svg>
-            </button>
-          </header>
-          <div class="preview-stage">
-            <section class="ticket" aria-label="Ticket para consumo local">
-              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
-              <div class="printer-rule">==========================================</div>
-              <h3 class="ticket__title">ORDEN #123</h3>
-              <div class="printer-rule">==========================================</div>
-
-              <dl class="ticket__meta">
-                <div class="meta-row meta-row--emphasis"><dt>Mesa:</dt><dd>8</dd></div>
-                <div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:42:18</dd></div>
-              </dl>
-              <div class="printer-rule">------------------------------------------</div>
-
-              <ul class="items">
-                <li class="item">
-                  <div class="item__main">2x Arroz chaufa especial</div>
-                  <span class="item__note">Obs: Sin cebolla</span>
-                </li>
-                <li class="item">
-                  <div class="item__main">1x Wantán frito</div>
-                </li>
-                <li class="item">
-                  <div class="item__main">2x Limonada natural</div>
-                  <span class="item__note">Obs: Una sin hielo</span>
-                </li>
-              </ul>
-
-              <div class="printer-rule">------------------------------------------</div>
-              <dl class="ticket__spice">
-                <div class="meta-row meta-row--selected"><dt>Picante:</dt><dd>Picante 1</dd></div>
-              </dl>
-
-              <div class="printer-rule">------------------------------------------</div>
-              <div class="general-note">
-                <strong>OBSERVACIONES:</strong>
-                Servir entradas primero.
-              </div>
-              <div class="printer-rule">------------------------------------------</div>
-              <div class="local-total"><span>TOTAL:</span><span>$31.75</span></div>
-              <div class="ticket__footer">
-                <div class="printer-rule">==========================================</div>
-              </div>
-            </section>
+      <section class="preview-section" aria-labelledby="initial-orders-title">
+        <header class="preview-section__heading">
+          <div>
+            <h2 id="initial-orders-title">Impresión inicial</h2>
+            <p>Incluye todos los productos y los montos que corresponden al tipo de orden.</p>
           </div>
-        </article>
+        </header>
 
-        <article class="preview-card" data-ticket="domicilio">
-          <header class="preview-card__header">
-            <div class="case-label">
-              <span class="case-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z" />
-                  <circle cx="7" cy="18" r="2" /><circle cx="18" cy="18" r="2" />
-                </svg>
-              </span>
-              <span>
-                <h2>A domicilio</h2>
-                <p>Cliente opcional; teléfono visible</p>
-              </span>
-            </div>
-            <button class="ticket-action" type="button" onclick="printTickets('domicilio')" aria-label="Imprimir ticket a domicilio" title="Imprimir este ticket">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                <path d="M6 14h12v8H6z" />
-              </svg>
-            </button>
-          </header>
-          <div class="preview-stage">
-            <section class="ticket" aria-label="Ticket para pedido a domicilio">
+        <div class="preview-grid" aria-label="Vistas previas de órdenes iniciales">
+          <article class="preview-card" data-ticket="order-local">
+            <header class="preview-card__header">
+              <div class="case-label"><span class="case-icon" aria-hidden="true">01</span><div><h2>Local</h2><p>Total completo de la mesa</p></div></div>
+              <button class="ticket-action" type="button" onclick="printTickets('order-local')" aria-label="Imprimir orden local">↗</button>
+            </header>
+            <div class="preview-stage"><section class="ticket" aria-label="Orden inicial local">
               <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
-              <div class="printer-rule">==========================================</div>
-              <h3 class="ticket__title">ORDEN #124</h3>
-              <div class="printer-rule">==========================================</div>
-
-              <dl class="ticket__meta">
-                <div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div>
-                <div class="meta-row"><dt>Telefono:</dt><dd>098 765 4321</dd></div>
-                <div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:48:05</dd></div>
-              </dl>
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #123</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Mesa:</dt><dd>8</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:42:18</dd></div></dl>
               <div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">2x Arroz chaufa especial</div><span class="item__note">Obs: Sin cebolla</span></li><li class="item"><div class="item__main">1x Wantan frito</div></li><li class="item"><div class="item__main">2x Limonada natural</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><dl class="ticket__spice"><div class="meta-row meta-row--selected"><dt>Picante:</dt><dd>Picante 1</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note"><strong>OBSERVACIONES:</strong>Servir entradas primero.</div>
+              <div class="printer-rule">------------------------------------------</div><div class="local-total"><span>TOTAL:</span><span>$31.75</span></div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
 
-              <ul class="items">
-                <li class="item">
-                  <div class="item__main">1x Pollo agridulce</div>
-                  <span class="item__note">Obs: Salsa aparte</span>
-                </li>
-                <li class="item">
-                  <div class="item__main">1x Chop suey mixto</div>
-                </li>
-                <li class="item">
-                  <div class="item__main">1x Arroz blanco</div>
-                </li>
-              </ul>
-
-              <div class="printer-rule">------------------------------------------</div>
-              <dl class="ticket__spice">
-                <div class="meta-row meta-row--selected"><dt>Picante:</dt><dd>Natural</dd></div>
-              </dl>
-
-              <div class="printer-rule">------------------------------------------</div>
-              <div class="general-note">
-                <strong>OBSERVACIONES:</strong>
-                Empacar cubiertos y salsa de ají.
-              </div>
-              <div class="ticket__footer">
-                <div class="printer-rule">==========================================</div>
-              </div>
-            </section>
-          </div>
-        </article>
-
-        <article class="preview-card" data-ticket="retirar">
-          <header class="preview-card__header">
-            <div class="case-label">
-              <span class="case-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                  <path d="M5 8h14l-1 13H6L5 8Z" /><path d="M9 10V6a3 3 0 0 1 6 0v4" />
-                </svg>
-              </span>
-              <span>
-                <h2>Retirar en local</h2>
-                <p>Identificado por nombre</p>
-              </span>
-            </div>
-            <button class="ticket-action" type="button" onclick="printTickets('retirar')" aria-label="Imprimir ticket para retirar" title="Imprimir este ticket">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                <path d="M6 14h12v8H6z" />
-              </svg>
-            </button>
-          </header>
-          <div class="preview-stage">
-            <section class="ticket" aria-label="Ticket para retirar en local">
+          <article class="preview-card" data-ticket="order-takeaway">
+            <header class="preview-card__header">
+              <div class="case-label"><span class="case-icon" aria-hidden="true">02</span><div><h2>Para llevar</h2><p>Productos + recipientes</p></div></div>
+              <button class="ticket-action" type="button" onclick="printTickets('order-takeaway')" aria-label="Imprimir orden para llevar">↗</button>
+            </header>
+            <div class="preview-stage"><section class="ticket" aria-label="Orden inicial para llevar">
               <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
-              <div class="printer-rule">==========================================</div>
-              <h3 class="ticket__title">ORDEN #125</h3>
-              <div class="printer-rule">==========================================</div>
-
-              <dl class="ticket__meta">
-                <div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>PARA LLEVAR</dd></div>
-                <div class="meta-row"><dt>Cliente:</dt><dd>Andrés Pérez</dd></div>
-                <div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:53:41</dd></div>
-              </dl>
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #124</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>PARA LLEVAR</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Andres Perez</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:48:05</dd></div></dl>
               <div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">2x Tallarin salteado</div><span class="item__note">Obs: Uno sin pimiento</span></li><li class="item"><div class="item__main">1x Costillas BBQ</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><dl class="ticket__spice"><div class="meta-row meta-row--selected"><dt>Picante:</dt><dd>Picante 2</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-lines"><div class="amount-line"><span>Subtotal productos:</span><span>$45.00</span></div><div class="amount-line"><span>Recipientes:</span><span>$1.25</span></div></div>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>TOTAL:</span><span>$46.25</span></div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
 
-              <ul class="items">
-                <li class="item">
-                  <div class="item__main">2x Tallarín salteado</div>
-                  <span class="item__note">Obs: Uno sin pimiento</span>
-                </li>
-                <li class="item">
-                  <div class="item__main">1x Costillas BBQ</div>
-                </li>
-                <li class="item">
-                  <div class="item__main">3x Rollitos primavera</div>
-                </li>
-              </ul>
+          <article class="preview-card" data-ticket="order-delivery-cash">
+            <header class="preview-card__header">
+              <div class="case-label"><span class="case-icon" aria-hidden="true">03</span><div><h2>Domicilio · efectivo</h2><p>El motorizado cobra al cliente</p></div></div>
+              <button class="ticket-action" type="button" onclick="printTickets('order-delivery-cash')" aria-label="Imprimir domicilio en efectivo">↗</button>
+            </header>
+            <div class="preview-stage"><section class="ticket" aria-label="Orden inicial a domicilio en efectivo">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #125</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>EFECTIVO</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Carolina</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0987654321</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:53:41</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div><ul class="items"><li class="item"><div class="item__main">1x Pollo agridulce</div><span class="item__note">Obs: Salsa aparte</span></li><li class="item"><div class="item__main">1x Arroz blanco</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><dl class="ticket__spice"><div class="meta-row meta-row--selected"><dt>Picante:</dt><dd>Natural</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-lines"><div class="amount-line"><span>Subtotal productos:</span><span>$100.00</span></div><div class="amount-line"><span>Recipientes:</span><span>$1.25</span></div></div>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>TOTAL:</span><span>$101.25</span></div>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note"><strong>DELIVERY:</strong></div><div class="amount-lines"><div class="amount-line"><span>Envio:</span><span>$5.00</span></div><div class="amount-line"><span>Cobra al cliente:</span><span>$106.25</span></div></div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
 
-              <div class="printer-rule">------------------------------------------</div>
-              <dl class="ticket__spice">
-                <div class="meta-row meta-row--selected"><dt>Picante:</dt><dd>Picante 2</dd></div>
-              </dl>
+          <article class="preview-card" data-ticket="order-delivery-transfer">
+            <header class="preview-card__header">
+              <div class="case-label"><span class="case-icon" aria-hidden="true">04</span><div><h2>Domicilio · transferencia</h2><p>En local se mueve solo el envío</p></div></div>
+              <button class="ticket-action" type="button" onclick="printTickets('order-delivery-transfer')" aria-label="Imprimir domicilio por transferencia">↗</button>
+            </header>
+            <div class="preview-stage"><section class="ticket" aria-label="Orden inicial a domicilio por transferencia">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #126</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>TRANSFERENCIA</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Gabriela</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0991234567</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 14:01:12</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div><ul class="items"><li class="item"><div class="item__main">2x Combo Simple</div></li><li class="item"><div class="item__main">1x Limonada natural</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><dl class="ticket__spice"><div class="meta-row meta-row--selected"><dt>Picante:</dt><dd>Natural</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>Envio:</span><span>$5.00</span></div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+        </div>
+      </section>
 
-              <div class="printer-rule">------------------------------------------</div>
-              <div class="general-note">
-                <strong>OBSERVACIONES:</strong>
-                Pedido pagado. Entregar a Andrés.
-              </div>
-              <div class="ticket__footer">
-                <div class="printer-rule">==========================================</div>
-              </div>
-            </section>
+      <section class="preview-section" aria-labelledby="amendments-title">
+        <header class="preview-section__heading">
+          <div>
+            <h2 id="amendments-title">Reimpresión por modificación</h2>
+            <p>La revisión identifica la misma orden. Se imprime el delta con signo; los cargos fijos no se repiten.</p>
           </div>
-        </article>
+        </header>
+
+        <div class="preview-grid" aria-label="Vistas previas de modificaciones">
+          <article class="preview-card preview-card--amendment" data-ticket="amend-local">
+            <header class="preview-card__header"><div class="case-label"><span class="case-icon" aria-hidden="true">+1</span><div><h2>Modificar local</h2><p>Solo el valor agregado</p></div></div><button class="ticket-action" type="button" onclick="printTickets('amend-local')" aria-label="Imprimir modificación local">↗</button></header>
+            <div class="preview-stage"><section class="ticket" aria-label="Modificación de orden local">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #123 31-07 REV 2</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Mesa:</dt><dd>8</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:10:00</dd></div></dl><div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div>
+              <div class="printer-rule">------------------------------------------</div><dl class="ticket__spice"><div class="meta-row meta-row--selected"><dt>Picante:</dt><dd>Natural</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+
+          <article class="preview-card preview-card--amendment" data-ticket="amend-takeaway">
+            <header class="preview-card__header"><div class="case-label"><span class="case-icon" aria-hidden="true">−1</span><div><h2>Modificar para llevar</h2><p>Ejemplo de producto retirado</p></div></div><button class="ticket-action" type="button" onclick="printTickets('amend-takeaway')" aria-label="Imprimir modificación para llevar">↗</button></header>
+            <div class="preview-stage"><section class="ticket" aria-label="Modificación de orden para llevar">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #124 31-07 REV 3</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>PARA LLEVAR</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Andres Perez</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:12:26</dd></div></dl><div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">- 1x Costillas BBQ</div><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>-$6.50</span></div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>-$6.50</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente retiro un producto</div><div class="general-note">Solicita: Daniel</div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+
+          <article class="preview-card preview-card--amendment" data-ticket="amend-delivery-cash">
+            <header class="preview-card__header"><div class="case-label"><span class="case-icon" aria-hidden="true">+1</span><div><h2>Domicilio · efectivo</h2><p>Sin recobrar envío o recipientes</p></div></div><button class="ticket-action" type="button" onclick="printTickets('amend-delivery-cash')" aria-label="Imprimir modificación domicilio efectivo">↗</button></header>
+            <div class="preview-stage"><section class="ticket" aria-label="Modificación domicilio en efectivo">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #125 31-07 REV 2</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>EFECTIVO</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Carolina</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0987654321</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:15:03</dd></div></dl><div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+
+          <article class="preview-card preview-card--amendment" data-ticket="amend-delivery-transfer">
+            <header class="preview-card__header"><div class="case-label"><span class="case-icon" aria-hidden="true">+1</span><div><h2>Domicilio · transferencia</h2><p>Solo se imprime el nuevo producto</p></div></div><button class="ticket-action" type="button" onclick="printTickets('amend-delivery-transfer')" aria-label="Imprimir modificación domicilio transferencia">↗</button></header>
+            <div class="preview-stage"><section class="ticket" aria-label="Modificación domicilio por transferencia">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #126 31-07 REV 2</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>TRANSFERENCIA</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Gabriela</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0991234567</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:18:44</dd></div></dl><div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+        </div>
       </section>
 
       <aside class="footer-note">
-        <span><strong>Nota de implementación:</strong> “Retirar” corresponde al valor <code>para_llevar</code> usado internamente por el POS.</span>
-        <span>El total se imprime únicamente en órdenes locales.</span>
+        <span><strong>Regla de seguridad:</strong> una modificación nunca imprime <code>TOTAL</code>, <code>Envio</code> ni <code>Recipientes</code>.</span>
+        <span>“Para llevar” corresponde al valor interno <code>para_llevar</code>.</span>
       </aside>
     </main>
 

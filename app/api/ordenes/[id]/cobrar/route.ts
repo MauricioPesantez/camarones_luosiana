@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { CobrarOrdenRequest, esMetodoPago } from '@/types/orden';
 
+class PaymentConflictError extends Error {}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -10,7 +12,7 @@ export async function PATCH(
     const { id } = await params;
     const body: CobrarOrdenRequest = await request.json();
 
-    const { metodoPago, cobradaPor } = body;
+    const { metodoPago, cobradaPor, expectedRevision } = body;
 
     if (!cobradaPor || cobradaPor.trim() === '') {
       return NextResponse.json(
@@ -24,6 +26,13 @@ export async function PATCH(
       return NextResponse.json(
         { error: 'Método de pago inválido. Use: efectivo o transferencia' },
         { status: 400 }
+      );
+    }
+
+    if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
+      return NextResponse.json(
+        { error: 'La revisión esperada de la orden es requerida' },
+        { status: 400 },
       );
     }
 
@@ -43,6 +52,16 @@ export async function PATCH(
       return NextResponse.json(
         { error: 'Esta orden ya fue cobrada' },
         { status: 400 }
+      );
+    }
+
+    if (ordenExistente.printRevision !== expectedRevision) {
+      return NextResponse.json(
+        {
+          error:
+            'La orden cambió mientras se preparaba el cobro. Recárgala y confirma el total actualizado.',
+        },
+        { status: 409 },
       );
     }
 
@@ -79,8 +98,12 @@ export async function PATCH(
       esMetodoPago(metodoPagoPrevisto) && metodoPagoPrevisto !== metodoPago;
 
     const orden = await prisma.$transaction(async (tx) => {
-      const actualizada = await tx.orden.update({
-        where: { id },
+      const paymentUpdate = await tx.orden.updateMany({
+        where: {
+          id,
+          cobrada: false,
+          printRevision: expectedRevision,
+        },
         data: {
           metodoPago,
           cobrada: true,
@@ -88,6 +111,16 @@ export async function PATCH(
           cobradaPor: cobradaPor.trim(),
           estado: nuevoEstado,
         },
+      });
+
+      if (paymentUpdate.count !== 1) {
+        throw new PaymentConflictError(
+          'La orden fue cobrada o modificada al mismo tiempo.',
+        );
+      }
+
+      const actualizada = await tx.orden.findUniqueOrThrow({
+        where: { id },
         include: {
           items: {
             include: {
@@ -123,6 +156,15 @@ export async function PATCH(
 
     return NextResponse.json({ ...orden, metodoPagoOverride: huboOverride });
   } catch (error) {
+    if (error instanceof PaymentConflictError) {
+      return NextResponse.json(
+        {
+          error:
+            'La orden cambió durante el cobro. Recárgala y confirma el total actualizado.',
+        },
+        { status: 409 },
+      );
+    }
     console.error('Error al registrar el cobro:', error);
     return NextResponse.json(
       { error: 'Error al registrar el cobro' },

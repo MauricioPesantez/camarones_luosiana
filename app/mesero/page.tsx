@@ -8,6 +8,7 @@ import { MetodoPago } from "@/types/orden";
 
 interface Orden {
   id: string;
+  printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
@@ -92,6 +93,7 @@ export default function MeseroPage() {
         body: JSON.stringify({
           metodoPago: metodoPagoSeleccionado,
           cobradaPor: usuario?.nombre ?? "",
+          expectedRevision: ordenACobrar.printRevision,
         }),
       });
       if (res.ok) {
@@ -351,18 +353,20 @@ export default function MeseroPage() {
                             💵 Cobrar Orden
                           </button>
                         )}
-                        <button
-                          onClick={() => setOrdenEditar(orden)}
-                          className={`w-full py-2 rounded-lg font-semibold transition-colors text-white ${
-                            orden.estado === "lista"
-                              ? "bg-orange-500 hover:bg-orange-600"
-                              : "bg-blue-600 hover:bg-blue-700"
-                          }`}
-                        >
-                          {orden.estado === "lista"
-                            ? "➕ Agregar más items"
-                            : "✏️ Editar Orden"}
-                        </button>
+                        {!orden.cobrada && (
+                          <button
+                            onClick={() => setOrdenEditar(orden)}
+                            className={`w-full py-2 rounded-lg font-semibold transition-colors text-white ${
+                              orden.estado === "lista"
+                                ? "bg-orange-500 hover:bg-orange-600"
+                                : "bg-blue-600 hover:bg-blue-700"
+                            }`}
+                          >
+                            {orden.estado === "lista"
+                              ? "➕ Agregar más items"
+                              : "✏️ Editar Orden"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

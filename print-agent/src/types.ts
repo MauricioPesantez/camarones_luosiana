@@ -4,6 +4,7 @@ export interface PrintOrderSnapshot {
   id: string;
   shortCode: string;
   dailyNumber: number | null;
+  dailyDate?: string | null;
   type: 'local' | 'para_llevar' | 'domicilio';
   spiceLevel?: 'natural' | 'picante_1' | 'picante_2' | 'picante_3';
   tableNumber: number | null;
@@ -40,7 +41,11 @@ export interface PrintJobPayload {
     productName: string;
     previousQuantity: number | null;
     quantity: number | null;
+    quantityDelta?: number;
+    unitPrice?: number;
+    amountDelta?: number;
     observations: string | null;
+    complimentary?: boolean;
   }>;
   reason?: string;
   requestedBy?: string;

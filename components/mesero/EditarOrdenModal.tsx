@@ -21,6 +21,7 @@ interface Item {
 
 interface Orden {
   id: string;
+  printRevision: number;
   tipoOrden: string;
   estado: string;
   numeroMesa: number | null;
@@ -241,6 +242,7 @@ export default function EditarOrdenModal({
           items: cambios,
           razon,
           usuario,
+          expectedRevision: orden.printRevision,
         }),
       });
 
@@ -250,7 +252,11 @@ export default function EditarOrdenModal({
         throw new Error(data.error || "Error al modificar orden");
       }
 
-      if (data.regresaACocina) {
+      if (!data.impresionEnCola) {
+        alert(
+          "⚠️ Los cambios se guardaron, pero no se enviaron a impresión. Verifica la configuración de la cola antes de continuar.",
+        );
+      } else if (data.regresaACocina) {
         alert(
           "✅ Items agregados. La orden volvió a cocina para preparar los nuevos productos.",
         );

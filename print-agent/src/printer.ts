@@ -41,10 +41,38 @@ function centered(value: string): string {
 
 /** Etiqueta a la izquierda y monto pegado al borde derecho del ticket. */
 function amountLine(label: string, amount: number): string {
-  const value = `$${amount.toFixed(2)}`;
+  const value = `${amount < 0 ? '-' : ''}$${Math.abs(amount).toFixed(2)}`;
   const cleanLabel = ascii(label);
   const padding = Math.max(1, LINE_WIDTH - cleanLabel.length - value.length);
   return `${cleanLabel}${' '.repeat(padding)}${value}`;
+}
+
+function amendmentReference(order: PrintJobPayload['order'], revision: number): string {
+  const visibleOrderNumber = order.dailyNumber ?? order.shortCode;
+  const dateParts = order.dailyDate?.match(/^\d{4}-(\d{2})-(\d{2})$/);
+  const visibleDate = dateParts ? `${dateParts[2]}-${dateParts[1]}` : null;
+  return `ORDEN #${visibleOrderNumber}${visibleDate ? ` ${visibleDate}` : ''} REV ${revision}`;
+}
+
+function amendmentQuantityDelta(
+  change: NonNullable<PrintJobPayload['changes']>[number],
+): number {
+  if (
+    typeof change.quantityDelta === 'number' &&
+    Number.isInteger(change.quantityDelta) &&
+    change.quantityDelta !== 0
+  ) {
+    return change.quantityDelta;
+  }
+  return (change.quantity ?? 0) - (change.previousQuantity ?? 0);
+}
+
+function amendmentAmountDelta(
+  change: NonNullable<PrintJobPayload['changes']>[number],
+): number | null {
+  return typeof change.amountDelta === 'number' && Number.isFinite(change.amountDelta)
+    ? change.amountDelta
+    : null;
 }
 
 function paymentMethodLabel(
@@ -131,7 +159,7 @@ function linesForPayload(payload: PrintJobPayload): string[] {
     ? [centered(`ORDEN #${visibleOrderNumber}`)]
     : [
         centered(payload.ticketLabel),
-        centered(`ORDEN #${visibleOrderNumber}  REV ${payload.revision}`),
+        centered(amendmentReference(order, payload.revision)),
       ];
   const lines = [
     '='.repeat(LINE_WIDTH),
@@ -149,19 +177,40 @@ function linesForPayload(payload: PrintJobPayload): string[] {
         ? [`Cliente: ${order.customerName}`]
         : []),
     ...(order.customerPhone ? [`Telefono: ${order.customerPhone}`] : []),
-    `Hora: ${new Date(order.createdAt).toLocaleString('es-EC')}`,
+    `${payload.jobType === 'AMENDMENT' ? 'Hora mod.' : 'Hora'}: ${new Date(
+      payload.jobType === 'AMENDMENT' ? payload.generatedAt : order.createdAt,
+    ).toLocaleString('es-EC')}`,
     '-'.repeat(LINE_WIDTH),
   ];
 
   if (payload.jobType === 'AMENDMENT') {
+    let totalDelta = 0;
+    let hasAmountDelta = false;
     for (const change of payload.changes ?? []) {
-      const prefix = change.action === 'ADD' ? '+' : change.action === 'REMOVE' ? '-' : '~';
-      const quantity =
-        change.action === 'UPDATE'
-          ? `${change.previousQuantity ?? 0}->${change.quantity ?? 0}`
-          : String(change.quantity ?? change.previousQuantity ?? 0);
-      lines.push(`${prefix} ${quantity}x ${change.productName}`);
+      const quantityDelta = amendmentQuantityDelta(change);
+      const amountDelta = amendmentAmountDelta(change);
+      const prefix = quantityDelta > 0 ? '+' : '-';
+      lines.push(
+        `${prefix} ${Math.abs(quantityDelta)}x ${change.productName}${
+          change.complimentary ? ' [CORTESIA]' : ''
+        }`,
+      );
+      if (amountDelta !== null) {
+        hasAmountDelta = true;
+        totalDelta += amountDelta;
+        lines.push(amountLine('  Cambio:', amountDelta));
+      }
       if (change.observations) lines.push(`  Obs: ${change.observations}`);
+    }
+
+    lines.push(
+      '-'.repeat(LINE_WIDTH),
+      hasAmountDelta
+        ? amountLine('AJUSTE PRODUCTOS:', totalDelta)
+        : 'AJUSTE NO DISPONIBLE - REVISAR',
+    );
+    if (order.type !== 'local') {
+      lines.push('NO REPETIR ENVIO NI RECIPIENTES');
     }
   } else {
     for (const item of order.items) {
@@ -182,7 +231,9 @@ function linesForPayload(payload: PrintJobPayload): string[] {
   }
   if (payload.reason) lines.push('-'.repeat(LINE_WIDTH), `Motivo: ${payload.reason}`);
   if (payload.requestedBy) lines.push(`Solicita: ${payload.requestedBy}`);
-  lines.push(...amountLinesForOrder(order));
+  if (payload.jobType !== 'AMENDMENT') {
+    lines.push(...amountLinesForOrder(order));
+  }
 
   lines.push('='.repeat(LINE_WIDTH), '', '', '');
   return lines.map(ascii);
