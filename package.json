@@ -14,6 +14,7 @@
     "test:printer": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/printer.test.ts",
     "test:print-config": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/print-config.test.ts",
     "test:admin-validaciones": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/admin-validaciones.test.ts",
+    "test:cuadre": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/cuadre.test.ts",
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' prisma/seed.ts",
     "db:reset:preprod": "node scripts/reset-preproduction.mjs"
   },
