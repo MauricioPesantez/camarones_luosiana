@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { validarProductoNuevo } from '@/lib/admin-validaciones';
+import { normalizarNombre, validarProductoNuevo } from '@/lib/admin-validaciones';
 
 export async function GET(request: Request) {
   try {
@@ -27,9 +27,13 @@ export async function POST(request: Request) {
     }
 
     const datos = validacion.data;
-    const duplicado = await prisma.producto.findFirst({
-      where: { nombre: { equals: datos.nombre, mode: 'insensitive' } },
-    });
+    // La comparacion va en memoria porque debe ignorar tildes ademas de
+    // mayusculas, y Postgres solo ignora mayusculas.
+    const nombreBuscado = normalizarNombre(datos.nombre);
+    const existentes = await prisma.producto.findMany({ select: { nombre: true } });
+    const duplicado = existentes.find(
+      (otro) => normalizarNombre(otro.nombre) === nombreBuscado,
+    );
 
     if (duplicado) {
       return NextResponse.json(

@@ -22,6 +22,23 @@ export interface DatosUsuario {
   activo: boolean;
 }
 
+/**
+ * Forma canonica de un nombre para comparar duplicados: sin tildes, en
+ * minusculas y sin espacios en los bordes.
+ *
+ * Postgres con `mode: 'insensitive'` ignora mayusculas pero no acentos, asi que
+ * "JUAN PEREZ" no chocaria con "Juan Perez" y terminarian siendo dos usuarios
+ * distintos en la pantalla de login. La comparacion se hace en memoria: las
+ * tablas de productos y usuarios son de decenas de filas.
+ */
+export function normalizarNombre(valor: string): string {
+  return valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
 /** Error interno: lo atrapa `ejecutar` y lo convierte en { ok: false }. */
 class ErrorValidacion extends Error {}
 

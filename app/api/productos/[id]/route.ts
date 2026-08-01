@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { validarProductoParcial } from '@/lib/admin-validaciones';
+import { normalizarNombre, validarProductoParcial } from '@/lib/admin-validaciones';
 
 export async function PATCH(
   request: Request,
@@ -22,12 +22,14 @@ export async function PATCH(
     }
 
     if (datos.nombre) {
-      const duplicado = await prisma.producto.findFirst({
-        where: {
-          id: { not: id },
-          nombre: { equals: datos.nombre, mode: 'insensitive' },
-        },
+      const nombreBuscado = normalizarNombre(datos.nombre);
+      const existentes = await prisma.producto.findMany({
+        where: { id: { not: id } },
+        select: { nombre: true },
       });
+      const duplicado = existentes.find(
+        (otro) => normalizarNombre(otro.nombre) === nombreBuscado,
+      );
 
       if (duplicado) {
         return NextResponse.json(

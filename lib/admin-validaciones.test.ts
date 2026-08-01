@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import {
+  normalizarNombre,
   validarProductoNuevo,
   validarProductoParcial,
   validarUsuarioNuevo,
@@ -19,6 +20,15 @@ function errorDe(resultado: { ok: boolean; error?: string }): string {
 }
 
 function run(): void {
+  // --- Normalizacion de nombres para detectar duplicados ---
+  // Postgres con mode: 'insensitive' ignora mayusculas pero no tildes, y en
+  // nombres de personas eso deja pasar justo el duplicado que importa.
+  assert.equal(normalizarNombre('Juan Pérez'), 'juan perez');
+  assert.equal(normalizarNombre('JUAN PEREZ'), 'juan perez');
+  assert.equal(normalizarNombre('  juan pÉrez  '), 'juan perez');
+  assert.equal(normalizarNombre('Ceviche Mixto'), normalizarNombre('ceviche mixto'));
+  assert.notEqual(normalizarNombre('Ceviche'), normalizarNombre('Ceviches'));
+
   // --- Producto nuevo ---
   const producto = datosDe(
     validarProductoNuevo({
