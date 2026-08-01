@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 
+import { encodeEscPosRaster } from './logo.js';
 import { buildEscPosTicket } from './printer.js';
 import type { PrintJobPayload } from './types.js';
 
@@ -48,7 +49,14 @@ function ticketText(
 }
 
 function run(): void {
-  const local = ticketText('local');
+  const localTicket = buildEscPosTicket(createPayload('local'));
+  const local = localTicket.toString('ascii');
+  const rasterCommand = Buffer.from([0x1d, 0x76, 0x30, 0x00]);
+  const rasterPosition = localTicket.indexOf(rasterCommand);
+  const titlePosition = localTicket.indexOf(Buffer.from('ORDEN #123', 'ascii'));
+
+  assert.ok(rasterPosition >= 0, 'El ticket debe incluir el logo rasterizado');
+  assert.ok(rasterPosition < titlePosition, 'El logo debe aparecer antes del titulo');
   assert.match(local, /ORDEN #123/);
   assert.match(local, /TOTAL: \$31\.75/);
   assert.doesNotMatch(local, /Tipo:/);
@@ -58,6 +66,22 @@ function run(): void {
   assert.doesNotMatch(ticketText('domicilio'), /Mesero:/);
   assert.doesNotMatch(ticketText('para_llevar'), /Mesero:/);
   assert.doesNotMatch(ticketText('domicilio', null), /Cliente:/);
+
+  const oneBlackPixel = encodeEscPosRaster(
+    8,
+    1,
+    new Uint8Array([
+      0, 0, 0, 255,
+      255, 255, 255, 255,
+      255, 255, 255, 255,
+      255, 255, 255, 255,
+      255, 255, 255, 255,
+      255, 255, 255, 255,
+      255, 255, 255, 255,
+      255, 255, 255, 255,
+    ]),
+  );
+  assert.equal(oneBlackPixel.at(-1), 0x80);
 
   console.log('printer ticket tests: ok');
 }

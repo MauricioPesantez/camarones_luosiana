@@ -1,10 +1,15 @@
 import net from 'node:net';
 
+import { loadLogoRaster } from './logo.js';
 import type { AgentConfig, PrintJobPayload } from './types.js';
 
 const ESC = 0x1b;
 const GS = 0x1d;
 const LINE_WIDTH = 42;
+const ALIGN_LEFT = Buffer.from([ESC, 0x61, 0x00]);
+const ALIGN_CENTER = Buffer.from([ESC, 0x61, 0x01]);
+
+let logoWarningShown = false;
 
 export class PrinterError extends Error {
   constructor(
@@ -103,9 +108,21 @@ function linesForPayload(payload: PrintJobPayload): string[] {
 
 export function buildEscPosTicket(payload: PrintJobPayload): Buffer {
   const text = `${linesForPayload(payload).join('\n')}\n`;
+  let logo: ReturnType<typeof loadLogoRaster> | null = null;
+
+  try {
+    logo = loadLogoRaster();
+  } catch (error) {
+    if (!logoWarningShown) {
+      logoWarningShown = true;
+      console.warn('No se pudo cargar el logo de impresion:', error);
+    }
+  }
+
   return Buffer.concat([
     Buffer.from([ESC, 0x40]),
-    Buffer.from([ESC, 0x61, 0x00]),
+    ...(logo && logo.length > 0 ? [ALIGN_CENTER, logo, Buffer.from('\n')] : []),
+    ALIGN_LEFT,
     Buffer.from(text, 'ascii'),
     Buffer.from([GS, 0x56, 0x00]),
   ]);

@@ -24,7 +24,7 @@ ENV_FILE="/etc/restaurant-print-agent.env"
 
 id -u restaurant-print >/dev/null 2>&1 || useradd --system --home-dir "${INSTALL_DIR}" --shell /usr/sbin/nologin restaurant-print
 install -d -o restaurant-print -g restaurant-print "${INSTALL_DIR}"
-cp -R "${SOURCE_DIR}/package.json" "${SOURCE_DIR}/package-lock.json" "${SOURCE_DIR}/tsconfig.json" "${SOURCE_DIR}/src" "${INSTALL_DIR}/"
+cp -R "${SOURCE_DIR}/package.json" "${SOURCE_DIR}/package-lock.json" "${SOURCE_DIR}/tsconfig.json" "${SOURCE_DIR}/src" "${SOURCE_DIR}/assets" "${INSTALL_DIR}/"
 chown -R restaurant-print:restaurant-print "${INSTALL_DIR}"
 
 cd "${INSTALL_DIR}"

@@ -1,9 +1,16 @@
 import ThermalPrinter from 'node-thermal-printer';
+import path from 'node:path';
 import { esNivelPicante, obtenerEtiquetaNivelPicante } from '../types/orden';
 
 const LINE_WIDTH = 42;
 const STRONG_SEPARATOR = '='.repeat(LINE_WIDTH);
 const SECTION_SEPARATOR = '-'.repeat(LINE_WIDTH);
+const DEFAULT_LOGO_PATH = path.join(
+  process.cwd(),
+  'public',
+  'assets',
+  'logo-camarones-louisiana.png',
+);
 
 type NumericValue = number | string | { toNumber(): number } | { toString(): string };
 
@@ -123,6 +130,20 @@ export class PrinterService {
   async imprimirComanda(orden: OrdenComanda) {
     try {
       // Mantener el mismo formato que print-agent/src/printer.ts para trabajos ORDER.
+      try {
+        const logo = await this.printer.printImage(
+          process.env.PRINT_LOGO_PATH || DEFAULT_LOGO_PATH,
+        );
+        this.printer.setBuffer(Buffer.concat([
+          Buffer.from([0x1b, 0x61, 0x01]),
+          logo,
+          Buffer.from([0x0a, 0x1b, 0x61, 0x00]),
+        ]));
+      } catch (error) {
+        console.warn('No se pudo cargar el logo de impresion:', error);
+        this.printer.clear();
+      }
+
       this.printer.setTextSize(0, 0);
       this.printer.bold(false);
       this.printer.alignLeft();

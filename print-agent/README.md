@@ -20,6 +20,10 @@ si el agente y la impresora siguen disponibles.
 
 El servicio se habilita durante la instalacion, pero no se inicia automaticamente hasta que se configure el archivo de entorno y se ejecute `sudo systemctl start restaurant-print-agent`.
 
+El logo se instala desde `assets/logo-camarones-louisiana.png`. Si necesitas usar
+otro archivo sin reinstalar el agente, configura su ruta absoluta con
+`PRINT_LOGO_PATH` en `/etc/restaurant-print-agent.env`.
+
 ## Modos de operacion
 
 Durante las pruebas, la aplicacion mantiene `PRINT_QUEUE_ENABLED=true` y
