@@ -8,6 +8,8 @@ const GS = 0x1d;
 const LINE_WIDTH = 42;
 const ALIGN_LEFT = Buffer.from([ESC, 0x61, 0x00]);
 const ALIGN_CENTER = Buffer.from([ESC, 0x61, 0x01]);
+const INVERT_OFF = Buffer.from([GS, 0x42, 0x00]);
+const INVERT_ON = Buffer.from([GS, 0x42, 0x01]);
 
 let logoWarningShown = false;
 
@@ -178,8 +180,29 @@ function linesForPayload(payload: PrintJobPayload): string[] {
   return lines.map(ascii);
 }
 
+function encodeTicketLines(lines: string[]): Buffer {
+  const chunks: Buffer[] = [];
+
+  for (const line of lines) {
+    const emphasizedLabel = line.match(/^(Tipo|Mesa):/);
+
+    if (emphasizedLabel) {
+      chunks.push(
+        INVERT_ON,
+        Buffer.from(emphasizedLabel[0].toUpperCase(), 'ascii'),
+        INVERT_OFF,
+        Buffer.from(`${line.slice(emphasizedLabel[0].length)}\n`, 'ascii'),
+      );
+    } else {
+      chunks.push(Buffer.from(`${line}\n`, 'ascii'));
+    }
+  }
+
+  return Buffer.concat(chunks);
+}
+
 export function buildEscPosTicket(payload: PrintJobPayload): Buffer {
-  const text = `${linesForPayload(payload).join('\n')}\n`;
+  const text = encodeTicketLines(linesForPayload(payload));
   let logo: ReturnType<typeof loadLogoRaster> | null = null;
 
   try {
@@ -195,7 +218,7 @@ export function buildEscPosTicket(payload: PrintJobPayload): Buffer {
     Buffer.from([ESC, 0x40]),
     ...(logo && logo.length > 0 ? [ALIGN_CENTER, logo, Buffer.from('\n')] : []),
     ALIGN_LEFT,
-    Buffer.from(text, 'ascii'),
+    text,
     Buffer.from([GS, 0x56, 0x00]),
   ]);
 }

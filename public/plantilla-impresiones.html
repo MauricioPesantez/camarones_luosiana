@@ -419,6 +419,17 @@
         overflow-wrap: anywhere;
       }
 
+      .meta-row--emphasis dt {
+        width: fit-content;
+        padding: 0 3px;
+        color: #fff;
+        background: #000;
+        font-weight: 700;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
       .items {
         margin: 12px 0 8px;
         padding: 0;
@@ -710,7 +721,7 @@
 
               <dl class="ticket__meta">
                 <div class="meta-row"><dt>Picante:</dt><dd>PICANTE 1</dd></div>
-                <div class="meta-row"><dt>Mesa:</dt><dd>8</dd></div>
+                <div class="meta-row meta-row--emphasis"><dt>Mesa:</dt><dd>8</dd></div>
                 <div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:42:18</dd></div>
               </dl>
               <div class="printer-rule">------------------------------------------</div>
@@ -772,7 +783,7 @@
               <div class="printer-rule">==========================================</div>
 
               <dl class="ticket__meta">
-                <div class="meta-row"><dt>Tipo:</dt><dd>DOMICILIO</dd></div>
+                <div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div>
                 <div class="meta-row"><dt>Picante:</dt><dd>NATURAL</dd></div>
                 <div class="meta-row"><dt>Telefono:</dt><dd>098 765 4321</dd></div>
                 <div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:48:05</dd></div>
@@ -832,7 +843,7 @@
               <div class="printer-rule">==========================================</div>
 
               <dl class="ticket__meta">
-                <div class="meta-row"><dt>Tipo:</dt><dd>PARA LLEVAR</dd></div>
+                <div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>PARA LLEVAR</dd></div>
                 <div class="meta-row"><dt>Picante:</dt><dd>PICANTE 2</dd></div>
                 <div class="meta-row"><dt>Cliente:</dt><dd>Andrés Pérez</dd></div>
                 <div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:53:41</dd></div>

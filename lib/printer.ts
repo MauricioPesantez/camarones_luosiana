@@ -238,7 +238,17 @@ export class PrinterService {
       this.printer.bold(false);
       this.printer.alignLeft();
       for (const line of buildOrderTicketLines(orden)) {
-        this.printer.println(line);
+        const emphasizedLabel = line.match(/^(Tipo|Mesa):/);
+
+        if (emphasizedLabel) {
+          const label = emphasizedLabel[0].toUpperCase();
+          this.printer.invert(true);
+          this.printer.print(label);
+          this.printer.invert(false);
+          this.printer.println(line.slice(emphasizedLabel[0].length));
+        } else {
+          this.printer.println(line);
+        }
       }
       this.printer.cut();
 

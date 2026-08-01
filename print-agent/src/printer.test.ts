@@ -58,6 +58,14 @@ function amountLine(label: string, amount: string): string {
   return `${label}${' '.repeat(42 - label.length - amount.length)}${amount}`;
 }
 
+function invertedLabel(label: 'MESA:' | 'TIPO:'): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x1d, 0x42, 0x01]),
+    Buffer.from(label, 'ascii'),
+    Buffer.from([0x1d, 0x42, 0x00]),
+  ]);
+}
+
 function run(): void {
   const localTicket = buildEscPosTicket(createPayload('local'));
   const local = localTicket.toString('ascii');
@@ -68,6 +76,10 @@ function run(): void {
   assert.ok(rasterPosition >= 0, 'El ticket debe incluir el logo rasterizado');
   assert.ok(rasterPosition < titlePosition, 'El logo debe aparecer antes del titulo');
   assert.match(local, /ORDEN #123/);
+  assert.ok(
+    localTicket.includes(invertedLabel('MESA:')),
+    'MESA debe imprimirse con fondo negro y letras blancas',
+  );
   assert.ok(local.includes(amountLine('TOTAL:', '$31.75')));
   assert.doesNotMatch(local, /Tipo:/);
   assert.doesNotMatch(local, /Mesero:/);
@@ -79,6 +91,10 @@ function run(): void {
   // Payload sin modalidad acordada (generado antes de esta funcionalidad):
   // el ticket de domicilio sigue saliendo sin montos.
   const domicilioLegacy = ticketText('domicilio');
+  assert.ok(
+    buildEscPosTicket(createPayload('domicilio')).includes(invertedLabel('TIPO:')),
+    'TIPO debe imprimirse con fondo negro y letras blancas',
+  );
   assert.doesNotMatch(domicilioLegacy, /Pago:/);
   assert.doesNotMatch(domicilioLegacy, /TOTAL:/);
   assert.doesNotMatch(domicilioLegacy, /Envio:/);
