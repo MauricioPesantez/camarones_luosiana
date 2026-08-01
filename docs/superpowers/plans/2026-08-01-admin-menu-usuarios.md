@@ -1,5 +1,7 @@
 # Gestión de menú y usuarios en el panel admin — Plan de implementación
-2SpyKu1O11MH5Gnnxi1Zp1qHj8a97QX6aiYV7ef8ZUk
+sudo systemctl status restaurant-print-agent --no-pager -l
+sudo journalctl -u restaurant-print-agent -n 80 --no-pager
+sudo grep -E '^(API_BASE_URL|WORKER_ID|PRINTER_IP|PRINTER_PORT|DRY_RUN|POLL_ACTIVE_START_HOUR|POLL_ACTIVE_END_HOUR|POLL_TIME_ZONE)=' /etc/restaurant-print-agent.env
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
