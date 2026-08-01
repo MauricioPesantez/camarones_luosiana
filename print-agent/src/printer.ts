@@ -13,7 +13,7 @@ const INVERT_ON = Buffer.from([GS, 0x42, 0x01]);
 /** Etiquetas cuya etiqueta se imprime en video inverso. */
 const EMPHASIZED_LABEL_PATTERN = /^(Tipo|Mesa):/;
 /** Etiquetas cuyo valor seleccionado se imprime en video inverso. */
-const SELECTED_VALUE_PATTERN = /^(Picante:) (.+)$/;
+const SELECTED_VALUE_PATTERN = /^(\s*Salsa Louisiana:) (.+)$/;
 
 let logoWarningShown = false;
 
@@ -139,9 +139,10 @@ function amountLinesForOrder(order: PrintJobPayload['order']): string[] {
 }
 
 function spiceLevelLabel(
-  value: PrintJobPayload['order']['spiceLevel'],
+  value: PrintJobPayload['order']['spiceLevel'] | null,
 ): string | null {
   if (!value) return null;
+  if (value === 'leve') return 'LEVE';
   if (value === 'picante_1') return 'PICANTE 1';
   if (value === 'picante_2') return 'PICANTE 2';
   if (value === 'picante_3') return 'PICANTE 3';
@@ -185,6 +186,7 @@ function linesForPayload(payload: PrintJobPayload): string[] {
 
   if (payload.jobType === 'AMENDMENT') {
     let totalDelta = 0;
+    let totalSurchargeDelta = 0;
     let hasAmountDelta = false;
     for (const change of payload.changes ?? []) {
       const quantityDelta = amendmentQuantityDelta(change);
@@ -195,10 +197,17 @@ function linesForPayload(payload: PrintJobPayload): string[] {
           change.complimentary ? ' [CORTESIA]' : ''
         }`,
       );
+      const changeSpiceLevel = spiceLevelLabel(change.spiceLevel);
+      if (changeSpiceLevel) lines.push(`  Salsa Louisiana: ${changeSpiceLevel}`);
       if (amountDelta !== null) {
         hasAmountDelta = true;
         totalDelta += amountDelta;
         lines.push(amountLine('  Cambio:', amountDelta));
+      }
+      const surchargeDelta = Number(change.surchargeDelta ?? 0);
+      if (Number.isFinite(surchargeDelta) && surchargeDelta !== 0) {
+        totalSurchargeDelta += surchargeDelta;
+        lines.push(amountLine('  Envases:', surchargeDelta));
       }
       if (change.observations) lines.push(`  Obs: ${change.observations}`);
     }
@@ -209,21 +218,29 @@ function linesForPayload(payload: PrintJobPayload): string[] {
         ? amountLine('AJUSTE PRODUCTOS:', totalDelta)
         : 'AJUSTE NO DISPONIBLE - REVISAR',
     );
+    if (totalSurchargeDelta !== 0) {
+      lines.push(amountLine('AJUSTE ENVASES:', totalSurchargeDelta));
+      if (hasAmountDelta) {
+        lines.push(amountLine('AJUSTE TOTAL:', totalDelta + totalSurchargeDelta));
+      }
+    }
     if (order.type !== 'local') {
       lines.push('NO REPETIR ENVIO NI RECIPIENTES');
     }
   } else {
     for (const item of order.items) {
       lines.push(`${item.quantity}x ${item.productName}${item.complimentary ? ' [CORTESIA]' : ''}`);
+      const itemSpiceLevel = spiceLevelLabel(item.spiceLevel);
+      if (itemSpiceLevel) lines.push(`  Salsa Louisiana: ${itemSpiceLevel}`);
       if (item.observations) lines.push(`  Obs: ${item.observations}`);
     }
   }
 
-  // El nivel de picante va pegado a los items: es lo que la cocina revisa al
-  // terminar de leer el pedido.
-  const spiceLevel = spiceLevelLabel(order.spiceLevel);
-  if (spiceLevel) {
-    lines.push('-'.repeat(LINE_WIDTH), `Picante: ${spiceLevel}`);
+  // Compatibilidad con payloads históricos sin picante por item.
+  const hasItemSpice = order.items.some((item) => spiceLevelLabel(item.spiceLevel));
+  const legacySpiceLevel = spiceLevelLabel(order.spiceLevel);
+  if (!hasItemSpice && legacySpiceLevel) {
+    lines.push('-'.repeat(LINE_WIDTH), `Salsa Louisiana: ${legacySpiceLevel}`);
   }
 
   if (order.observations) {

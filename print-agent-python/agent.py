@@ -306,6 +306,7 @@ def spice_level_label(value):
         "picante_1": "PICANTE 1",
         "picante_2": "PICANTE 2",
         "picante_3": "PICANTE 3",
+        "leve": "LEVE",
         "natural": "NATURAL",
     }
     return labels.get(value) if value else None
@@ -390,6 +391,7 @@ def lines_for_payload(payload):
 
     if job_type == "AMENDMENT":
         total_delta = 0.0
+        total_surcharge_delta = 0.0
         has_amount_delta = False
         for change in payload.get("changes") or []:
             quantity_delta = amendment_quantity_delta(change)
@@ -404,10 +406,17 @@ def lines_for_payload(payload):
                     courtesy,
                 )
             )
+            change_spice = spice_level_label(change.get("spiceLevel"))
+            if change_spice:
+                lines.append("  Salsa Louisiana: " + change_spice)
             if amount_delta is not None:
                 has_amount_delta = True
                 total_delta += amount_delta
                 lines.append(amount_line("  Cambio:", amount_delta))
+            surcharge_delta = float(change.get("surchargeDelta") or 0)
+            if surcharge_delta:
+                total_surcharge_delta += surcharge_delta
+                lines.append(amount_line("  Envases:", surcharge_delta))
             if change.get("observations"):
                 lines.append("  Obs: " + str(change.get("observations")))
         lines.append("-" * LINE_WIDTH)
@@ -415,6 +424,14 @@ def lines_for_payload(payload):
             lines.append(amount_line("AJUSTE PRODUCTOS:", total_delta))
         else:
             lines.append("AJUSTE NO DISPONIBLE - REVISAR")
+        if total_surcharge_delta:
+            lines.append(amount_line("AJUSTE ENVASES:", total_surcharge_delta))
+            if has_amount_delta:
+                lines.append(
+                    amount_line(
+                        "AJUSTE TOTAL:", total_delta + total_surcharge_delta
+                    )
+                )
         if order.get("type") != "local":
             lines.append("NO REPETIR ENVIO NI RECIPIENTES")
     else:
@@ -427,12 +444,19 @@ def lines_for_payload(payload):
                     courtesy,
                 )
             )
+            item_spice = spice_level_label(item.get("spiceLevel"))
+            if item_spice:
+                lines.append("  Salsa Louisiana: " + item_spice)
             if item.get("observations"):
                 lines.append("  Obs: " + str(item.get("observations")))
 
-    spice = spice_level_label(order.get("spiceLevel"))
-    if spice:
-        lines.extend(["-" * LINE_WIDTH, "Picante: " + spice])
+    has_item_spice = any(
+        spice_level_label(item.get("spiceLevel"))
+        for item in (order.get("items") or [])
+    )
+    legacy_spice = spice_level_label(order.get("spiceLevel"))
+    if not has_item_spice and legacy_spice:
+        lines.extend(["-" * LINE_WIDTH, "Salsa Louisiana: " + legacy_spice])
     if order.get("observations"):
         lines.extend(["-" * LINE_WIDTH, "OBSERVACIONES:", str(order.get("observations"))])
     if payload.get("reason"):
@@ -449,7 +473,7 @@ def encode_ticket_lines(lines):
     chunks = []
     for line in lines:
         emphasized = re.match(r"^(Tipo|Mesa):", line)
-        selected = re.match(r"^(Picante:) (.+)$", line)
+        selected = re.match(r"^(\s*Salsa Louisiana:) (.+)$", line)
         if emphasized:
             label = emphasized.group(0)
             chunks.extend(

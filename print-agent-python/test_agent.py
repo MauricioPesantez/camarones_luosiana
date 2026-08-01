@@ -20,7 +20,6 @@ def payload(order_type="local", payment_method=None):
             "dailyNumber": 123,
             "dailyDate": "2026-07-31",
             "type": order_type,
-            "spiceLevel": "natural",
             "tableNumber": 8 if order_type == "local" else None,
             "customerName": None if order_type == "local" else "Carolina",
             "customerPhone": "0987654321" if order_type == "domicilio" else None,
@@ -35,6 +34,7 @@ def payload(order_type="local", payment_method=None):
                     "productName": "Arroz chaufa",
                     "quantity": 2,
                     "observations": None,
+                    "spiceLevel": "leve",
                     "complimentary": False,
                 }
             ],
@@ -55,6 +55,9 @@ class TicketTests(unittest.TestCase):
         self.assertIn(agent.INVERT_ON + b"MESA:" + agent.INVERT_OFF, ticket)
         self.assertIn("TOTAL:", text)
         self.assertNotIn("Tipo:", text)
+        self.assertIn("2x Arroz chaufa", text)
+        self.assertIn("Salsa Louisiana:", text)
+        self.assertIn(" LEVE", text)
 
     def test_cash_delivery_amounts(self):
         text = self.ticket_text(payload("domicilio", "efectivo"))
@@ -88,6 +91,7 @@ class TicketTests(unittest.TestCase):
                         "quantity": 1,
                         "quantityDelta": 1,
                         "amountDelta": 6.5,
+                        "surchargeDelta": 1.25,
                         "observations": None,
                         "complimentary": False,
                     }
@@ -99,6 +103,8 @@ class TicketTests(unittest.TestCase):
         self.assertIn("ORDEN #123 31-07 REV 2", text)
         self.assertIn("+ 1x Combo Simple", text)
         self.assertIn("AJUSTE PRODUCTOS:", text)
+        self.assertIn("AJUSTE ENVASES:", text)
+        self.assertIn("AJUSTE TOTAL:", text)
         self.assertIn("NO REPETIR ENVIO NI RECIPIENTES", text)
         self.assertNotIn("Recipientes:", text)
 

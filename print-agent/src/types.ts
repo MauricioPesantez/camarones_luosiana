@@ -6,7 +6,7 @@ export interface PrintOrderSnapshot {
   dailyNumber: number | null;
   dailyDate?: string | null;
   type: 'local' | 'para_llevar' | 'domicilio';
-  spiceLevel?: 'natural' | 'picante_1' | 'picante_2' | 'picante_3';
+  spiceLevel?: 'natural' | 'leve' | 'picante_1' | 'picante_2' | 'picante_3';
   tableNumber: number | null;
   customerName: string | null;
   customerPhone: string | null;
@@ -25,6 +25,7 @@ export interface PrintOrderSnapshot {
     productName: string;
     quantity: number;
     observations: string | null;
+    spiceLevel?: 'natural' | 'leve' | 'picante_1' | 'picante_2' | 'picante_3' | null;
     complimentary: boolean;
   }>;
 }
@@ -44,7 +45,9 @@ export interface PrintJobPayload {
     quantityDelta?: number;
     unitPrice?: number;
     amountDelta?: number;
+    surchargeDelta?: number;
     observations: string | null;
+    spiceLevel?: 'natural' | 'leve' | 'picante_1' | 'picante_2' | 'picante_3' | null;
     complimentary?: boolean;
   }>;
   reason?: string;

@@ -12,7 +12,7 @@ const SECTION_SEPARATOR = '-'.repeat(LINE_WIDTH);
 /** Etiquetas cuya etiqueta se imprime en video inverso. */
 const EMPHASIZED_LABEL_PATTERN = /^(Tipo|Mesa):/;
 /** Etiquetas cuyo valor seleccionado se imprime en video inverso. */
-const SELECTED_VALUE_PATTERN = /^(Picante:) (.+)$/;
+const SELECTED_VALUE_PATTERN = /^(\s*Salsa Louisiana:) (.+)$/;
 const DEFAULT_LOGO_PATH = path.join(
   process.cwd(),
   'public',
@@ -119,6 +119,7 @@ function toOptionalNumber(value: NumericValue | null | undefined): number {
 export interface ItemComanda {
   cantidad: number;
   observaciones?: string | null;
+  nivelPicante?: string | null;
   esCortesia?: boolean | null;
   producto: {
     nombre: string;
@@ -152,9 +153,6 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
     : tipoOrden === 'domicilio'
       ? 'DOMICILIO'
       : 'LOCAL';
-  const nivelPicante = esNivelPicante(orden.nivelPicante)
-    ? orden.nivelPicante
-    : 'natural';
   const visibleOrderNumber = orden.numeroDiario ?? orden.id.slice(-6);
   // La modalidad de pago solo se acuerda de antemano en domicilio.
   const metodoPagoPrevisto =
@@ -183,15 +181,24 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
     lines.push(
       `${item.cantidad}x ${item.producto.nombre}${item.esCortesia ? ' [CORTESIA]' : ''}`,
     );
+    if (esNivelPicante(item.nivelPicante)) {
+      lines.push(
+        `  Salsa Louisiana: ${obtenerEtiquetaNivelPicante(item.nivelPicante).toUpperCase()}`,
+      );
+    }
     if (item.observaciones) lines.push(`  Obs: ${item.observaciones}`);
   }
 
-  // El nivel de picante va pegado a los items: es lo que la cocina revisa al
-  // terminar de leer el pedido.
-  lines.push(
-    SECTION_SEPARATOR,
-    `Picante: ${obtenerEtiquetaNivelPicante(nivelPicante).toUpperCase()}`,
-  );
+  // Compatibilidad con comandas históricas, anteriores al picante por item.
+  if (
+    !orden.items.some((item) => esNivelPicante(item.nivelPicante)) &&
+    esNivelPicante(orden.nivelPicante)
+  ) {
+    lines.push(
+      SECTION_SEPARATOR,
+      `Salsa Louisiana: ${obtenerEtiquetaNivelPicante(orden.nivelPicante).toUpperCase()}`,
+    );
+  }
 
   if (orden.observaciones) {
     lines.push(SECTION_SEPARATOR, 'OBSERVACIONES:', orden.observaciones);

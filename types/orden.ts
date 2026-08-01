@@ -6,8 +6,29 @@ export type TipoOrden = 'local' | 'para_llevar' | 'domicilio';
 
 export const RECARGO_RECIPIENTES = 1.25;
 
+export function esCategoriaCombo(categoria: unknown): boolean {
+  if (typeof categoria !== 'string') return false;
+  const normalizada = categoria.trim().toLocaleLowerCase('es');
+  return normalizada === 'combo' || normalizada === 'combos';
+}
+
+export function calcularRecargoEnvases(
+  tipoOrden: TipoOrden,
+  items: readonly { cantidad: number; categoria: string }[],
+): number {
+  if (tipoOrden === 'local') return 0;
+
+  const cantidadCombos = items.reduce(
+    (total, item) =>
+      esCategoriaCombo(item.categoria) ? total + item.cantidad : total,
+    0,
+  );
+  return cantidadCombos * RECARGO_RECIPIENTES;
+}
+
 export const NIVELES_PICANTE = [
   { value: 'natural', label: 'Natural' },
+  { value: 'leve', label: 'Leve' },
   { value: 'picante_1', label: 'Picante 1' },
   { value: 'picante_2', label: 'Picante 2' },
   { value: 'picante_3', label: 'Picante 3' },
@@ -99,14 +120,14 @@ export type EstadoOrden =
 
 export interface DesglosePrecio {
   subtotalProductos: number;
-  recargo: number;       // $1.25 por recipientes para para_llevar y domicilio
+  cantidadEnvases: number;
+  recargo: number;       // $1.25 por cada unidad de combo para llevar/domicilio
   costoEnvio: number;    // Solo para domicilio
   total: number;         // subtotalProductos + recargo + costoEnvio
 }
 
 export interface CrearOrdenRequest {
   tipoOrden: TipoOrden;
-  nivelPicante: NivelPicante;
   // Solo local
   numeroMesa?: number;
   // Obligatorio para llevar; opcional para domicilio
@@ -123,6 +144,7 @@ export interface CrearOrdenRequest {
     cantidad: number;
     precioUnitario: number;
     observaciones?: string;
+    nivelPicante?: NivelPicante;
   }[];
   solicitarAprobacion?: boolean;
 }
@@ -132,7 +154,6 @@ export interface OrdenConStock {
   numeroDiario: number | null;
   fechaNumeroDiario: string | null;
   tipoOrden: TipoOrden;
-  nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;
@@ -182,7 +203,6 @@ export interface OrdenPendienteAprobacion {
   numeroDiario: number | null;
   fechaNumeroDiario: string | null;
   tipoOrden: TipoOrden;
-  nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;
@@ -201,5 +221,6 @@ export interface OrdenPendienteAprobacion {
     precioUnitario: number;
     subtotal: number;
     observaciones: string | null;
+    nivelPicante: NivelPicante | null;
   }[];
 }

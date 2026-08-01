@@ -7,7 +7,9 @@ import { ProductoStockBajo } from "@/types/stock";
 import {
   OrdenPendienteAprobacion,
   MetodoPago,
+  type NivelPicante,
   calcularLiquidacionDomicilio,
+  obtenerEtiquetaNivelPicante,
 } from "@/types/orden";
 
 interface Orden {
@@ -40,6 +42,7 @@ interface Orden {
     precioUnitario: number;
     subtotal: number;
     observaciones?: string;
+    nivelPicante?: NivelPicante | null;
   }[];
 }
 
@@ -700,6 +703,11 @@ export default function AdminPage() {
                             {orden.items.map((item, idx) => (
                               <div key={idx} className="text-xs text-gray-700">
                                 {item.cantidad}x {item.producto.nombre}
+                                {item.nivelPicante && (
+                                  <span className="ml-1 font-bold text-red-700">
+                                    🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>
