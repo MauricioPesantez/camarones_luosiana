@@ -4,8 +4,10 @@ import { PrinterService } from '@/lib/printer';
 import { ItemSinStock } from '@/types/stock';
 import {
   CrearOrdenRequest,
+  MetodoPago,
   RECARGO_RECIPIENTES,
   TipoOrden,
+  esMetodoPago,
   esNivelPicante,
 } from '@/types/orden';
 import { Prisma } from '@prisma/client';
@@ -79,6 +81,20 @@ export async function POST(request: Request) {
     if (tipoOrden === 'domicilio' && (body.costoEnvio === undefined || body.costoEnvio < 0)) {
       return NextResponse.json({ error: 'El costo de envío es requerido para domicilio' }, { status: 400 });
     }
+    if (tipoOrden === 'domicilio' && !esMetodoPago(body.metodoPagoPrevisto)) {
+      return NextResponse.json(
+        { error: 'La modalidad de pago es requerida para domicilio. Use: efectivo o transferencia' },
+        { status: 400 },
+      );
+    }
+
+    // La modalidad de pago se acuerda al crear solo en domicilio: define si el local
+    // le cobra al motorizado (efectivo) o le entrega el envío (transferencia).
+    // En local y para llevar el método se decide recién al momento de cobrar.
+    const metodoPagoPrevisto: MetodoPago | null =
+      tipoOrden === 'domicilio' && esMetodoPago(body.metodoPagoPrevisto)
+        ? body.metodoPagoPrevisto
+        : null;
 
     // Recargo y costo de envío
     const recargo = tipoOrden !== 'local' ? RECARGO_RECIPIENTES : 0;
@@ -203,6 +219,7 @@ export async function POST(request: Request) {
             tipoOrden === 'domicilio' ? body.telefonoCliente?.trim() : null,
           recargo: recargo > 0 ? recargo : null,
           costoEnvio: costoEnvio > 0 ? costoEnvio : null,
+          metodoPagoPrevisto,
           mesero: body.mesero,
           observaciones: body.observaciones,
           total: totalFinal,
@@ -266,6 +283,7 @@ export async function POST(request: Request) {
             subtotalProductos: Number(subtotalProductos),
             recargo: Number(recargo),
             costoEnvio: Number(costoEnvio),
+            metodoPagoPrevisto,
             total: Number(totalFinal),
             tiempoEstimado,
             itemsSinStock: hayStockInsuficiente && solicitarAprobacion
@@ -347,6 +365,7 @@ export async function POST(request: Request) {
         recargo: Number(recargo),
         costoEnvio: Number(costoEnvio),
         total: Number(totalFinal),
+        metodoPagoPrevisto,
       },
       ...(hayStockInsuficiente && {
         stockInsuficiente: true,

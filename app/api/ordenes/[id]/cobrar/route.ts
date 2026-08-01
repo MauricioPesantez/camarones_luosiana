@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { MetodoPago, CobrarOrdenRequest } from '@/types/orden';
-
-const METODOS_PAGO_VALIDOS: MetodoPago[] = ['efectivo', 'transferencia'];
+import { CobrarOrdenRequest, esMetodoPago } from '@/types/orden';
 
 export async function PATCH(
   request: Request,
@@ -22,7 +20,7 @@ export async function PATCH(
     }
 
     // Validar método de pago
-    if (!metodoPago || !METODOS_PAGO_VALIDOS.includes(metodoPago)) {
+    if (!esMetodoPago(metodoPago)) {
       return NextResponse.json(
         { error: 'Método de pago inválido. Use: efectivo o transferencia' },
         { status: 400 }
@@ -74,25 +72,56 @@ export async function PATCH(
       ? 'cobrada'
       : ordenExistente.estado;
 
-    const orden = await prisma.orden.update({
-      where: { id },
-      data: {
-        metodoPago,
-        cobrada: true,
-        fechaCobro: new Date(),
-        cobradaPor: cobradaPor.trim(),
-        estado: nuevoEstado,
-      },
-      include: {
-        items: {
-          include: {
-            producto: true,
+    // El cliente puede terminar pagando distinto a lo acordado al crear la orden.
+    // Se permite, pero queda auditado: la liquidación con el motorizado cambia.
+    const metodoPagoPrevisto = ordenExistente.metodoPagoPrevisto;
+    const huboOverride =
+      esMetodoPago(metodoPagoPrevisto) && metodoPagoPrevisto !== metodoPago;
+
+    const orden = await prisma.$transaction(async (tx) => {
+      const actualizada = await tx.orden.update({
+        where: { id },
+        data: {
+          metodoPago,
+          cobrada: true,
+          fechaCobro: new Date(),
+          cobradaPor: cobradaPor.trim(),
+          estado: nuevoEstado,
+        },
+        include: {
+          items: {
+            include: {
+              producto: true,
+            },
           },
         },
-      },
+      });
+
+      if (huboOverride) {
+        await tx.historialOrden.create({
+          data: {
+            ordenId: id,
+            tipoAccion: 'metodo_pago_override',
+            descripcion:
+              `Cobro en ${metodoPago} sobre una orden acordada en ${metodoPagoPrevisto}`,
+            datosAntes: { metodoPagoPrevisto },
+            datosDespues: {
+              metodoPago,
+              costoEnvio: Number(actualizada.costoEnvio ?? 0),
+              total: Number(actualizada.total),
+            },
+            usuarioNombre: cobradaPor.trim(),
+            usuarioRol: 'mesero',
+            razon: 'El cliente pagó con un método distinto al acordado',
+            diferenciaTotal: 0,
+          },
+        });
+      }
+
+      return actualizada;
     });
 
-    return NextResponse.json(orden);
+    return NextResponse.json({ ...orden, metodoPagoOverride: huboOverride });
   } catch (error) {
     console.error('Error al registrar el cobro:', error);
     return NextResponse.json(

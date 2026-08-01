@@ -13,6 +13,11 @@ export interface PrintOrderSnapshot {
   observations: string | null;
   surcharge: number;
   deliveryCost: number;
+  /**
+   * Modalidad acordada al crear la orden. Solo llega en domicilio. Los payloads
+   * generados antes de esta funcionalidad no traen el campo.
+   */
+  paymentMethod?: 'efectivo' | 'transferencia' | null;
   total: number;
   createdAt: string;
   items: Array<{

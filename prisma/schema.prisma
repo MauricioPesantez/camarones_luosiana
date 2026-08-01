@@ -49,7 +49,8 @@ model Orden {
   telefonoCliente   String? // Solo para "domicilio"
   recargo           Decimal?         @db.Decimal(10, 2) // $1.25 por recipientes para "para_llevar" y "domicilio"
   costoEnvio        Decimal?         @db.Decimal(10, 2) // Solo para "domicilio"
-  metodoPago        String? // "efectivo" | "transferencia"
+  metodoPago        String? // "efectivo" | "transferencia" — como se cobro realmente
+  metodoPagoPrevisto String? // "efectivo" | "transferencia" — acordado al crear la orden, solo "domicilio"
   cobrada           Boolean          @default(false)
   fechaCobro        DateTime?
   cobradaPor        String? // Nombre del mesero/admin que cobró

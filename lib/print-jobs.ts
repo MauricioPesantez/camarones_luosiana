@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
-import type { NivelPicante } from '@/types/orden';
+// Import relativo: este modulo se ejecuta con ts-node en los tests, donde el alias @/ no aplica.
+import { esMetodoPago, type MetodoPago, type NivelPicante } from '../types/orden';
 
 export const PRINT_PAYLOAD_VERSION = 1 as const;
 export const DEFAULT_AUTO_PRINT_WINDOW_MINUTES = 5;
@@ -71,6 +72,7 @@ export interface PrintOrderSource {
   observaciones?: string | null;
   recargo?: NumericValue | null;
   costoEnvio?: NumericValue | null;
+  metodoPagoPrevisto?: string | null;
   total: NumericValue;
   createdAt: string | Date;
   items: readonly PrintItemSource[];
@@ -101,6 +103,11 @@ export interface PrintOrderSnapshot {
   observations: string | null;
   surcharge: number;
   deliveryCost: number;
+  /**
+   * Modalidad acordada al crear la orden. Solo se llena en domicilio; en el resto
+   * queda null y el ticket se imprime igual que antes de esta funcionalidad.
+   */
+  paymentMethod: MetodoPago | null;
   total: number;
   createdAt: string;
   items: Array<{
@@ -239,6 +246,14 @@ function normalizeOrderType(
   return 'local';
 }
 
+function normalizePaymentMethod(
+  orderType: string | null | undefined,
+  value: string | null | undefined,
+): MetodoPago | null {
+  if (normalizeOrderType(orderType) !== 'domicilio') return null;
+  return esMetodoPago(value) ? value : null;
+}
+
 function normalizeSpiceLevel(
   value: string | null | undefined,
 ): NivelPicante {
@@ -286,6 +301,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
     observations: normalizeOptionalText(order.observaciones),
     surcharge: toNumber(order.recargo),
     deliveryCost: toNumber(order.costoEnvio),
+    paymentMethod: normalizePaymentMethod(order.tipoOrden, order.metodoPagoPrevisto),
     total: toNumber(order.total),
     createdAt: toIsoString(order.createdAt, 'orden.createdAt'),
     items: order.items.map((item) => {

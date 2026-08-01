@@ -21,6 +21,7 @@ interface Orden {
   modificada: boolean;
   cobrada: boolean;
   metodoPago: string | null;
+  metodoPagoPrevisto: MetodoPago | null;
   cobradaPor: string | null;
   createdAt: string;
   items: {
@@ -339,7 +340,11 @@ export default function MeseroPage() {
                           <button
                             onClick={() => {
                               setOrdenACobrar(orden);
-                              setMetodoPagoSeleccionado("efectivo");
+                              // En domicilio ya se acordó la modalidad al crear;
+                              // se puede cambiar, pero queda registrado el override.
+                              setMetodoPagoSeleccionado(
+                                orden.metodoPagoPrevisto ?? "efectivo",
+                              );
                             }}
                             className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition-colors"
                           >
@@ -411,6 +416,18 @@ export default function MeseroPage() {
                 🏦 Transferencia
               </button>
             </div>
+
+            {ordenACobrar.metodoPagoPrevisto &&
+              metodoPagoSeleccionado !== ordenACobrar.metodoPagoPrevisto && (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 mb-6">
+                  <p className="text-sm text-amber-800">
+                    ⚠️ El pedido se acordó en{" "}
+                    <strong>{ordenACobrar.metodoPagoPrevisto}</strong>. El cambio
+                    queda registrado en el historial y altera la liquidación con
+                    el motorizado.
+                  </p>
+                </div>
+              )}
 
             <div className="flex gap-3">
               <button

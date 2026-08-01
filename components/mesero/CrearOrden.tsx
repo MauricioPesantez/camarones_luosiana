@@ -22,6 +22,7 @@ interface ItemCarrito {
 
 import { useAuth } from "@/lib/auth";
 import {
+  MetodoPago,
   NIVELES_PICANTE,
   NivelPicante,
   RECARGO_RECIPIENTES,
@@ -40,6 +41,10 @@ export default function CrearOrden() {
   const [nombreCliente, setNombreCliente] = useState("");
   const [telefonoCliente, setTelefonoCliente] = useState("");
   const [costoEnvio, setCostoEnvio] = useState("");
+  // Solo domicilio: define si al motorizado se le cobra o se le entrega dinero.
+  const [metodoPagoPrevisto, setMetodoPagoPrevisto] = useState<MetodoPago | "">(
+    "",
+  );
   const [observaciones, setObservaciones] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("Todas");
   const [loading, setLoading] = useState(false);
@@ -201,6 +206,8 @@ export default function CrearOrden() {
       (!costoEnvio || parseFloat(costoEnvio) < 0)
     )
       return "Ingresa el costo de envío";
+    if (tipoOrden === "domicilio" && !metodoPagoPrevisto)
+      return "Selecciona la modalidad de pago";
     return null;
   };
 
@@ -240,6 +247,8 @@ export default function CrearOrden() {
             tipoOrden === "domicilio" ? telefonoCliente.trim() : undefined,
           costoEnvio:
             tipoOrden === "domicilio" ? parseFloat(costoEnvio) : undefined,
+          metodoPagoPrevisto:
+            tipoOrden === "domicilio" ? metodoPagoPrevisto : undefined,
           mesero: usuario?.nombre || "Desconocido",
           observaciones,
           items: carrito,
@@ -265,6 +274,7 @@ export default function CrearOrden() {
         setNombreCliente("");
         setTelefonoCliente("");
         setCostoEnvio("");
+        setMetodoPagoPrevisto("");
         setNivelPicante("");
         setObservaciones("");
         setMostrarModalStock(false);
@@ -327,6 +337,7 @@ export default function CrearOrden() {
                         setNombreCliente("");
                         setTelefonoCliente("");
                         setCostoEnvio("");
+                        setMetodoPagoPrevisto("");
                       }}
                       className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
                         tipoOrden === tipo
@@ -407,6 +418,52 @@ export default function CrearOrden() {
                     placeholder="Ej: 1.50"
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Modalidad de pago: solo domicilio. Define si al motorizado se le
+                cobra el pedido (efectivo) o se le entrega el envío (transferencia). */}
+            {tipoOrden === "domicilio" && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 text-gray-800">
+                  Modalidad de Pago <span className="text-red-600">*</span>
+                </label>
+                <div className="flex gap-2">
+                  {(["efectivo", "transferencia"] as MetodoPago[]).map(
+                    (metodo) => (
+                      <button
+                        key={metodo}
+                        type="button"
+                        onClick={() => setMetodoPagoPrevisto(metodo)}
+                        className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
+                          metodoPagoPrevisto === metodo
+                            ? metodo === "efectivo"
+                              ? "bg-green-600 text-white"
+                              : "bg-blue-600 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        {metodo === "efectivo"
+                          ? "💵 Efectivo"
+                          : "🏦 Transferencia"}
+                      </button>
+                    ),
+                  )}
+                </div>
+                {metodoPagoPrevisto === "efectivo" && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    El motorizado cobra ${calcularTotal().toFixed(2)} al cliente
+                    y paga ${(calcularTotal() - calcularCostoEnvio()).toFixed(2)}{" "}
+                    en el local.
+                  </p>
+                )}
+                {metodoPagoPrevisto === "transferencia" && (
+                  <p className="text-xs text-gray-600 mt-2">
+                    El cliente transfiere ${calcularTotal().toFixed(2)} y el
+                    local le entrega ${calcularCostoEnvio().toFixed(2)} al
+                    motorizado.
+                  </p>
+                )}
               </div>
             )}
 

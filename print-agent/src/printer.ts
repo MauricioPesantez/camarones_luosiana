@@ -33,6 +33,77 @@ function centered(value: string): string {
   return `${' '.repeat(Math.max(0, Math.floor((LINE_WIDTH - clean.length) / 2)))}${clean}`;
 }
 
+/** Etiqueta a la izquierda y monto pegado al borde derecho del ticket. */
+function amountLine(label: string, amount: number): string {
+  const value = `$${amount.toFixed(2)}`;
+  const cleanLabel = ascii(label);
+  const padding = Math.max(1, LINE_WIDTH - cleanLabel.length - value.length);
+  return `${cleanLabel}${' '.repeat(padding)}${value}`;
+}
+
+function paymentMethodLabel(
+  order: PrintJobPayload['order'],
+): 'efectivo' | 'transferencia' | null {
+  if (order.type !== 'domicilio') return null;
+  if (order.paymentMethod !== 'efectivo' && order.paymentMethod !== 'transferencia') {
+    return null;
+  }
+  return order.paymentMethod;
+}
+
+/**
+ * Bloque de montos al pie del ticket. Debe coincidir con lib/printer.ts.
+ *
+ * - local: solo el total.
+ * - para llevar: productos y recipientes desglosados mas el total a cobrar.
+ * - domicilio en efectivo: productos y recipientes. El envio NO entra en el TOTAL:
+ *   ese TOTAL es lo que el local le cobra al motorizado. Debajo, en un bloque
+ *   propio, va lo que el motorizado le cobra al cliente (TOTAL + envio).
+ * - domicilio por transferencia: solo el envio, que es lo unico que se mueve en el local.
+ * - domicilio sin modalidad acordada (payloads previos): sin montos, como antes.
+ */
+function amountLinesForOrder(order: PrintJobPayload['order']): string[] {
+  const separator = '-'.repeat(LINE_WIDTH);
+  const subtotal = order.total - order.surcharge - order.deliveryCost;
+
+  if (order.type === 'local') {
+    return [separator, amountLine('TOTAL:', order.total)];
+  }
+
+  if (order.type === 'para_llevar') {
+    return [
+      separator,
+      amountLine('Subtotal productos:', subtotal),
+      amountLine('Recipientes:', order.surcharge),
+      separator,
+      amountLine('TOTAL:', order.total),
+    ];
+  }
+
+  const paymentMethod = paymentMethodLabel(order);
+
+  if (paymentMethod === 'efectivo') {
+    const totalLocal = subtotal + order.surcharge;
+    return [
+      separator,
+      amountLine('Subtotal productos:', subtotal),
+      amountLine('Recipientes:', order.surcharge),
+      separator,
+      amountLine('TOTAL:', totalLocal),
+      separator,
+      'DELIVERY:',
+      amountLine('Envio:', order.deliveryCost),
+      amountLine('Cobra al cliente:', totalLocal + order.deliveryCost),
+    ];
+  }
+
+  if (paymentMethod === 'transferencia') {
+    return [separator, amountLine('Envio:', order.deliveryCost)];
+  }
+
+  return [];
+}
+
 function spiceLevelLabel(
   value: PrintJobPayload['order']['spiceLevel'],
 ): string | null {
@@ -63,6 +134,9 @@ function linesForPayload(payload: PrintJobPayload): string[] {
     ...(order.type === 'local'
       ? []
       : [`Tipo: ${order.type === 'para_llevar' ? 'PARA LLEVAR' : 'DOMICILIO'}`]),
+    ...(paymentMethodLabel(order)
+      ? [`Pago: ${paymentMethodLabel(order)!.toUpperCase()}`]
+      : []),
     ...(spiceLevelLabel(order.spiceLevel)
       ? [`Picante: ${spiceLevelLabel(order.spiceLevel)}`]
       : []),
@@ -98,9 +172,7 @@ function linesForPayload(payload: PrintJobPayload): string[] {
   }
   if (payload.reason) lines.push('-'.repeat(LINE_WIDTH), `Motivo: ${payload.reason}`);
   if (payload.requestedBy) lines.push(`Solicita: ${payload.requestedBy}`);
-  if (order.type === 'local') {
-    lines.push('-'.repeat(LINE_WIDTH), `TOTAL: $${order.total.toFixed(2)}`);
-  }
+  lines.push(...amountLinesForOrder(order));
 
   lines.push('='.repeat(LINE_WIDTH), '', '', '');
   return lines.map(ascii);

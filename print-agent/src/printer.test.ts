@@ -7,6 +7,7 @@ import type { PrintJobPayload } from './types.js';
 function createPayload(
   type: PrintJobPayload['order']['type'],
   customerName: string | null = type === 'local' ? null : 'Carolina',
+  overrides: Partial<PrintJobPayload['order']> = {},
 ): PrintJobPayload {
   return {
     payloadVersion: 1,
@@ -37,6 +38,7 @@ function createPayload(
           complimentary: false,
         },
       ],
+      ...overrides,
     },
   };
 }
@@ -44,8 +46,16 @@ function createPayload(
 function ticketText(
   type: PrintJobPayload['order']['type'],
   customerName?: string | null,
+  overrides?: Partial<PrintJobPayload['order']>,
 ): string {
-  return buildEscPosTicket(createPayload(type, customerName)).toString('ascii');
+  return buildEscPosTicket(
+    createPayload(type, customerName, overrides),
+  ).toString('ascii');
+}
+
+/** Reconstruye una linea de monto alineada a la derecha del ticket (42 columnas). */
+function amountLine(label: string, amount: string): string {
+  return `${label}${' '.repeat(42 - label.length - amount.length)}${amount}`;
 }
 
 function run(): void {
@@ -58,14 +68,65 @@ function run(): void {
   assert.ok(rasterPosition >= 0, 'El ticket debe incluir el logo rasterizado');
   assert.ok(rasterPosition < titlePosition, 'El logo debe aparecer antes del titulo');
   assert.match(local, /ORDEN #123/);
-  assert.match(local, /TOTAL: \$31\.75/);
+  assert.ok(local.includes(amountLine('TOTAL:', '$31.75')));
   assert.doesNotMatch(local, /Tipo:/);
   assert.doesNotMatch(local, /Mesero:/);
-  assert.doesNotMatch(ticketText('domicilio'), /TOTAL:/);
-  assert.doesNotMatch(ticketText('para_llevar'), /TOTAL:/);
+  assert.doesNotMatch(local, /Pago:/);
   assert.doesNotMatch(ticketText('domicilio'), /Mesero:/);
   assert.doesNotMatch(ticketText('para_llevar'), /Mesero:/);
   assert.doesNotMatch(ticketText('domicilio', null), /Cliente:/);
+
+  // Payload sin modalidad acordada (generado antes de esta funcionalidad):
+  // el ticket de domicilio sigue saliendo sin montos.
+  const domicilioLegacy = ticketText('domicilio');
+  assert.doesNotMatch(domicilioLegacy, /Pago:/);
+  assert.doesNotMatch(domicilioLegacy, /TOTAL:/);
+  assert.doesNotMatch(domicilioLegacy, /Envio:/);
+
+  // Domicilio en efectivo: desglose completo, el motorizado cobra el total.
+  const domicilioEfectivo = ticketText('domicilio', 'Carolina', {
+    paymentMethod: 'efectivo',
+    surcharge: 1.25,
+    deliveryCost: 5,
+    total: 106.25,
+  });
+  assert.match(domicilioEfectivo, /Pago: EFECTIVO/);
+  assert.ok(domicilioEfectivo.includes(amountLine('Subtotal productos:', '$100.00')));
+  assert.ok(domicilioEfectivo.includes(amountLine('Recipientes:', '$1.25')));
+  // TOTAL es lo que el local le cobra al motorizado: no incluye el envio.
+  assert.ok(domicilioEfectivo.includes(amountLine('TOTAL:', '$101.25')));
+  // Bloque aparte: lo que el motorizado le cobra al cliente, envio incluido.
+  assert.match(domicilioEfectivo, /DELIVERY:/);
+  assert.ok(domicilioEfectivo.includes(amountLine('Envio:', '$5.00')));
+  assert.ok(domicilioEfectivo.includes(amountLine('Cobra al cliente:', '$106.25')));
+  // El envio va despues del TOTAL, nunca antes: sumarlo al total seria un error.
+  assert.ok(
+    domicilioEfectivo.indexOf('TOTAL:') < domicilioEfectivo.indexOf('Envio:'),
+  );
+
+  // Domicilio por transferencia: solo el envio que se le entrega al motorizado.
+  const domicilioTransferencia = ticketText('domicilio', 'Carolina', {
+    paymentMethod: 'transferencia',
+    surcharge: 1.25,
+    deliveryCost: 5,
+    total: 106.25,
+  });
+  assert.match(domicilioTransferencia, /Pago: TRANSFERENCIA/);
+  assert.ok(domicilioTransferencia.includes(amountLine('Envio:', '$5.00')));
+  assert.doesNotMatch(domicilioTransferencia, /TOTAL:/);
+  assert.doesNotMatch(domicilioTransferencia, /Subtotal productos:/);
+
+  // Para llevar: desglose sin envio y sin modalidad acordada.
+  const paraLlevar = ticketText('para_llevar', 'Carolina', {
+    surcharge: 1.25,
+    deliveryCost: 0,
+    total: 46.25,
+  });
+  assert.doesNotMatch(paraLlevar, /Pago:/);
+  assert.ok(paraLlevar.includes(amountLine('Subtotal productos:', '$45.00')));
+  assert.ok(paraLlevar.includes(amountLine('Recipientes:', '$1.25')));
+  assert.ok(paraLlevar.includes(amountLine('TOTAL:', '$46.25')));
+  assert.doesNotMatch(paraLlevar, /Envio:/);
 
   const oneBlackPixel = encodeEscPosRaster(
     8,

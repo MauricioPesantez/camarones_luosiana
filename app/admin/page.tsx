@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import DetalleOrdenModal from "@/components/admin/DetalleOrdenModal";
 import { ProductoStockBajo } from "@/types/stock";
-import { OrdenPendienteAprobacion, MetodoPago } from "@/types/orden";
+import {
+  OrdenPendienteAprobacion,
+  MetodoPago,
+  calcularLiquidacionDomicilio,
+} from "@/types/orden";
 
 interface Orden {
   id: string;
@@ -21,6 +25,7 @@ interface Orden {
   modificada: boolean;
   cobrada: boolean;
   metodoPago: string | null;
+  metodoPagoPrevisto: string | null;
   fechaCobro: string | null;
   cobradaPor: string | null;
   createdAt: string;
@@ -256,12 +261,46 @@ export default function AdminPage() {
   );
 
   const ordenesCobradas = ordenes.filter((o) => o.estado === "cobrada");
-  const totalEfectivo = ordenesCobradas
-    .filter((o) => o.metodoPago === "efectivo")
-    .reduce((total, orden) => total + Number(orden.total), 0);
-  const totalTransferencia = ordenesCobradas
-    .filter((o) => o.metodoPago === "transferencia")
-    .reduce((total, orden) => total + Number(orden.total), 0);
+
+  // En domicilio el envío no se queda en el local: si el pago fue en efectivo lo
+  // cobra el motorizado al cliente, y si fue por transferencia el local se lo
+  // devuelve en efectivo. Las órdenes previas a esta lógica se suman como antes.
+  const liquidacion = ordenesCobradas.reduce(
+    (acumulado, orden) => {
+      const domicilio = calcularLiquidacionDomicilio({
+        tipoOrden: orden.tipoOrden,
+        total: Number(orden.total),
+        costoEnvio: orden.costoEnvio,
+        metodoPagoPrevisto: orden.metodoPagoPrevisto,
+        metodoPago: orden.metodoPago,
+      });
+
+      if (domicilio) {
+        return {
+          efectivo: acumulado.efectivo + domicilio.efectivoRecibido,
+          transferencia: acumulado.transferencia + domicilio.transferenciaRecibida,
+          entregadoADeliveries:
+            acumulado.entregadoADeliveries + domicilio.efectivoEntregado,
+        };
+      }
+
+      const total = Number(orden.total);
+      return {
+        efectivo:
+          acumulado.efectivo + (orden.metodoPago === "efectivo" ? total : 0),
+        transferencia:
+          acumulado.transferencia +
+          (orden.metodoPago === "transferencia" ? total : 0),
+        entregadoADeliveries: acumulado.entregadoADeliveries,
+      };
+    },
+    { efectivo: 0, transferencia: 0, entregadoADeliveries: 0 },
+  );
+
+  const totalEfectivo = liquidacion.efectivo;
+  const totalTransferencia = liquidacion.transferencia;
+  const totalEntregadoADeliveries = liquidacion.entregadoADeliveries;
+  const efectivoEnCaja = totalEfectivo - totalEntregadoADeliveries;
 
   const ordenesPorEstado = {
     pendiente: ordenes.filter(
@@ -524,6 +563,28 @@ export default function AdminPage() {
               ${totalTransferencia.toFixed(2)}
             </p>
           </div>
+          {/* Solo aparece cuando hubo domicilios pagados por transferencia:
+              ese envío sale de la caja en efectivo hacia el motorizado. */}
+          {totalEntregadoADeliveries > 0 && (
+            <>
+              <div className="bg-amber-50 rounded-lg shadow p-4 border border-amber-200">
+                <h3 className="text-xs text-gray-600 mb-1">
+                  🛵 Entregado a deliveries
+                </h3>
+                <p className="text-xl font-bold text-amber-700">
+                  -${totalEntregadoADeliveries.toFixed(2)}
+                </p>
+              </div>
+              <div className="bg-green-100 rounded-lg shadow p-4 border border-green-300">
+                <h3 className="text-xs text-gray-600 mb-1">
+                  💰 Efectivo en caja
+                </h3>
+                <p className="text-xl font-bold text-green-800">
+                  ${efectivoEnCaja.toFixed(2)}
+                </p>
+              </div>
+            </>
+          )}
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-xs text-gray-600 mb-1">Total Órdenes</h3>
             <p className="text-xl font-bold text-blue-600">

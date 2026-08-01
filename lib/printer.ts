@@ -1,6 +1,10 @@
 import ThermalPrinter from 'node-thermal-printer';
 import path from 'node:path';
-import { esNivelPicante, obtenerEtiquetaNivelPicante } from '../types/orden';
+import {
+  esMetodoPago,
+  esNivelPicante,
+  obtenerEtiquetaNivelPicante,
+} from '../types/orden';
 
 const LINE_WIDTH = 42;
 const STRONG_SEPARATOR = '='.repeat(LINE_WIDTH);
@@ -26,6 +30,71 @@ function centered(value: string): string {
   return `${' '.repeat(Math.max(0, Math.floor((LINE_WIDTH - clean.length) / 2)))}${clean}`;
 }
 
+/** Etiqueta a la izquierda y monto pegado al borde derecho del ticket. */
+function amountLine(label: string, amount: number): string {
+  const value = `$${amount.toFixed(2)}`;
+  const cleanLabel = ascii(label);
+  const padding = Math.max(1, LINE_WIDTH - cleanLabel.length - value.length);
+  return `${cleanLabel}${' '.repeat(padding)}${value}`;
+}
+
+/**
+ * Bloque de montos al pie del ticket.
+ *
+ * - local: solo el total.
+ * - para llevar: productos y recipientes desglosados mas el total a cobrar.
+ * - domicilio en efectivo: productos y recipientes. El envio NO entra en el TOTAL:
+ *   ese TOTAL es lo que el local le cobra al motorizado. Debajo, en un bloque
+ *   propio, va lo que el motorizado le cobra al cliente (TOTAL + envio).
+ * - domicilio por transferencia: solo el envio, que es lo unico que se mueve en el local.
+ * - domicilio sin modalidad acordada (ordenes previas): sin montos, como antes.
+ */
+function buildAmountLines(params: {
+  tipoOrden: string;
+  recargo: number;
+  costoEnvio: number;
+  total: number;
+  metodoPagoPrevisto: string | null;
+}): string[] {
+  const { tipoOrden, recargo, costoEnvio, total, metodoPagoPrevisto } = params;
+  const subtotalProductos = total - recargo - costoEnvio;
+
+  if (tipoOrden === 'local') {
+    return [SECTION_SEPARATOR, amountLine('TOTAL:', total)];
+  }
+
+  if (tipoOrden === 'para_llevar') {
+    return [
+      SECTION_SEPARATOR,
+      amountLine('Subtotal productos:', subtotalProductos),
+      amountLine('Recipientes:', recargo),
+      SECTION_SEPARATOR,
+      amountLine('TOTAL:', total),
+    ];
+  }
+
+  if (metodoPagoPrevisto === 'efectivo') {
+    const totalLocal = subtotalProductos + recargo;
+    return [
+      SECTION_SEPARATOR,
+      amountLine('Subtotal productos:', subtotalProductos),
+      amountLine('Recipientes:', recargo),
+      SECTION_SEPARATOR,
+      amountLine('TOTAL:', totalLocal),
+      SECTION_SEPARATOR,
+      'DELIVERY:',
+      amountLine('Envio:', costoEnvio),
+      amountLine('Cobra al cliente:', totalLocal + costoEnvio),
+    ];
+  }
+
+  if (metodoPagoPrevisto === 'transferencia') {
+    return [SECTION_SEPARATOR, amountLine('Envio:', costoEnvio)];
+  }
+
+  return [];
+}
+
 function toNumber(value: NumericValue): number {
   const converted = typeof value === 'object' && 'toNumber' in value
     ? value.toNumber()
@@ -35,6 +104,12 @@ function toNumber(value: NumericValue): number {
     throw new Error('El total de la orden no es un valor numerico valido');
   }
   return converted;
+}
+
+/** Recargo y envio son opcionales en la orden: ausentes valen cero. */
+function toOptionalNumber(value: NumericValue | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  return toNumber(value);
 }
 
 export interface ItemComanda {
@@ -57,6 +132,9 @@ export interface OrdenComanda {
   mesero: string;
   observaciones?: string | null;
   printRevision?: number | null;
+  recargo?: NumericValue | null;
+  costoEnvio?: NumericValue | null;
+  metodoPagoPrevisto?: string | null;
   total: NumericValue;
   createdAt: string | Date;
   items: ItemComanda[];
@@ -74,11 +152,17 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
     ? orden.nivelPicante
     : 'natural';
   const visibleOrderNumber = orden.numeroDiario ?? orden.id.slice(-6);
+  // La modalidad de pago solo se acuerda de antemano en domicilio.
+  const metodoPagoPrevisto =
+    tipoOrden === 'domicilio' && esMetodoPago(orden.metodoPagoPrevisto)
+      ? orden.metodoPagoPrevisto
+      : null;
   const lines = [
     STRONG_SEPARATOR,
     centered(`ORDEN #${visibleOrderNumber}`),
     STRONG_SEPARATOR,
     ...(tipoOrden === 'local' ? [] : [`Tipo: ${labelTipo}`]),
+    ...(metodoPagoPrevisto ? [`Pago: ${metodoPagoPrevisto.toUpperCase()}`] : []),
     `Picante: ${obtenerEtiquetaNivelPicante(nivelPicante).toUpperCase()}`,
     ...(tipoOrden === 'local'
       ? [`Mesa: ${orden.numeroMesa ?? '-'}`]
@@ -103,9 +187,15 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
     lines.push(SECTION_SEPARATOR, 'OBSERVACIONES:', orden.observaciones);
   }
 
-  if (tipoOrden === 'local') {
-    lines.push(SECTION_SEPARATOR, `TOTAL: $${toNumber(orden.total).toFixed(2)}`);
-  }
+  lines.push(
+    ...buildAmountLines({
+      tipoOrden,
+      recargo: toOptionalNumber(orden.recargo),
+      costoEnvio: toOptionalNumber(orden.costoEnvio),
+      total: toNumber(orden.total),
+      metodoPagoPrevisto,
+    }),
+  );
 
   lines.push(STRONG_SEPARATOR, '', '', '');
   return lines.map(ascii);
