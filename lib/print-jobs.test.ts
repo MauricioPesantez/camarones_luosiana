@@ -27,21 +27,21 @@ function createOrder(): PrintOrderSource {
     numeroDiario: 123,
     fechaNumeroDiario: '2026-07-31',
     tipoOrden: 'domicilio',
-    nivelPicante: 'picante_2',
     numeroMesa: null,
     nombreCliente: 'Ana',
     telefonoCliente: '0999999999',
     mesero: 'Maria',
     observaciones: 'Sin picante',
-    recargo: '1.25',
+    recargo: '2.50',
     costoEnvio: { toNumber: () => 2 },
-    total: '16.25',
+    total: '17.50',
     createdAt: new Date('2026-07-31T18:58:00.000Z'),
     items: [
       {
         id: 'item-1',
         cantidad: 2,
         observaciones: 'Sin cebolla',
+        nivelPicante: 'picante_2',
         precioUnitario: '6.50',
         subtotal: '13.00',
         producto: { id: 'product-1', nombre: 'Combo Simple' },
@@ -62,9 +62,10 @@ async function run(): Promise<void> {
   assert.equal(payload.order.shortCode, 'abcdef');
   assert.equal(payload.order.dailyNumber, 123);
   assert.equal(payload.order.dailyDate, '2026-07-31');
-  assert.equal(payload.order.spiceLevel, 'picante_2');
-  assert.equal(payload.order.surcharge, 1.25);
-  assert.equal(payload.order.total, 16.25);
+  assert.equal(payload.order.spiceLevel, undefined);
+  assert.equal(payload.order.items[0].spiceLevel, 'picante_2');
+  assert.equal(payload.order.surcharge, 2.5);
+  assert.equal(payload.order.total, 17.5);
   assert.equal(payload.order.items[0].unitPrice, 6.5);
   assert.equal(payload.generatedAt, FIXED_NOW.toISOString());
 
@@ -87,6 +88,7 @@ async function run(): Promise<void> {
         quantityDelta: 1,
         unitPrice: 3.5,
         amountDelta: 3.5,
+        surchargeDelta: 1.25,
       },
     ],
     {
@@ -103,6 +105,7 @@ async function run(): Promise<void> {
   assert.equal(amendment.changes[0].quantityDelta, 1);
   assert.equal(amendment.changes[0].unitPrice, 3.5);
   assert.equal(amendment.changes[0].amountDelta, 3.5);
+  assert.equal(amendment.changes[0].surchargeDelta, 1.25);
   assert.equal(amendment.reason, 'Solicitud del cliente');
 
   const reprint = buildReprintPrintPayload(createOrder(), {

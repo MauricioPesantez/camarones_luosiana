@@ -21,6 +21,7 @@ interface Item {
   precioUnitario: number;
   subtotal: number;
   observaciones?: string;
+  nivelPicante?: NivelPicante | null;
 }
 
 interface Orden {
@@ -29,7 +30,6 @@ interface Orden {
   fechaNumeroDiario: string | null;
   printRevision: number;
   tipoOrden: string;
-  nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;

@@ -1,0 +1,22 @@
+[Unit]
+Description=Restaurant POS Print Agent (Python i386)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=restaurant-print
+Group=restaurant-print
+WorkingDirectory=/opt/restaurant-print-agent-python
+EnvironmentFile=/etc/restaurant-print-agent.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /opt/restaurant-print-agent-python/agent.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

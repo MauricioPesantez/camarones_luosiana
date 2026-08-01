@@ -51,6 +51,7 @@ export interface PrintItemSource {
   id?: string;
   cantidad: number;
   observaciones?: string | null;
+  nivelPicante?: string | null;
   precioUnitario?: NumericValue;
   subtotal?: NumericValue;
   esCortesia?: boolean;
@@ -91,7 +92,9 @@ export interface AmendmentChangeSource {
   quantityDelta: number;
   unitPrice: NumericValue;
   amountDelta: NumericValue;
+  surchargeDelta?: NumericValue;
   observations?: string | null;
+  spiceLevel?: string | null;
   complimentary?: boolean;
 }
 
@@ -101,7 +104,8 @@ export interface PrintOrderSnapshot {
   dailyNumber: number | null;
   dailyDate: string | null;
   type: 'local' | 'para_llevar' | 'domicilio';
-  spiceLevel: NivelPicante;
+  /** Campo legado de payloads creados antes del picante por item. */
+  spiceLevel?: NivelPicante;
   tableNumber: number | null;
   customerName: string | null;
   customerPhone: string | null;
@@ -122,6 +126,7 @@ export interface PrintOrderSnapshot {
     productName: string;
     quantity: number;
     observations: string | null;
+    spiceLevel: NivelPicante | null;
     unitPrice: number | null;
     subtotal: number | null;
     complimentary: boolean;
@@ -155,7 +160,9 @@ export interface AmendmentPrintPayload extends PrintPayloadBase {
     quantityDelta: number;
     unitPrice: number;
     amountDelta: number;
+    surchargeDelta: number;
     observations: string | null;
+    spiceLevel: NivelPicante | null;
     complimentary: boolean;
   }>;
   reason: string;
@@ -274,6 +281,7 @@ function normalizeSpiceLevel(
   value: string | null | undefined,
 ): NivelPicante {
   if (
+    value === 'leve' ||
     value === 'picante_1' ||
     value === 'picante_2' ||
     value === 'picante_3'
@@ -281,6 +289,14 @@ function normalizeSpiceLevel(
     return value;
   }
   return 'natural';
+}
+
+function normalizeOptionalSpiceLevel(
+  value: string | null | undefined,
+): NivelPicante | null {
+  return value === undefined || value === null
+    ? null
+    : normalizeSpiceLevel(value);
 }
 
 function normalizeRequiredText(value: string, field: string): string {
@@ -319,7 +335,6 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
     dailyNumber,
     dailyDate: normalizeDailyDate(order.fechaNumeroDiario),
     type: normalizeOrderType(order.tipoOrden),
-    spiceLevel: normalizeSpiceLevel(order.nivelPicante),
     tableNumber: order.numeroMesa ?? null,
     customerName: normalizeOptionalText(order.nombreCliente),
     customerPhone: normalizeOptionalText(order.telefonoCliente),
@@ -342,6 +357,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
         ),
         quantity: item.cantidad,
         observations: normalizeOptionalText(item.observaciones),
+        spiceLevel: normalizeOptionalSpiceLevel(item.nivelPicante),
         unitPrice:
           item.precioUnitario === undefined
             ? null
@@ -401,6 +417,7 @@ export function buildAmendmentPrintPayload(
 
     const unitPrice = toNumber(change.unitPrice);
     const amountDelta = toNumber(change.amountDelta);
+    toNumber(change.surchargeDelta);
     if (unitPrice < 0) {
       throw new Error('change.unitPrice no puede ser negativo');
     }
@@ -429,7 +446,9 @@ export function buildAmendmentPrintPayload(
       quantityDelta: change.quantityDelta,
       unitPrice: toNumber(change.unitPrice),
       amountDelta: toNumber(change.amountDelta),
+      surchargeDelta: toNumber(change.surchargeDelta),
       observations: normalizeOptionalText(change.observations),
+      spiceLevel: normalizeOptionalSpiceLevel(change.spiceLevel),
       complimentary: change.complimentary === true,
     })),
     reason: normalizeRequiredText(options.reason, 'reason'),

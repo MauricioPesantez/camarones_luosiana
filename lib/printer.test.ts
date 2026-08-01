@@ -4,6 +4,7 @@ import {
   buildOrderTicketLines,
   type OrdenComanda,
 } from './printer';
+import { NIVELES_PICANTE, calcularRecargoEnvases } from '../types/orden';
 
 const createdAt = new Date('2026-07-31T18:42:18.000Z');
 
@@ -14,7 +15,7 @@ function createOrder(
     id: 'cm-order-a7c219',
     numeroDiario: 123,
     tipoOrden: 'local',
-    nivelPicante: 'picante_1',
+    nivelPicante: null,
     numeroMesa: 8,
     nombreCliente: null,
     telefonoCliente: null,
@@ -30,6 +31,7 @@ function createOrder(
       {
         cantidad: 2,
         observaciones: 'Sin cebolla',
+        nivelPicante: 'leve',
         producto: { nombre: 'Arroz chaufa especial' },
       },
       {
@@ -52,13 +54,26 @@ function amountLine(label: string, amount: string): string {
 }
 
 function run(): void {
+  const itemsParaRecargo = [
+    { cantidad: 2, categoria: 'Combos' },
+    { cantidad: 3, categoria: 'Bebidas' },
+    { cantidad: 1, categoria: 'Combo' },
+  ];
+  assert.equal(calcularRecargoEnvases('local', itemsParaRecargo), 0);
+  assert.equal(calcularRecargoEnvases('para_llevar', itemsParaRecargo), 3.75);
+  assert.equal(calcularRecargoEnvases('domicilio', itemsParaRecargo), 3.75);
+  assert.deepEqual(
+    NIVELES_PICANTE.slice(0, 2).map((nivel) => nivel.value),
+    ['natural', 'leve'],
+  );
+
   const local = buildOrderTicketLines(createOrder());
 
   assert.equal(local[0], '='.repeat(42));
   assert.equal(local[1].trim(), 'ORDEN #123');
   assert.equal(local[2], '='.repeat(42));
   assert.equal(local.some((line) => line.startsWith('Tipo:')), false);
-  assert.equal(includesLine(local, 'Picante: PICANTE 1'), true);
+  assert.equal(includesLine(local, '  Salsa Louisiana: LEVE'), true);
   assert.equal(includesLine(local, 'Mesa: 8'), true);
   assert.equal(local.some((line) => line.startsWith('Mesero:')), false);
   assert.equal(local.some((line) => line.startsWith('Cliente:')), false);
@@ -67,13 +82,14 @@ function run(): void {
   assert.equal(includesLine(local, '  Obs: Sin cebolla'), true);
   assert.equal(includesLine(local, '1x Wantan frito [CORTESIA]'), true);
   assert.equal(includesLine(local, 'OBSERVACIONES:'), true);
-  // El picante se lee despues de los items y antes de las observaciones.
+  // El picante se imprime inmediatamente junto al combo correspondiente.
   assert.ok(
-    local.findIndex((line) => line.startsWith('1x Wantan frito')) <
-      local.indexOf('Picante: PICANTE 1'),
+    local.indexOf('2x Arroz chaufa especial') <
+      local.indexOf('  Salsa Louisiana: LEVE'),
   );
   assert.ok(
-    local.indexOf('Picante: PICANTE 1') < local.indexOf('OBSERVACIONES:'),
+    local.indexOf('  Salsa Louisiana: LEVE') <
+      local.indexOf('  Obs: Sin cebolla'),
   );
   assert.equal(includesLine(local, amountLine('TOTAL:', '$31.75')), true);
   assert.equal(local.some((line) => line.startsWith('Pago:')), false);

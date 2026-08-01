@@ -43,11 +43,11 @@ model Orden {
   numeroDiario      Int?
   fechaNumeroDiario String?          @db.VarChar(10) // YYYY-MM-DD en America/Guayaquil
   tipoOrden         String           @default("local") // "local" | "para_llevar" | "domicilio"
-  nivelPicante      String           @default("natural") // "natural" | "picante_1" | "picante_2" | "picante_3"
+  nivelPicante      String           @default("natural") // Campo legado; las órdenes nuevas guardan el nivel en Item
   numeroMesa        Int? // Solo para tipo "local"
   nombreCliente     String? // Obligatorio para "para_llevar", opcional para "domicilio"
   telefonoCliente   String? // Solo para "domicilio"
-  recargo           Decimal?         @db.Decimal(10, 2) // $1.25 por recipientes para "para_llevar" y "domicilio"
+  recargo           Decimal?         @db.Decimal(10, 2) // $1.25 por cada combo para "para_llevar" y "domicilio"
   costoEnvio        Decimal?         @db.Decimal(10, 2) // Solo para "domicilio"
   metodoPago        String? // "efectivo" | "transferencia" — como se cobro realmente
   metodoPagoPrevisto String? // "efectivo" | "transferencia" — acordado al crear la orden, solo "domicilio"
@@ -137,6 +137,7 @@ model Item {
   precioUnitario Decimal  @db.Decimal(10, 2)
   subtotal       Decimal  @db.Decimal(10, 2)
   observaciones  String?
+  nivelPicante   String?  // Solo para productos de categoría Combo(s)
   esCortesia     Boolean  @default(false)
   adminCortesia  String? // Nombre del admin que autorizó la cortesía
   createdAt      DateTime @default(now())

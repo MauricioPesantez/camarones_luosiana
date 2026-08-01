@@ -4,7 +4,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
-import { MetodoPago } from "@/types/orden";
+import {
+  MetodoPago,
+  type NivelPicante,
+  obtenerEtiquetaNivelPicante,
+} from "@/types/orden";
 
 interface Orden {
   id: string;
@@ -38,6 +42,7 @@ interface Orden {
     };
     precioUnitario: number;
     subtotal: number;
+    nivelPicante?: NivelPicante | null;
     esCortesia?: boolean;
     adminCortesia?: string;
   }[];
@@ -300,6 +305,11 @@ export default function DigitalPage() {
                                 <span className="text-sm font-semibold text-amber-900 flex-1">
                                   {item.cantidad}x {item.producto.nombre}
                                 </span>
+                                {item.nivelPicante && (
+                                  <span className="text-xs font-bold text-red-700">
+                                    🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                                  </span>
+                                )}
                                 <span className="text-xs font-bold text-amber-600 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                                   CORTESÍA
                                 </span>
@@ -307,6 +317,11 @@ export default function DigitalPage() {
                             ) : (
                               <div key={item.id} className="text-sm text-gray-600">
                                 {item.cantidad}x {item.producto.nombre}
+                                {item.nivelPicante && (
+                                  <span className="ml-2 font-bold text-red-700">
+                                    🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                                  </span>
+                                )}
                               </div>
                             ),
                           )}
@@ -318,7 +333,7 @@ export default function DigitalPage() {
                         {orden.recargo !== null &&
                           Number(orden.recargo) > 0 && (
                             <div className="flex justify-between text-xs text-gray-500">
-                              <span>Recargo por recipientes:</span>
+                              <span>Envases de combos:</span>
                               <span>${Number(orden.recargo).toFixed(2)}</span>
                             </div>
                           )}

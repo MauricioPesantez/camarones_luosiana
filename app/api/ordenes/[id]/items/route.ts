@@ -9,10 +9,24 @@ import {
   type AmendmentChangeSource,
 } from '@/lib/print-jobs';
 import { notificarClientes } from '@/lib/sse';
+import {
+  calcularRecargoEnvases,
+  esCategoriaCombo,
+  esNivelPicante,
+  RECARGO_RECIPIENTES,
+  type NivelPicante,
+  type TipoOrden,
+} from '@/types/orden';
 
 type ItemChange =
   | { accion: 'eliminar'; itemId: string }
-  | { accion: 'agregar'; productoId: string; cantidad: number; observaciones?: string }
+  | {
+      accion: 'agregar';
+      productoId: string;
+      cantidad: number;
+      observaciones?: string;
+      nivelPicante?: NivelPicante;
+    }
   | { accion: 'modificar'; itemId: string; cantidad: number };
 
 interface ModificationRequest {
@@ -182,6 +196,7 @@ export async function PATCH(
         }
 
         const previousTotal = Number(order.total);
+        const packagingApplies = order.tipoOrden !== 'local';
         const history: HistoryRecord[] = [];
         const amendmentChanges: AmendmentChangeSource[] = [];
 
@@ -228,7 +243,12 @@ export async function PATCH(
               quantityDelta: -item.cantidad,
               unitPrice: Number(item.precioUnitario),
               amountDelta: -Number(item.subtotal),
+              surchargeDelta:
+                packagingApplies && esCategoriaCombo(item.producto.categoria)
+                  ? -item.cantidad * RECARGO_RECIPIENTES
+                  : 0,
               observations: item.observaciones,
+              spiceLevel: item.nivelPicante,
               complimentary: item.esCortesia,
             });
             continue;
@@ -244,6 +264,15 @@ export async function PATCH(
             if (!product.disponible) {
               throw new ModificationRequestError(
                 'El producto no está disponible',
+                400,
+              );
+            }
+            if (
+              esCategoriaCombo(product.categoria) &&
+              !esNivelPicante(change.nivelPicante)
+            ) {
+              throw new ModificationRequestError(
+                `El nivel de picante es requerido para ${product.nombre}`,
                 400,
               );
             }
@@ -272,6 +301,11 @@ export async function PATCH(
                 precioUnitario: unitPrice,
                 subtotal,
                 observaciones: change.observaciones,
+                nivelPicante:
+                  esCategoriaCombo(product.categoria) &&
+                  esNivelPicante(change.nivelPicante)
+                    ? change.nivelPicante
+                    : null,
               },
             });
 
@@ -303,7 +337,12 @@ export async function PATCH(
               quantityDelta: change.cantidad,
               unitPrice,
               amountDelta: subtotal,
+              surchargeDelta:
+                packagingApplies && esCategoriaCombo(product.categoria)
+                  ? change.cantidad * RECARGO_RECIPIENTES
+                  : 0,
               observations: change.observaciones,
+              spiceLevel: newItem.nivelPicante,
               complimentary: false,
             });
             continue;
@@ -382,7 +421,12 @@ export async function PATCH(
             quantityDelta: quantityDifference,
             unitPrice,
             amountDelta: newSubtotal - previousSubtotal,
+            surchargeDelta:
+              packagingApplies && esCategoriaCombo(item.producto.categoria)
+                ? quantityDifference * RECARGO_RECIPIENTES
+                : 0,
             observations: item.observaciones,
+            spiceLevel: item.nivelPicante,
             complimentary: item.esCortesia,
           });
         }
@@ -409,9 +453,34 @@ export async function PATCH(
           (sum, item) => sum + Number(item.subtotal),
           0,
         );
+        const orderType = (
+          order.tipoOrden === 'domicilio' || order.tipoOrden === 'para_llevar'
+            ? order.tipoOrden
+            : 'local'
+        ) as TipoOrden;
+        const newSurcharge = calcularRecargoEnvases(
+          orderType,
+          updatedItems.map((item) => ({
+            cantidad: item.cantidad,
+            categoria: item.producto.categoria,
+          })),
+        );
+        const previousSurcharge = Number(order.recargo ?? 0);
+        if (newSurcharge !== previousSurcharge) {
+          history.push({
+            tipoAccion: 'recargo_envases_actualizado',
+            descripcion: `Recargo de envases actualizado: $${previousSurcharge.toFixed(2)} → $${newSurcharge.toFixed(2)}`,
+            datosAntes: { recargo: previousSurcharge },
+            datosDespues: { recargo: newSurcharge },
+            usuarioNombre: body.usuario.nombre,
+            usuarioRol: body.usuario.rol,
+            razon: body.razon,
+            diferenciaTotal: newSurcharge - previousSurcharge,
+          });
+        }
         const newTotal =
           productsSubtotal +
-          Number(order.recargo ?? 0) +
+          newSurcharge +
           Number(order.costoEnvio ?? 0);
 
         let baseTime = 0;
@@ -442,6 +511,7 @@ export async function PATCH(
           },
           data: {
             total: newTotal,
+            recargo: newSurcharge > 0 ? newSurcharge : null,
             tiempoEstimado: newEstimatedTime,
             modificada: true,
             printRevision: body.expectedRevision + 1,

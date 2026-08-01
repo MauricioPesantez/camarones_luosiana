@@ -22,6 +22,7 @@ interface Item {
   precioUnitario: number;
   subtotal: number;
   observaciones?: string;
+  nivelPicante?: NivelPicante | null;
   esCortesia?: boolean;
   adminCortesia?: string;
 }
@@ -32,7 +33,6 @@ interface Orden {
   fechaNumeroDiario: string | null;
   printRevision: number;
   tipoOrden: string;
-  nivelPicante: NivelPicante;
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;
@@ -217,19 +217,6 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
           <p className="text-gray-600 text-sm">Telf: {orden.telefonoCliente}</p>
         )}
         <p className="text-gray-600 text-sm mt-1">Mesero: {orden.mesero}</p>
-        <div
-          className={`inline-flex items-center gap-2 mt-3 px-3 py-2 rounded-lg border-2 font-bold ${
-            orden.nivelPicante === "natural"
-              ? "bg-green-50 border-green-500 text-green-800"
-              : orden.nivelPicante === "picante_1"
-                ? "bg-yellow-50 border-yellow-500 text-yellow-800"
-                : orden.nivelPicante === "picante_2"
-                  ? "bg-orange-50 border-orange-500 text-orange-800"
-                  : "bg-red-50 border-red-600 text-red-800"
-          }`}
-        >
-          🌶️ Nivel: {obtenerEtiquetaNivelPicante(orden.nivelPicante)}
-        </div>
       </div>
 
       {/* Información de tiempo */}
@@ -277,6 +264,11 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
                   Nota: {item.observaciones}
                 </p>
               )}
+              {item.nivelPicante && (
+                <p className="text-sm font-bold text-red-700 mt-1 pl-2">
+                  🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                </p>
+              )}
             </div>
           ) : (
             <div key={index} className="bg-white bg-opacity-60 rounded p-3">
@@ -293,6 +285,11 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
               {item.observaciones && (
                 <p className="text-sm text-gray-600 italic mt-1">
                   Nota: {item.observaciones}
+                </p>
+              )}
+              {item.nivelPicante && (
+                <p className="text-sm font-bold text-red-700 mt-1">
+                  🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
                 </p>
               )}
             </div>

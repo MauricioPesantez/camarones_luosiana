@@ -15,9 +15,11 @@ interface Producto {
 interface ItemCarrito {
   productoId: string;
   nombre: string;
+  categoria: string;
   cantidad: number;
   precioUnitario: number;
   observaciones?: string;
+  nivelPicante?: NivelPicante | "";
 }
 
 import { useAuth } from "@/lib/auth";
@@ -27,6 +29,8 @@ import {
   NivelPicante,
   RECARGO_RECIPIENTES,
   TipoOrden,
+  calcularRecargoEnvases,
+  esCategoriaCombo,
 } from "@/types/orden";
 
 export default function CrearOrden() {
@@ -36,7 +40,6 @@ export default function CrearOrden() {
   const [tipoOrden, setTipoOrden] = useState<TipoOrden>(() =>
     usuario?.rol === "digital" ? "para_llevar" : "local",
   );
-  const [nivelPicante, setNivelPicante] = useState<NivelPicante | "">("");
   const [numeroMesa, setNumeroMesa] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
   const [telefonoCliente, setTelefonoCliente] = useState("");
@@ -114,11 +117,13 @@ export default function CrearOrden() {
         {
           productoId: producto.id,
           nombre: producto.nombre,
+          categoria: producto.categoria,
           cantidad: 1,
           precioUnitario:
             typeof producto.precio === "string"
               ? parseFloat(producto.precio)
               : producto.precio,
+          nivelPicante: esCategoriaCombo(producto.categoria) ? "" : undefined,
         },
       ]);
     }
@@ -159,7 +164,24 @@ export default function CrearOrden() {
   };
 
   const calcularRecargo = () =>
-    tipoOrden !== "local" ? RECARGO_RECIPIENTES : 0;
+    calcularRecargoEnvases(tipoOrden, carrito);
+
+  const cantidadEnvases = carrito.reduce(
+    (total, item) =>
+      esCategoriaCombo(item.categoria) ? total + item.cantidad : total,
+    0,
+  );
+
+  const actualizarNivelPicante = (
+    productoId: string,
+    nivelPicante: NivelPicante | "",
+  ) => {
+    setCarrito((actual) =>
+      actual.map((item) =>
+        item.productoId === productoId ? { ...item, nivelPicante } : item,
+      ),
+    );
+  };
 
   const calcularCostoEnvio = () =>
     tipoOrden === "domicilio" ? parseFloat(costoEnvio) || 0 : 0;
@@ -194,7 +216,12 @@ export default function CrearOrden() {
 
   const validarCampos = (): string | null => {
     if (carrito.length === 0) return "Agrega al menos un producto al carrito";
-    if (!nivelPicante) return "Selecciona el nivel de picante";
+    const comboSinPicante = carrito.find(
+      (item) => esCategoriaCombo(item.categoria) && !item.nivelPicante,
+    );
+    if (comboSinPicante) {
+      return `Selecciona el nivel de picante para ${comboSinPicante.nombre}`;
+    }
     if (tipoOrden === "local" && !numeroMesa)
       return "Ingresa el número de mesa";
     if (tipoOrden === "para_llevar" && !nombreCliente.trim())
@@ -237,7 +264,6 @@ export default function CrearOrden() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tipoOrden,
-          nivelPicante,
           numeroMesa: tipoOrden === "local" ? parseInt(numeroMesa) : undefined,
           nombreCliente:
             tipoOrden !== "local"
@@ -275,7 +301,6 @@ export default function CrearOrden() {
         setTelefonoCliente("");
         setCostoEnvio("");
         setMetodoPagoPrevisto("");
-        setNivelPicante("");
         setObservaciones("");
         setMostrarModalStock(false);
         setItemsSinStock([]);
@@ -467,34 +492,6 @@ export default function CrearOrden() {
               </div>
             )}
 
-            <div className="mb-4">
-              <label
-                htmlFor="nivelPicante"
-                className="block text-sm font-medium mb-2 text-gray-800"
-              >
-                Nivel de Picante <span className="text-red-600">*</span>
-              </label>
-              <select
-                id="nivelPicante"
-                value={nivelPicante}
-                onChange={(e) =>
-                  setNivelPicante(e.target.value as NivelPicante | "")
-                }
-                required
-                aria-required="true"
-                className="w-full border rounded-lg px-4 py-2 text-black bg-white"
-              >
-                <option value="" disabled>
-                  Selecciona una opción
-                </option>
-                {NIVELES_PICANTE.map((nivel) => (
-                  <option key={nivel.value} value={nivel.value}>
-                    {nivel.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             {/* Filtros de categoría */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
               {categorias.map((cat) => (
@@ -671,6 +668,37 @@ export default function CrearOrden() {
                         +
                       </button>
                     </div>
+                    {esCategoriaCombo(item.categoria) && (
+                      <div className="mt-3">
+                        <label
+                          htmlFor={`picante-${item.productoId}`}
+                          className="block text-xs font-semibold mb-1 text-gray-700"
+                        >
+                          Nivel de picante <span className="text-red-600">*</span>
+                        </label>
+                        <select
+                          id={`picante-${item.productoId}`}
+                          value={item.nivelPicante ?? ""}
+                          onChange={(event) =>
+                            actualizarNivelPicante(
+                              item.productoId,
+                              event.target.value as NivelPicante | "",
+                            )
+                          }
+                          className="w-full border rounded-lg px-3 py-2 text-black bg-white"
+                          required
+                        >
+                          <option value="" disabled>
+                            Selecciona una opción
+                          </option>
+                          {NIVELES_PICANTE.map((nivel) => (
+                            <option key={nivel.value} value={nivel.value}>
+                              {nivel.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -694,9 +722,12 @@ export default function CrearOrden() {
                 <span>Subtotal productos:</span>
                 <span>${calcularSubtotalProductos().toFixed(2)}</span>
               </div>
-              {tipoOrden !== "local" && (
+              {tipoOrden !== "local" && cantidadEnvases > 0 && (
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Recargo por recipientes:</span>
+                  <span>
+                    Envases de combos ({cantidadEnvases} × $
+                    {RECARGO_RECIPIENTES.toFixed(2)}):
+                  </span>
                   <span>${calcularRecargo().toFixed(2)}</span>
                 </div>
               )}

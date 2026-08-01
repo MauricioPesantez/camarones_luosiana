@@ -33,7 +33,6 @@ export async function GET() {
       numeroDiario: orden.numeroDiario,
       fechaNumeroDiario: orden.fechaNumeroDiario,
       tipoOrden: (orden.tipoOrden ?? 'local') as OrdenPendienteAprobacion['tipoOrden'],
-      nivelPicante: orden.nivelPicante as OrdenPendienteAprobacion['nivelPicante'],
       numeroMesa: orden.numeroMesa,
       nombreCliente: orden.nombreCliente,
       telefonoCliente: orden.telefonoCliente,
@@ -54,6 +53,7 @@ export async function GET() {
         precioUnitario: Number(item.precioUnitario),
         subtotal: Number(item.subtotal),
         observaciones: item.observaciones,
+        nivelPicante: item.nivelPicante as OrdenPendienteAprobacion['items'][number]['nivelPicante'],
       })),
     }));
 

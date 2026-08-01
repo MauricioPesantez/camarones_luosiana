@@ -21,7 +21,6 @@ function createPayload(
       dailyNumber: 123,
       dailyDate: '2026-07-31',
       type,
-      spiceLevel: 'natural',
       tableNumber: type === 'local' ? 8 : null,
       customerName,
       customerPhone: type === 'domicilio' ? '0987654321' : null,
@@ -36,6 +35,7 @@ function createPayload(
           productName: 'Arroz chaufa',
           quantity: 2,
           observations: null,
+          spiceLevel: 'leve',
           complimentary: false,
         },
       ],
@@ -73,6 +73,7 @@ function createAmendmentPayload(
         quantityDelta: amountDelta >= 0 ? 1 : -1,
         unitPrice: Math.abs(amountDelta),
         amountDelta,
+        surchargeDelta: type === 'local' ? 0 : amountDelta >= 0 ? 1.25 : -1.25,
         observations: null,
         complimentary: false,
       },
@@ -103,6 +104,14 @@ function invertedLabel(label: 'MESA:' | 'TIPO:'): Buffer {
   ]);
 }
 
+function invertedSelectedValue(value: string): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x1d, 0x42, 0x01]),
+    Buffer.from(` ${value} `, 'ascii'),
+    Buffer.from([0x1d, 0x42, 0x00]),
+  ]);
+}
+
 function run(): void {
   const localTicket = buildEscPosTicket(createPayload('local'));
   const local = localTicket.toString('ascii');
@@ -121,6 +130,13 @@ function run(): void {
   assert.doesNotMatch(local, /Tipo:/);
   assert.doesNotMatch(local, /Mesero:/);
   assert.doesNotMatch(local, /Pago:/);
+  assert.match(local, /2x Arroz chaufa/);
+  assert.match(local, /Salsa Louisiana:/);
+  assert.match(local, / LEVE/);
+  assert.ok(
+    localTicket.includes(invertedSelectedValue('LEVE')),
+    'El valor de Salsa Louisiana debe imprimirse con fondo negro y letras blancas',
+  );
   assert.doesNotMatch(ticketText('domicilio'), /Mesero:/);
   assert.doesNotMatch(ticketText('para_llevar'), /Mesero:/);
   assert.doesNotMatch(ticketText('domicilio', null), /Cliente:/);
@@ -198,6 +214,10 @@ function run(): void {
     assert.match(amendment, /\+ 1x Combo Simple/);
     assert.ok(amendment.includes(amountLine('  Cambio:', '$6.50')));
     assert.ok(amendment.includes(amountLine('AJUSTE PRODUCTOS:', '$6.50')));
+    if (type !== 'local') {
+      assert.ok(amendment.includes(amountLine('AJUSTE ENVASES:', '$1.25')));
+      assert.ok(amendment.includes(amountLine('AJUSTE TOTAL:', '$7.75')));
+    }
     assert.doesNotMatch(amendment, /Recipientes:/);
     assert.doesNotMatch(amendment, /Envio:/);
     assert.doesNotMatch(amendment, /Cobra al cliente:/);
@@ -215,6 +235,7 @@ function run(): void {
   ).toString('ascii');
   assert.match(removal, /- 1x Combo Simple/);
   assert.ok(removal.includes(amountLine('AJUSTE PRODUCTOS:', '-$6.50')));
+  assert.ok(removal.includes(amountLine('AJUSTE ENVASES:', '-$1.25')));
 
   const legacyAmendment = createAmendmentPayload('domicilio');
   if (legacyAmendment.changes?.[0]) {
