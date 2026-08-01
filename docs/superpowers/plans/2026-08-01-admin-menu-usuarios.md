@@ -1,4 +1,5 @@
 # Gestión de menú y usuarios en el panel admin — Plan de implementación
+Bw19cl-lRZJgsBdIWyv7z9Et3QCO2eQmPVSMd0Ddkmw
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
