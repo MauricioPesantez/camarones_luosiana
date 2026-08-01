@@ -1,31 +1,51 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { normalizarNombre, validarProductoNuevo } from '@/lib/admin-validaciones';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Sin ?vista=admin la respuesta es la de siempre: solo lo que se puede vender.
+    const vistaAdmin = new URL(request.url).searchParams.get('vista') === 'admin';
+
     const productos = await prisma.producto.findMany({
-      where: { disponible: true },
+      where: vistaAdmin ? undefined : { disponible: true },
       orderBy: [{ createdAt: 'asc' }],
     });
     return NextResponse.json(productos);
   } catch (error) {
+    console.error('Error al obtener productos:', error);
     return NextResponse.json({ error: 'Error al obtener productos' }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const producto = await prisma.producto.create({
-      data: {
-        nombre: body.nombre,
-        categoria: body.categoria,
-        precio: body.precio,
-        descripcion: body.descripcion,
-      },
-    });
-    return NextResponse.json(producto);
+    const validacion = validarProductoNuevo(await request.json());
+
+    if (!validacion.ok) {
+      return NextResponse.json({ error: validacion.error }, { status: 400 });
+    }
+
+    const datos = validacion.data;
+    // La comparacion va en memoria porque debe ignorar tildes ademas de
+    // mayusculas, y Postgres solo ignora mayusculas.
+    const nombreBuscado = normalizarNombre(datos.nombre);
+    const existentes = await prisma.producto.findMany({ select: { nombre: true } });
+    const duplicado = existentes.find(
+      (otro) => normalizarNombre(otro.nombre) === nombreBuscado,
+    );
+
+    if (duplicado) {
+      return NextResponse.json(
+        { error: `Ya existe un producto llamado "${duplicado.nombre}"` },
+        { status: 409 },
+      );
+    }
+
+    const producto = await prisma.producto.create({ data: datos });
+    return NextResponse.json(producto, { status: 201 });
   } catch (error) {
+    console.error('Error al crear producto:', error);
     return NextResponse.json({ error: 'Error al crear producto' }, { status: 500 });
   }
 }

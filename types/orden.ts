@@ -161,6 +161,8 @@ export interface OrdenConStock {
 export interface CobrarOrdenRequest {
   metodoPago: MetodoPago;
   cobradaPor: string;
+  /** Evita cobrar un total que cambió mientras el modal estaba abierto. */
+  expectedRevision: number;
 }
 
 export interface AprobarOrdenRequest {

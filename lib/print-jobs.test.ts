@@ -25,6 +25,7 @@ function createOrder(): PrintOrderSource {
   return {
     id: 'cm-order-abcdef',
     numeroDiario: 123,
+    fechaNumeroDiario: '2026-07-31',
     tipoOrden: 'domicilio',
     nivelPicante: 'picante_2',
     numeroMesa: null,
@@ -60,6 +61,7 @@ async function run(): Promise<void> {
   assert.equal(payload.ticketLabel, 'ORDEN');
   assert.equal(payload.order.shortCode, 'abcdef');
   assert.equal(payload.order.dailyNumber, 123);
+  assert.equal(payload.order.dailyDate, '2026-07-31');
   assert.equal(payload.order.spiceLevel, 'picante_2');
   assert.equal(payload.order.surcharge, 1.25);
   assert.equal(payload.order.total, 16.25);
@@ -80,7 +82,11 @@ async function run(): Promise<void> {
         action: 'ADD',
         productId: 'product-2',
         productName: 'Papas Fritas',
+        previousQuantity: 0,
         quantity: 1,
+        quantityDelta: 1,
+        unitPrice: 3.5,
+        amountDelta: 3.5,
       },
     ],
     {
@@ -94,6 +100,9 @@ async function run(): Promise<void> {
   assert.equal(amendment.ticketLabel, 'MODIFICACION');
   assert.equal(amendment.changes.length, 1);
   assert.equal(amendment.changes[0].productName, 'Papas Fritas');
+  assert.equal(amendment.changes[0].quantityDelta, 1);
+  assert.equal(amendment.changes[0].unitPrice, 3.5);
+  assert.equal(amendment.changes[0].amountDelta, 3.5);
   assert.equal(amendment.reason, 'Solicitud del cliente');
 
   const reprint = buildReprintPrintPayload(createOrder(), {
@@ -233,6 +242,30 @@ async function run(): Promise<void> {
         requestedBy: 'Maria',
       }),
     /al menos un cambio/,
+  );
+
+  assert.throws(
+    () =>
+      buildAmendmentPrintPayload(
+        createOrder(),
+        [
+          {
+            action: 'UPDATE',
+            productName: 'Combo Simple',
+            previousQuantity: 1,
+            quantity: 3,
+            quantityDelta: 1,
+            unitPrice: 6.5,
+            amountDelta: 6.5,
+          },
+        ],
+        {
+          revision: 2,
+          reason: 'Cambio inválido',
+          requestedBy: 'Maria',
+        },
+      ),
+    /diferencia de cantidades/,
   );
 
   console.log('print-jobs: todas las pruebas pasaron');

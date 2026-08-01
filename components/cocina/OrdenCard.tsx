@@ -28,6 +28,9 @@ interface Item {
 
 interface Orden {
   id: string;
+  numeroDiario: number | null;
+  fechaNumeroDiario: string | null;
+  printRevision: number;
   tipoOrden: string;
   nivelPicante: NivelPicante;
   numeroMesa: number | null;
@@ -169,7 +172,7 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
       {orden.modificada && (
         <div className="mb-3 bg-blue-100 border-l-4 border-blue-500 p-2 rounded">
           <span className="text-blue-800 text-sm font-bold">
-            🔄 Orden Modificada
+            🔄 Orden #{orden.numeroDiario ?? orden.id.slice(-6)} · Revisión {orden.printRevision}
           </span>
         </div>
       )}
@@ -186,6 +189,9 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
       {/* Header con tipo de orden e identificador */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-bold bg-gray-900 text-white px-2 py-1 rounded">
+            #{orden.numeroDiario ?? orden.id.slice(-6)}
+          </span>
           {(!orden.tipoOrden || orden.tipoOrden === "local") && (
             <span className="text-xs font-bold bg-blue-600 text-white px-2 py-1 rounded">
               🍽 LOCAL

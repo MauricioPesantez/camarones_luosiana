@@ -63,6 +63,7 @@ export interface PrintItemSource {
 export interface PrintOrderSource {
   id: string;
   numeroDiario?: number | null;
+  fechaNumeroDiario?: string | null;
   tipoOrden?: string | null;
   nivelPicante?: string | null;
   numeroMesa?: number | null;
@@ -87,13 +88,18 @@ export interface AmendmentChangeSource {
   productName: string;
   previousQuantity?: number;
   quantity?: number;
+  quantityDelta: number;
+  unitPrice: NumericValue;
+  amountDelta: NumericValue;
   observations?: string | null;
+  complimentary?: boolean;
 }
 
 export interface PrintOrderSnapshot {
   id: string;
   shortCode: string;
   dailyNumber: number | null;
+  dailyDate: string | null;
   type: 'local' | 'para_llevar' | 'domicilio';
   spiceLevel: NivelPicante;
   tableNumber: number | null;
@@ -146,7 +152,11 @@ export interface AmendmentPrintPayload extends PrintPayloadBase {
     productName: string;
     previousQuantity: number | null;
     quantity: number | null;
+    quantityDelta: number;
+    unitPrice: number;
+    amountDelta: number;
     observations: string | null;
+    complimentary: boolean;
   }>;
   reason: string;
   requestedBy: string;
@@ -206,6 +216,12 @@ function assertNonNegativeInteger(value: number, field: string): void {
 function assertPositiveInteger(value: number, field: string): void {
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(`${field} debe ser un entero mayor a cero`);
+  }
+}
+
+function assertNonZeroInteger(value: number, field: string): void {
+  if (!Number.isInteger(value) || value === 0) {
+    throw new Error(`${field} debe ser un entero distinto de cero`);
   }
 }
 
@@ -278,6 +294,15 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
   return normalized ? normalized : null;
 }
 
+function normalizeDailyDate(value: string | null | undefined): string | null {
+  const normalized = normalizeOptionalText(value);
+  if (normalized === null) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    throw new Error('orden.fechaNumeroDiario debe usar el formato YYYY-MM-DD');
+  }
+  return normalized;
+}
+
 function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
   const id = normalizeRequiredText(order.id, 'orden.id');
   const dailyNumber = order.numeroDiario ?? null;
@@ -292,6 +317,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
     id,
     shortCode: id.slice(-6),
     dailyNumber,
+    dailyDate: normalizeDailyDate(order.fechaNumeroDiario),
     type: normalizeOrderType(order.tipoOrden),
     spiceLevel: normalizeSpiceLevel(order.nivelPicante),
     tableNumber: order.numeroMesa ?? null,
@@ -363,6 +389,27 @@ export function buildAmendmentPrintPayload(
       'change.previousQuantity',
     );
     assertOptionalNonNegativeInteger(change.quantity, 'change.quantity');
+    assertNonZeroInteger(change.quantityDelta, 'change.quantityDelta');
+
+    const previousQuantity = change.previousQuantity ?? 0;
+    const quantity = change.quantity ?? 0;
+    if (quantity - previousQuantity !== change.quantityDelta) {
+      throw new Error(
+        'change.quantityDelta debe coincidir con la diferencia de cantidades',
+      );
+    }
+
+    const unitPrice = toNumber(change.unitPrice);
+    const amountDelta = toNumber(change.amountDelta);
+    if (unitPrice < 0) {
+      throw new Error('change.unitPrice no puede ser negativo');
+    }
+    const expectedAmount = change.quantityDelta * unitPrice;
+    if (Math.abs(expectedAmount - amountDelta) > 0.001) {
+      throw new Error(
+        'change.amountDelta debe coincidir con cantidad por precio unitario',
+      );
+    }
   });
 
   return {
@@ -379,7 +426,11 @@ export function buildAmendmentPrintPayload(
       productName: normalizeRequiredText(change.productName, 'change.productName'),
       previousQuantity: change.previousQuantity ?? null,
       quantity: change.quantity ?? null,
+      quantityDelta: change.quantityDelta,
+      unitPrice: toNumber(change.unitPrice),
+      amountDelta: toNumber(change.amountDelta),
       observations: normalizeOptionalText(change.observations),
+      complimentary: change.complimentary === true,
     })),
     reason: normalizeRequiredText(options.reason, 'reason'),
     requestedBy: normalizeRequiredText(options.requestedBy, 'requestedBy'),

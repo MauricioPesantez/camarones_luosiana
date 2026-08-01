@@ -343,6 +343,9 @@ export async function POST(request: Request) {
     if (estadoInicial === 'pendiente') {
       notificarClientes('nueva-orden', {
         id: orden.id,
+        numeroDiario: orden.numeroDiario,
+        fechaNumeroDiario: orden.fechaNumeroDiario,
+        revision: orden.printRevision,
         tipoOrden,
         nivelPicante: orden.nivelPicante,
         numeroMesa: orden.numeroMesa,

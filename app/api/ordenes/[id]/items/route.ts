@@ -18,6 +18,7 @@ type ItemChange =
 interface ModificationRequest {
   items: ItemChange[];
   razon: string;
+  expectedRevision: number;
   usuario: {
     nombre: string;
     rol: string;
@@ -63,6 +64,13 @@ function validateRequest(body: ModificationRequest): void {
   if (!Array.isArray(body.items) || body.items.length === 0) {
     throw new ModificationRequestError(
       'Se requiere al menos un cambio de items',
+      400,
+    );
+  }
+
+  if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 0) {
+    throw new ModificationRequestError(
+      'La revisión esperada de la orden es requerida',
       400,
     );
   }
@@ -129,6 +137,20 @@ export async function PATCH(
 
         if (!order) {
           throw new ModificationRequestError('Orden no encontrada', 404);
+        }
+
+        if (order.cobrada) {
+          throw new ModificationRequestError(
+            'No se puede modificar una orden que ya fue cobrada',
+            409,
+          );
+        }
+
+        if (order.printRevision !== body.expectedRevision) {
+          throw new ModificationRequestError(
+            'La orden cambió mientras estaba abierta. Recárgala e intenta nuevamente.',
+            409,
+          );
         }
 
         const editableStatuses = ['pendiente', 'en_preparacion', 'lista'];
@@ -203,7 +225,11 @@ export async function PATCH(
               productName: item.producto.nombre,
               previousQuantity: item.cantidad,
               quantity: 0,
+              quantityDelta: -item.cantidad,
+              unitPrice: Number(item.precioUnitario),
+              amountDelta: -Number(item.subtotal),
               observations: item.observaciones,
+              complimentary: item.esCortesia,
             });
             continue;
           }
@@ -272,8 +298,13 @@ export async function PATCH(
               itemId: newItem.id,
               productId: product.id,
               productName: product.nombre,
+              previousQuantity: 0,
               quantity: change.cantidad,
+              quantityDelta: change.cantidad,
+              unitPrice,
+              amountDelta: subtotal,
               observations: change.observaciones,
+              complimentary: false,
             });
             continue;
           }
@@ -348,7 +379,11 @@ export async function PATCH(
             productName: item.producto.nombre,
             previousQuantity: item.cantidad,
             quantity: change.cantidad,
+            quantityDelta: quantityDifference,
+            unitPrice,
+            amountDelta: newSubtotal - previousSubtotal,
             observations: item.observaciones,
+            complimentary: item.esCortesia,
           });
         }
 
@@ -394,20 +429,34 @@ export async function PATCH(
         });
 
         const newEstimatedTime = Math.ceil(baseTime + additionalTime);
-        const hasNewItems = amendmentChanges.some(
-          (change) => change.action === 'ADD',
+        const hasNewPreparation = amendmentChanges.some(
+          (change) => change.quantityDelta > 0,
         );
-        const newStatus = wasReady && hasNewItems ? 'en_preparacion' : undefined;
+        const newStatus = wasReady && hasNewPreparation ? 'en_preparacion' : undefined;
 
-        const updatedOrder = await tx.orden.update({
-          where: { id },
+        const orderUpdate = await tx.orden.updateMany({
+          where: {
+            id,
+            cobrada: false,
+            printRevision: body.expectedRevision,
+          },
           data: {
             total: newTotal,
             tiempoEstimado: newEstimatedTime,
             modificada: true,
-            printRevision: { increment: 1 },
+            printRevision: body.expectedRevision + 1,
             ...(newStatus ? { estado: newStatus } : {}),
           },
+        });
+        if (orderUpdate.count !== 1) {
+          throw new ModificationRequestError(
+            'La orden fue cobrada o modificada al mismo tiempo. Recárgala e intenta nuevamente.',
+            409,
+          );
+        }
+
+        const updatedOrder = await tx.orden.findUniqueOrThrow({
+          where: { id },
           include: {
             items: {
               include: {
@@ -425,13 +474,15 @@ export async function PATCH(
         });
 
         let printJobQueued = false;
-        if (shouldEnqueuePrintJob(updatedOrder.createdAt)) {
+        const amendmentCreatedAt = new Date();
+        if (shouldEnqueuePrintJob(amendmentCreatedAt)) {
           await enqueueOrderPrintJob(tx, updatedOrder, {
             type: PRINT_JOB_TYPES.AMENDMENT,
             revision: updatedOrder.printRevision,
             changes: amendmentChanges,
             reason: body.razon,
             requestedBy: body.usuario.nombre,
+            now: amendmentCreatedAt,
           });
           printJobQueued = true;
         }
@@ -442,9 +493,10 @@ export async function PATCH(
           previousTotal,
           newTotal,
           returnsToKitchen: Boolean(newStatus),
-          newItemsCount: amendmentChanges.filter(
-            (change) => change.action === 'ADD',
-          ).length,
+          newItemsCount: amendmentChanges.reduce(
+            (total, change) => total + Math.max(0, change.quantityDelta),
+            0,
+          ),
           printJobQueued,
         };
       },
@@ -458,6 +510,9 @@ export async function PATCH(
           : (result.order.nombreCliente ?? 'Cliente');
       notificarClientes('regresa-a-cocina', {
         ordenId: id,
+        numeroDiario: result.order.numeroDiario,
+        fechaNumeroDiario: result.order.fechaNumeroDiario,
+        revision: result.order.printRevision,
         tituloOrden: title,
         itemsNuevos: result.newItemsCount,
       });
