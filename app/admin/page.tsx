@@ -337,6 +337,12 @@ export default function AdminPage() {
             >
               📦 Productos
             </a>
+            <a
+              href="/admin/usuarios"
+              className="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-semibold"
+            >
+              👥 Usuarios
+            </a>
             <span className="text-gray-600">
               Admin: <span className="font-bold">{usuario?.nombre}</span>
             </span>
