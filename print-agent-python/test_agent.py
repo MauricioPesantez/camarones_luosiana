@@ -58,6 +58,7 @@ class TicketTests(unittest.TestCase):
         self.assertIn("2x Arroz chaufa", text)
         self.assertIn("Salsa Louisiana:", text)
         self.assertIn(" LEVE", text)
+        self.assertIn(agent.INVERT_ON + b" LEVE " + agent.INVERT_OFF, ticket)
 
     def test_cash_delivery_amounts(self):
         text = self.ticket_text(payload("domicilio", "efectivo"))

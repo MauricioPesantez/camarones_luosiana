@@ -104,6 +104,14 @@ function invertedLabel(label: 'MESA:' | 'TIPO:'): Buffer {
   ]);
 }
 
+function invertedSelectedValue(value: string): Buffer {
+  return Buffer.concat([
+    Buffer.from([0x1d, 0x42, 0x01]),
+    Buffer.from(` ${value} `, 'ascii'),
+    Buffer.from([0x1d, 0x42, 0x00]),
+  ]);
+}
+
 function run(): void {
   const localTicket = buildEscPosTicket(createPayload('local'));
   const local = localTicket.toString('ascii');
@@ -125,6 +133,10 @@ function run(): void {
   assert.match(local, /2x Arroz chaufa/);
   assert.match(local, /Salsa Louisiana:/);
   assert.match(local, / LEVE/);
+  assert.ok(
+    localTicket.includes(invertedSelectedValue('LEVE')),
+    'El valor de Salsa Louisiana debe imprimirse con fondo negro y letras blancas',
+  );
   assert.doesNotMatch(ticketText('domicilio'), /Mesero:/);
   assert.doesNotMatch(ticketText('para_llevar'), /Mesero:/);
   assert.doesNotMatch(ticketText('domicilio', null), /Cliente:/);

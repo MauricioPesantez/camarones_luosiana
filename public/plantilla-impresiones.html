@@ -507,6 +507,26 @@
         line-height: 1.3;
       }
 
+      .item__selection {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        margin: 4px 0 0 11px;
+        font-size: 11px;
+        line-height: 1.3;
+      }
+
+      .item__selection strong {
+        width: fit-content;
+        padding: 0 3px;
+        color: #fff;
+        background: #000;
+        font-weight: 700;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
       .general-note {
         margin: 8px 0;
       }
@@ -787,7 +807,7 @@
               <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #123</h3><div class="printer-rule">==========================================</div>
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Mesa:</dt><dd>8</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:42:18</dd></div></dl>
               <div class="printer-rule">------------------------------------------</div>
-              <ul class="items"><li class="item"><div class="item__main">2x Combo Especial</div><span class="item__note">Salsa Louisiana: Leve</span><span class="item__note">Obs: Sin cebolla</span></li><li class="item"><div class="item__main">1x Wantan frito</div></li><li class="item"><div class="item__main">2x Limonada natural</div></li></ul>
+              <ul class="items"><li class="item"><div class="item__main">2x Combo Especial</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Leve</strong></span><span class="item__note">Obs: Sin cebolla</span></li><li class="item"><div class="item__main">1x Wantan frito</div></li><li class="item"><div class="item__main">2x Limonada natural</div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="general-note"><strong>OBSERVACIONES:</strong>Servir entradas primero.</div>
               <div class="printer-rule">------------------------------------------</div><div class="local-total"><span>TOTAL:</span><span>$31.75</span></div>
               <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
@@ -804,7 +824,7 @@
               <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #124</h3><div class="printer-rule">==========================================</div>
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>PARA LLEVAR</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Andres Perez</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:48:05</dd></div></dl>
               <div class="printer-rule">------------------------------------------</div>
-              <ul class="items"><li class="item"><div class="item__main">2x Combo Tallarín</div><span class="item__note">Salsa Louisiana: Picante 2</span><span class="item__note">Obs: Uno sin pimiento</span></li><li class="item"><div class="item__main">1x Costillas BBQ</div></li></ul>
+              <ul class="items"><li class="item"><div class="item__main">2x Combo Tallarín</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Picante 2</strong></span><span class="item__note">Obs: Uno sin pimiento</span></li><li class="item"><div class="item__main">1x Costillas BBQ</div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-lines"><div class="amount-line"><span>Subtotal productos:</span><span>$45.00</span></div><div class="amount-line"><span>Recipientes:</span><span>$2.50</span></div></div>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>TOTAL:</span><span>$47.50</span></div>
               <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
@@ -820,7 +840,7 @@
               <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
               <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #125</h3><div class="printer-rule">==========================================</div>
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>EFECTIVO</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Carolina</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0987654321</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:53:41</dd></div></dl>
-              <div class="printer-rule">------------------------------------------</div><ul class="items"><li class="item"><div class="item__main">1x Combo Familiar</div><span class="item__note">Salsa Louisiana: Natural</span><span class="item__note">Obs: Salsa aparte</span></li><li class="item"><div class="item__main">1x Arroz blanco</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><ul class="items"><li class="item"><div class="item__main">1x Combo Familiar</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Natural</strong></span><span class="item__note">Obs: Salsa aparte</span></li><li class="item"><div class="item__main">1x Arroz blanco</div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-lines"><div class="amount-line"><span>Subtotal productos:</span><span>$100.00</span></div><div class="amount-line"><span>Recipientes:</span><span>$1.25</span></div></div>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>TOTAL:</span><span>$101.25</span></div>
               <div class="printer-rule">------------------------------------------</div><div class="general-note"><strong>DELIVERY:</strong></div><div class="amount-lines"><div class="amount-line"><span>Envio:</span><span>$5.00</span></div><div class="amount-line"><span>Cobra al cliente:</span><span>$106.25</span></div></div>
@@ -837,7 +857,7 @@
               <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
               <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #126</h3><div class="printer-rule">==========================================</div>
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>TRANSFERENCIA</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Gabriela</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0991234567</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 14:01:12</dd></div></dl>
-              <div class="printer-rule">------------------------------------------</div><ul class="items"><li class="item"><div class="item__main">2x Combo Simple</div><span class="item__note">Salsa Louisiana: Natural</span></li><li class="item"><div class="item__main">1x Limonada natural</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><ul class="items"><li class="item"><div class="item__main">2x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Natural</strong></span></li><li class="item"><div class="item__main">1x Limonada natural</div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>Envio:</span><span>$5.00</span></div>
               <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
             </section></div>
@@ -860,7 +880,7 @@
               <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
               <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #123 31-07 REV 2</h3><div class="printer-rule">==========================================</div>
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Mesa:</dt><dd>8</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:10:00</dd></div></dl><div class="printer-rule">------------------------------------------</div>
-              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__note">Salsa Louisiana: Natural</span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div></li></ul>
+              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Natural</strong></span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div>
               <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
               <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
@@ -886,7 +906,7 @@
               <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
               <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #125 31-07 REV 2</h3><div class="printer-rule">==========================================</div>
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>EFECTIVO</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Carolina</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0987654321</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:15:03</dd></div></dl><div class="printer-rule">------------------------------------------</div>
-              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__note">Salsa Louisiana: Picante 1</span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div><div class="amount-line"><span>&nbsp;&nbsp;Envases:</span><span>$1.25</span></div></li></ul>
+              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Picante 1</strong></span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div><div class="amount-line"><span>&nbsp;&nbsp;Envases:</span><span>$1.25</span></div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div><div class="amount-line amount-line--strong"><span>AJUSTE ENVASES:</span><span>$1.25</span></div><div class="amount-line amount-line--strong"><span>AJUSTE TOTAL:</span><span>$7.75</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
               <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
               <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
@@ -899,7 +919,7 @@
               <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
               <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #126 31-07 REV 2</h3><div class="printer-rule">==========================================</div>
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>TRANSFERENCIA</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Gabriela</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0991234567</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:18:44</dd></div></dl><div class="printer-rule">------------------------------------------</div>
-              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__note">Salsa Louisiana: Leve</span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div><div class="amount-line"><span>&nbsp;&nbsp;Envases:</span><span>$1.25</span></div></li></ul>
+              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Leve</strong></span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div><div class="amount-line"><span>&nbsp;&nbsp;Envases:</span><span>$1.25</span></div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div><div class="amount-line amount-line--strong"><span>AJUSTE ENVASES:</span><span>$1.25</span></div><div class="amount-line amount-line--strong"><span>AJUSTE TOTAL:</span><span>$7.75</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
               <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
               <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
