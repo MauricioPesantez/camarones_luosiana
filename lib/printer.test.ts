@@ -67,6 +67,14 @@ function run(): void {
   assert.equal(includesLine(local, '  Obs: Sin cebolla'), true);
   assert.equal(includesLine(local, '1x Wantan frito [CORTESIA]'), true);
   assert.equal(includesLine(local, 'OBSERVACIONES:'), true);
+  // El picante se lee despues de los items y antes de las observaciones.
+  assert.ok(
+    local.findIndex((line) => line.startsWith('1x Wantan frito')) <
+      local.indexOf('Picante: PICANTE 1'),
+  );
+  assert.ok(
+    local.indexOf('Picante: PICANTE 1') < local.indexOf('OBSERVACIONES:'),
+  );
   assert.equal(includesLine(local, amountLine('TOTAL:', '$31.75')), true);
   assert.equal(local.some((line) => line.startsWith('Pago:')), false);
   assert.equal(local.some((line) => line.startsWith('Subtotal productos:')), false);

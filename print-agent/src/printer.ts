@@ -10,6 +10,10 @@ const ALIGN_LEFT = Buffer.from([ESC, 0x61, 0x00]);
 const ALIGN_CENTER = Buffer.from([ESC, 0x61, 0x01]);
 const INVERT_OFF = Buffer.from([GS, 0x42, 0x00]);
 const INVERT_ON = Buffer.from([GS, 0x42, 0x01]);
+/** Etiquetas cuya etiqueta se imprime en video inverso. */
+const EMPHASIZED_LABEL_PATTERN = /^(Tipo|Mesa):/;
+/** Etiquetas cuyo valor seleccionado se imprime en video inverso. */
+const SELECTED_VALUE_PATTERN = /^(Picante:) (.+)$/;
 
 let logoWarningShown = false;
 
@@ -139,9 +143,6 @@ function linesForPayload(payload: PrintJobPayload): string[] {
     ...(paymentMethodLabel(order)
       ? [`Pago: ${paymentMethodLabel(order)!.toUpperCase()}`]
       : []),
-    ...(spiceLevelLabel(order.spiceLevel)
-      ? [`Picante: ${spiceLevelLabel(order.spiceLevel)}`]
-      : []),
     ...(order.type === 'local'
       ? [`Mesa: ${order.tableNumber ?? '-'}`]
       : order.customerName
@@ -169,6 +170,13 @@ function linesForPayload(payload: PrintJobPayload): string[] {
     }
   }
 
+  // El nivel de picante va pegado a los items: es lo que la cocina revisa al
+  // terminar de leer el pedido.
+  const spiceLevel = spiceLevelLabel(order.spiceLevel);
+  if (spiceLevel) {
+    lines.push('-'.repeat(LINE_WIDTH), `Picante: ${spiceLevel}`);
+  }
+
   if (order.observations) {
     lines.push('-'.repeat(LINE_WIDTH), 'OBSERVACIONES:', order.observations);
   }
@@ -184,7 +192,8 @@ function encodeTicketLines(lines: string[]): Buffer {
   const chunks: Buffer[] = [];
 
   for (const line of lines) {
-    const emphasizedLabel = line.match(/^(Tipo|Mesa):/);
+    const emphasizedLabel = line.match(EMPHASIZED_LABEL_PATTERN);
+    const selectedValue = line.match(SELECTED_VALUE_PATTERN);
 
     if (emphasizedLabel) {
       chunks.push(
@@ -192,6 +201,15 @@ function encodeTicketLines(lines: string[]): Buffer {
         Buffer.from(emphasizedLabel[0].toUpperCase(), 'ascii'),
         INVERT_OFF,
         Buffer.from(`${line.slice(emphasizedLabel[0].length)}\n`, 'ascii'),
+      );
+    } else if (selectedValue) {
+      // La opcion elegida se resalta en negro con letras blancas.
+      chunks.push(
+        Buffer.from(`${selectedValue[1]} `, 'ascii'),
+        INVERT_ON,
+        Buffer.from(` ${selectedValue[2]} `, 'ascii'),
+        INVERT_OFF,
+        Buffer.from('\n', 'ascii'),
       );
     } else {
       chunks.push(Buffer.from(`${line}\n`, 'ascii'));

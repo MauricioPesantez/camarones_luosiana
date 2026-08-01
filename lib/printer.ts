@@ -9,6 +9,10 @@ import {
 const LINE_WIDTH = 42;
 const STRONG_SEPARATOR = '='.repeat(LINE_WIDTH);
 const SECTION_SEPARATOR = '-'.repeat(LINE_WIDTH);
+/** Etiquetas cuya etiqueta se imprime en video inverso. */
+const EMPHASIZED_LABEL_PATTERN = /^(Tipo|Mesa):/;
+/** Etiquetas cuyo valor seleccionado se imprime en video inverso. */
+const SELECTED_VALUE_PATTERN = /^(Picante:) (.+)$/;
 const DEFAULT_LOGO_PATH = path.join(
   process.cwd(),
   'public',
@@ -163,7 +167,6 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
     STRONG_SEPARATOR,
     ...(tipoOrden === 'local' ? [] : [`Tipo: ${labelTipo}`]),
     ...(metodoPagoPrevisto ? [`Pago: ${metodoPagoPrevisto.toUpperCase()}`] : []),
-    `Picante: ${obtenerEtiquetaNivelPicante(nivelPicante).toUpperCase()}`,
     ...(tipoOrden === 'local'
       ? [`Mesa: ${orden.numeroMesa ?? '-'}`]
       : nombreCliente
@@ -182,6 +185,13 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
     );
     if (item.observaciones) lines.push(`  Obs: ${item.observaciones}`);
   }
+
+  // El nivel de picante va pegado a los items: es lo que la cocina revisa al
+  // terminar de leer el pedido.
+  lines.push(
+    SECTION_SEPARATOR,
+    `Picante: ${obtenerEtiquetaNivelPicante(nivelPicante).toUpperCase()}`,
+  );
 
   if (orden.observaciones) {
     lines.push(SECTION_SEPARATOR, 'OBSERVACIONES:', orden.observaciones);
@@ -238,7 +248,8 @@ export class PrinterService {
       this.printer.bold(false);
       this.printer.alignLeft();
       for (const line of buildOrderTicketLines(orden)) {
-        const emphasizedLabel = line.match(/^(Tipo|Mesa):/);
+        const emphasizedLabel = line.match(EMPHASIZED_LABEL_PATTERN);
+        const selectedValue = line.match(SELECTED_VALUE_PATTERN);
 
         if (emphasizedLabel) {
           const label = emphasizedLabel[0].toUpperCase();
@@ -246,6 +257,13 @@ export class PrinterService {
           this.printer.print(label);
           this.printer.invert(false);
           this.printer.println(line.slice(emphasizedLabel[0].length));
+        } else if (selectedValue) {
+          // La opcion elegida se resalta en negro con letras blancas.
+          this.printer.print(`${selectedValue[1]} `);
+          this.printer.invert(true);
+          this.printer.print(` ${selectedValue[2]} `);
+          this.printer.invert(false);
+          this.printer.println('');
         } else {
           this.printer.println(line);
         }
