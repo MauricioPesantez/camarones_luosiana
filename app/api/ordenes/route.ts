@@ -112,6 +112,21 @@ export async function POST(request: Request) {
         ? body.metodoPagoPrevisto
         : null;
 
+    const creador = body.creadorId
+      ? await prisma.usuario.findFirst({
+          where: { id: body.creadorId, activo: true },
+          select: { id: true, nombre: true, rol: true },
+        })
+      : null;
+    const creadorNombre = creador?.nombre ?? body.mesero?.trim();
+
+    if (!creadorNombre) {
+      return NextResponse.json(
+        { error: 'El usuario que crea la orden es requerido' },
+        { status: 400 },
+      );
+    }
+
     const costoEnvio = tipoOrden === 'domicilio' ? (body.costoEnvio ?? 0) : 0;
 
     // Obtener productos con sus tiempos de preparación y stock
@@ -272,7 +287,9 @@ export async function POST(request: Request) {
           recargo: recargo > 0 ? recargo : null,
           costoEnvio: costoEnvio > 0 ? costoEnvio : null,
           metodoPagoPrevisto,
-          mesero: body.mesero,
+          mesero: creadorNombre,
+          creadorId: creador?.id ?? null,
+          creadorRol: creador?.rol ?? null,
           observaciones: body.observaciones,
           total: totalFinal,
           tiempoEstimado,
@@ -342,8 +359,8 @@ export async function POST(request: Request) {
               ? JSON.parse(JSON.stringify(itemsSinStock))
               : null,
           },
-          usuarioNombre: body.mesero,
-          usuarioRol: 'mesero',
+          usuarioNombre: creadorNombre,
+          usuarioRol: creador?.rol ?? 'desconocido',
           diferenciaTotal: Number(totalFinal),
         },
       });

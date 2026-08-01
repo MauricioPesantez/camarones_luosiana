@@ -303,6 +303,7 @@ export default function CrearOrden() {
           metodoPagoPrevisto:
             tipoOrden === "domicilio" ? metodoPagoPrevisto : undefined,
           mesero: usuario?.nombre || "Desconocido",
+          creadorId: usuario?.id,
           observaciones,
           items: carrito,
           solicitarAprobacion: solicitarAprobacion,

@@ -138,6 +138,8 @@ export interface CrearOrdenRequest {
   metodoPagoPrevisto?: MetodoPago;
   // Comunes
   mesero: string;
+  /** Usuario autenticado que crea la orden. */
+  creadorId?: string;
   observaciones?: string;
   items: {
     productoId: string;
