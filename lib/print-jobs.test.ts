@@ -24,6 +24,7 @@ const FIXED_NOW = new Date('2026-07-31T19:00:00.000Z');
 function createOrder(): PrintOrderSource {
   return {
     id: 'cm-order-abcdef',
+    numeroDiario: 123,
     tipoOrden: 'domicilio',
     nivelPicante: 'picante_2',
     numeroMesa: null,
@@ -58,6 +59,7 @@ async function run(): Promise<void> {
   assert.equal(payload.jobType, 'ORDER');
   assert.equal(payload.ticketLabel, 'ORDEN');
   assert.equal(payload.order.shortCode, 'abcdef');
+  assert.equal(payload.order.dailyNumber, 123);
   assert.equal(payload.order.spiceLevel, 'picante_2');
   assert.equal(payload.order.surcharge, 1.25);
   assert.equal(payload.order.total, 16.25);

@@ -61,6 +61,7 @@ export interface PrintItemSource {
 
 export interface PrintOrderSource {
   id: string;
+  numeroDiario?: number | null;
   tipoOrden?: string | null;
   nivelPicante?: string | null;
   numeroMesa?: number | null;
@@ -90,6 +91,7 @@ export interface AmendmentChangeSource {
 export interface PrintOrderSnapshot {
   id: string;
   shortCode: string;
+  dailyNumber: number | null;
   type: 'local' | 'para_llevar' | 'domicilio';
   spiceLevel: NivelPicante;
   tableNumber: number | null;
@@ -263,6 +265,10 @@ function normalizeOptionalText(value: string | null | undefined): string | null 
 
 function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
   const id = normalizeRequiredText(order.id, 'orden.id');
+  const dailyNumber = order.numeroDiario ?? null;
+  if (dailyNumber !== null) {
+    assertPositiveInteger(dailyNumber, 'orden.numeroDiario');
+  }
   if (order.items.length === 0) {
     throw new Error('La orden debe incluir al menos un item imprimible');
   }
@@ -270,6 +276,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
   return {
     id,
     shortCode: id.slice(-6),
+    dailyNumber,
     type: normalizeOrderType(order.tipoOrden),
     spiceLevel: normalizeSpiceLevel(order.nivelPicante),
     tableNumber: order.numeroMesa ?? null,

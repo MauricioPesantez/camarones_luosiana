@@ -41,6 +41,7 @@ export interface ItemComanda {
 
 export interface OrdenComanda {
   id: string;
+  numeroDiario?: number | null;
   tipoOrden?: string | null;
   nivelPicante?: string | null;
   numeroMesa?: number | null;
@@ -56,6 +57,7 @@ export interface OrdenComanda {
 
 export function buildOrderTicketLines(orden: OrdenComanda): string[] {
   const tipoOrden = orden.tipoOrden ?? 'local';
+  const nombreCliente = orden.nombreCliente?.trim();
   const labelTipo = tipoOrden === 'para_llevar'
     ? 'PARA LLEVAR'
     : tipoOrden === 'domicilio'
@@ -64,26 +66,21 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
   const nivelPicante = esNivelPicante(orden.nivelPicante)
     ? orden.nivelPicante
     : 'natural';
-  const revision = typeof orden.printRevision === 'number' &&
-    Number.isInteger(orden.printRevision)
-    ? orden.printRevision
-    : 0;
+  const visibleOrderNumber = orden.numeroDiario ?? orden.id.slice(-6);
   const lines = [
     STRONG_SEPARATOR,
-    centered('ORDEN'),
-    centered(`ORDEN #${orden.id.slice(-6)}  REV ${revision}`),
+    centered(`ORDEN #${visibleOrderNumber}`),
     STRONG_SEPARATOR,
-    `Tipo: ${labelTipo}`,
+    ...(tipoOrden === 'local' ? [] : [`Tipo: ${labelTipo}`]),
     `Picante: ${obtenerEtiquetaNivelPicante(nivelPicante).toUpperCase()}`,
     ...(tipoOrden === 'local'
       ? [`Mesa: ${orden.numeroMesa ?? '-'}`]
-      : orden.nombreCliente
-        ? [`Cliente: ${orden.nombreCliente}`]
+      : nombreCliente
+        ? [`Cliente: ${nombreCliente}`]
         : []),
     ...(orden.telefonoCliente
       ? [`Telefono: ${orden.telefonoCliente}`]
       : []),
-    `Mesero: ${orden.mesero}`,
     `Hora: ${new Date(orden.createdAt).toLocaleString('es-EC')}`,
     SECTION_SEPARATOR,
   ];

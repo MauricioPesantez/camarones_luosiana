@@ -39,36 +39,46 @@ model Producto {
 }
 
 model Orden {
-  id                  String           @id @default(cuid())
-  tipoOrden           String           @default("local")    // "local" | "para_llevar" | "domicilio"
-  nivelPicante        String           @default("natural")  // "natural" | "picante_1" | "picante_2" | "picante_3"
-  numeroMesa          Int?                                   // Solo para tipo "local"
-  nombreCliente       String?                                // Obligatorio para "para_llevar", opcional para "domicilio"
-  telefonoCliente     String?                                // Solo para "domicilio"
-  recargo             Decimal?         @db.Decimal(10, 2)   // $1.25 por recipientes para "para_llevar" y "domicilio"
-  costoEnvio          Decimal?         @db.Decimal(10, 2)   // Solo para "domicilio"
-  metodoPago          String?                                // "efectivo" | "transferencia"
-  cobrada             Boolean          @default(false)
-  fechaCobro          DateTime?
-  cobradaPor          String?                                // Nombre del mesero/admin que cobró
-  mesero              String
-  estado              String           @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cobrada", "cancelada"
-  observaciones       String?
-  total               Decimal          @db.Decimal(10, 2) @default(0)
-  tiempoEstimado      Int?             @default(0) // Tiempo estimado en minutos
-  modificada          Boolean          @default(false) // Indica si la orden fue modificada
-  sinStock            Boolean          @default(false) // Indica si fue aprobada sin stock suficiente
-  aprobadaPorId       String?          // Admin que aprobó la orden sin stock
-  aprobadaPor         Usuario?         @relation("OrdenesAprobadas", fields: [aprobadaPorId], references: [id])
-  razonAprobacion     String?          // Razón por la que se aprobó sin stock
-  itemsSinStock       Json?            // Lista de items que no tenían stock: [{productoId, productoNombre, cantidadSolicitada, stockDisponible}]
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  items               Item[]
-  historial           HistorialOrden[]
-  impresa             Boolean          @default(false)
-  printRevision       Int              @default(0)
-  printJobs           PrintJob[]
+  id                String           @id @default(cuid())
+  numeroDiario      Int?
+  fechaNumeroDiario String?          @db.VarChar(10) // YYYY-MM-DD en America/Guayaquil
+  tipoOrden         String           @default("local") // "local" | "para_llevar" | "domicilio"
+  nivelPicante      String           @default("natural") // "natural" | "picante_1" | "picante_2" | "picante_3"
+  numeroMesa        Int? // Solo para tipo "local"
+  nombreCliente     String? // Obligatorio para "para_llevar", opcional para "domicilio"
+  telefonoCliente   String? // Solo para "domicilio"
+  recargo           Decimal?         @db.Decimal(10, 2) // $1.25 por recipientes para "para_llevar" y "domicilio"
+  costoEnvio        Decimal?         @db.Decimal(10, 2) // Solo para "domicilio"
+  metodoPago        String? // "efectivo" | "transferencia"
+  cobrada           Boolean          @default(false)
+  fechaCobro        DateTime?
+  cobradaPor        String? // Nombre del mesero/admin que cobró
+  mesero            String
+  estado            String           @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cobrada", "cancelada"
+  observaciones     String?
+  total             Decimal          @default(0) @db.Decimal(10, 2)
+  tiempoEstimado    Int?             @default(0) // Tiempo estimado en minutos
+  modificada        Boolean          @default(false) // Indica si la orden fue modificada
+  sinStock          Boolean          @default(false) // Indica si fue aprobada sin stock suficiente
+  aprobadaPorId     String? // Admin que aprobó la orden sin stock
+  aprobadaPor       Usuario?         @relation("OrdenesAprobadas", fields: [aprobadaPorId], references: [id])
+  razonAprobacion   String? // Razón por la que se aprobó sin stock
+  itemsSinStock     Json? // Lista de items que no tenían stock: [{productoId, productoNombre, cantidadSolicitada, stockDisponible}]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  items             Item[]
+  historial         HistorialOrden[]
+  impresa           Boolean          @default(false)
+  printRevision     Int              @default(0)
+  printJobs         PrintJob[]
+
+  @@unique([fechaNumeroDiario, numeroDiario])
+}
+
+model ContadorOrdenDiaria {
+  fecha        String   @id @db.VarChar(10) // YYYY-MM-DD en America/Guayaquil
+  ultimoNumero Int
+  updatedAt    DateTime @updatedAt
 }
 
 model PrintJob {
@@ -103,15 +113,15 @@ model PrintJob {
 }
 
 model PrintAgent {
-  id                 String   @id
+  id                 String    @id
   name               String
   version            String?
   lastSeenAt         DateTime?
   lastPrinterCheckAt DateTime?
   printerReachable   Boolean?
   lastError          String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([lastSeenAt])
 }
@@ -127,49 +137,49 @@ model Item {
   subtotal       Decimal  @db.Decimal(10, 2)
   observaciones  String?
   esCortesia     Boolean  @default(false)
-  adminCortesia  String?  // Nombre del admin que autorizó la cortesía
+  adminCortesia  String? // Nombre del admin que autorizó la cortesía
   createdAt      DateTime @default(now())
 }
 
 model Mesa {
-  id          String  @id @default(cuid())
-  numero      Int     @unique
-  capacidad   Int
-  disponible  Boolean @default(true)
+  id         String  @id @default(cuid())
+  numero     Int     @unique
+  capacidad  Int
+  disponible Boolean @default(true)
 }
 
 model Usuario {
-  id                String   @id @default(cuid())
-  nombre            String
-  rol               String
-  password          String?
-  activo            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  ordenesAprobadas  Orden[]  @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
+  id               String   @id @default(cuid())
+  nombre           String
+  rol              String
+  password         String?
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  ordenesAprobadas Orden[]  @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
 }
 
 model HistorialOrden {
-  id              String   @id @default(cuid())
-  ordenId         String
-  orden           Orden    @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  ordenId String
+  orden   Orden  @relation(fields: [ordenId], references: [id], onDelete: Cascade)
 
-  tipoAccion      String   // "orden_creada", "item_agregado", "item_eliminado", "item_modificado", "orden_completada"
-  descripcion     String   // Descripción legible del cambio
+  tipoAccion  String // "orden_creada", "item_agregado", "item_eliminado", "item_modificado", "orden_completada"
+  descripcion String // Descripción legible del cambio
 
   // Datos del cambio (JSON)
-  itemAfectado    Json?    // { id, nombre, cantidad, precio }
-  datosAntes      Json?    // Estado antes del cambio
-  datosDespues    Json?    // Estado después del cambio
+  itemAfectado Json? // { id, nombre, cantidad, precio }
+  datosAntes   Json? // Estado antes del cambio
+  datosDespues Json? // Estado después del cambio
 
   // Auditoría
-  usuarioNombre   String   // Quien hizo el cambio
-  usuarioRol      String   // "mesero" | "cocina" | "admin"
-  razon           String?  // Motivo del cambio (obligatorio para modificaciones)
+  usuarioNombre String // Quien hizo el cambio
+  usuarioRol    String // "mesero" | "cocina" | "admin"
+  razon         String? // Motivo del cambio (obligatorio para modificaciones)
 
   // Impacto financiero
   diferenciaTotal Decimal? @db.Decimal(10, 2)
 
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([ordenId])
   @@index([createdAt])

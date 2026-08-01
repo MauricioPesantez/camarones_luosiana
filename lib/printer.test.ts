@@ -12,6 +12,7 @@ function createOrder(
 ): OrdenComanda {
   return {
     id: 'cm-order-a7c219',
+    numeroDiario: 123,
     tipoOrden: 'local',
     nivelPicante: 'picante_1',
     numeroMesa: 8,
@@ -46,12 +47,12 @@ function run(): void {
   const local = buildOrderTicketLines(createOrder());
 
   assert.equal(local[0], '='.repeat(42));
-  assert.equal(local[1].trim(), 'ORDEN');
-  assert.equal(local[2].trim(), 'ORDEN #a7c219  REV 0');
-  assert.equal(local[3], '='.repeat(42));
-  assert.equal(includesLine(local, 'Tipo: LOCAL'), true);
+  assert.equal(local[1].trim(), 'ORDEN #123');
+  assert.equal(local[2], '='.repeat(42));
+  assert.equal(local.some((line) => line.startsWith('Tipo:')), false);
   assert.equal(includesLine(local, 'Picante: PICANTE 1'), true);
   assert.equal(includesLine(local, 'Mesa: 8'), true);
+  assert.equal(local.some((line) => line.startsWith('Mesero:')), false);
   assert.equal(local.some((line) => line.startsWith('Cliente:')), false);
   assert.equal(local.some((line) => line.startsWith('Telefono:')), false);
   assert.equal(includesLine(local, '2x Arroz chaufa especial'), true);
@@ -63,6 +64,7 @@ function run(): void {
   const domicilio = buildOrderTicketLines(
     createOrder({
       id: 'cm-order-f3b840',
+      numeroDiario: 124,
       tipoOrden: 'domicilio',
       nivelPicante: 'natural',
       numeroMesa: null,
@@ -75,11 +77,26 @@ function run(): void {
   assert.equal(includesLine(domicilio, 'Cliente: Carolina M.'), true);
   assert.equal(includesLine(domicilio, 'Telefono: 0987654321'), true);
   assert.equal(domicilio.some((line) => line.startsWith('Mesa:')), false);
+  assert.equal(domicilio.some((line) => line.startsWith('Mesero:')), false);
   assert.equal(domicilio.some((line) => line.startsWith('TOTAL:')), false);
+
+  const domicilioSinNombre = buildOrderTicketLines(
+    createOrder({
+      tipoOrden: 'domicilio',
+      numeroMesa: null,
+      nombreCliente: '   ',
+      telefonoCliente: '0987654321',
+    }),
+  );
+  assert.equal(
+    domicilioSinNombre.some((line) => line.startsWith('Cliente:')),
+    false,
+  );
 
   const retirar = buildOrderTicketLines(
     createOrder({
       id: 'cm-order-c8d511',
+      numeroDiario: 125,
       tipoOrden: 'para_llevar',
       numeroMesa: null,
       nombreCliente: 'Andrés Pérez',
@@ -91,8 +108,9 @@ function run(): void {
   assert.equal(includesLine(retirar, 'Tipo: PARA LLEVAR'), true);
   assert.equal(includesLine(retirar, 'Cliente: Andres Perez'), true);
   assert.equal(retirar.some((line) => line.startsWith('Telefono:')), false);
+  assert.equal(retirar.some((line) => line.startsWith('Mesero:')), false);
   assert.equal(retirar.some((line) => line.startsWith('TOTAL:')), false);
-  assert.equal(retirar[2].trim(), 'ORDEN #c8d511  REV 2');
+  assert.equal(retirar[1].trim(), 'ORDEN #125');
 
   console.log('printer format tests: ok');
 }

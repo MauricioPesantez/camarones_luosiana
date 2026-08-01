@@ -16,6 +16,7 @@ import {
   shouldEnqueuePrintJob,
 } from '@/lib/print-jobs';
 import { isDirectPrintEnabled } from '@/lib/print-config';
+import { allocateDailyOrderNumber } from '@/lib/daily-order-number';
 
 const ORDEN_INCLUDE = {
   items: {
@@ -186,8 +187,13 @@ export async function POST(request: Request) {
 
     // Orden, stock, historial y trabajo de impresion se confirman juntos.
     const { orden, printJobQueued } = await prisma.$transaction(async (tx) => {
+      const createdAt = new Date();
+      const dailyNumber = await allocateDailyOrderNumber(tx, createdAt);
       const nuevaOrden = await tx.orden.create({
         data: {
+          numeroDiario: dailyNumber.number,
+          fechaNumeroDiario: dailyNumber.dateKey,
+          createdAt,
           tipoOrden,
           nivelPicante: body.nivelPicante,
           numeroMesa: tipoOrden === 'local' ? (body.numeroMesa ?? null) : null,

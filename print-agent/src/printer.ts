@@ -44,12 +44,20 @@ function linesForPayload(payload: PrintJobPayload): string[] {
   }
 
   const order = payload.order;
+  const visibleOrderNumber = order.dailyNumber ?? order.shortCode;
+  const titleLines = payload.jobType === 'ORDER'
+    ? [centered(`ORDEN #${visibleOrderNumber}`)]
+    : [
+        centered(payload.ticketLabel),
+        centered(`ORDEN #${visibleOrderNumber}  REV ${payload.revision}`),
+      ];
   const lines = [
     '='.repeat(LINE_WIDTH),
-    centered(payload.ticketLabel),
-    centered(`ORDEN #${order.shortCode}  REV ${payload.revision}`),
+    ...titleLines,
     '='.repeat(LINE_WIDTH),
-    `Tipo: ${order.type === 'para_llevar' ? 'PARA LLEVAR' : order.type === 'domicilio' ? 'DOMICILIO' : 'LOCAL'}`,
+    ...(order.type === 'local'
+      ? []
+      : [`Tipo: ${order.type === 'para_llevar' ? 'PARA LLEVAR' : 'DOMICILIO'}`]),
     ...(spiceLevelLabel(order.spiceLevel)
       ? [`Picante: ${spiceLevelLabel(order.spiceLevel)}`]
       : []),
@@ -59,7 +67,6 @@ function linesForPayload(payload: PrintJobPayload): string[] {
         ? [`Cliente: ${order.customerName}`]
         : []),
     ...(order.customerPhone ? [`Telefono: ${order.customerPhone}`] : []),
-    `Mesero: ${order.waiterName}`,
     `Hora: ${new Date(order.createdAt).toLocaleString('es-EC')}`,
     '-'.repeat(LINE_WIDTH),
   ];

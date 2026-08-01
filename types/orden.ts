@@ -68,6 +68,8 @@ export interface CrearOrdenRequest {
 
 export interface OrdenConStock {
   id: string;
+  numeroDiario: number | null;
+  fechaNumeroDiario: string | null;
   tipoOrden: TipoOrden;
   nivelPicante: NivelPicante;
   numeroMesa: number | null;
@@ -113,6 +115,8 @@ export interface RechazarOrdenRequest {
 
 export interface OrdenPendienteAprobacion {
   id: string;
+  numeroDiario: number | null;
+  fechaNumeroDiario: string | null;
   tipoOrden: TipoOrden;
   nivelPicante: NivelPicante;
   numeroMesa: number | null;

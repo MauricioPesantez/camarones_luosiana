@@ -11,6 +11,7 @@ async function main() {
   await prisma.historialOrden.deleteMany();
   await prisma.item.deleteMany();
   await prisma.orden.deleteMany();
+  await prisma.contadorOrdenDiaria.deleteMany();
   await prisma.producto.deleteMany();
   await prisma.mesa.deleteMany();
   await prisma.usuario.deleteMany();

@@ -30,6 +30,8 @@ export async function GET() {
 
     const ordenesPendientes: OrdenPendienteAprobacion[] = ordenes.map(orden => ({
       id: orden.id,
+      numeroDiario: orden.numeroDiario,
+      fechaNumeroDiario: orden.fechaNumeroDiario,
       tipoOrden: (orden.tipoOrden ?? 'local') as OrdenPendienteAprobacion['tipoOrden'],
       nivelPicante: orden.nivelPicante as OrdenPendienteAprobacion['nivelPicante'],
       numeroMesa: orden.numeroMesa,
