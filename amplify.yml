@@ -3,20 +3,12 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm install
-        - echo "DATABASE_URL=$DATABASE_URL" >> .env
-        - echo "PRINTER_IP=$PRINTER_IP" >> .env
-        - echo "PRINTER_PORT=$PRINTER_PORT" >> .env
-        - npx prisma db push
-        - npx prisma generate
+        - npm ci
+        - env | grep -E '^(DATABASE_URL|PRINT_AGENT_TOKEN|PRINT_QUEUE_ENABLED|DIRECT_PRINT_ENABLED|PRINT_CUTOVER_AT|PRINT_AUTO_WINDOW_MINUTES|PRINT_LEASE_SECONDS)=' >> .env.production
+        - npx prisma migrate deploy
     build:
       commands:
         - npm run build
-  environment:
-    variables:
-      DATABASE_URL: $DATABASE_URL
-      PRINTER_IP: $PRINTER_IP
-      PRINTER_PORT: $PRINTER_PORT
   artifacts:
     baseDirectory: .next
     files:
