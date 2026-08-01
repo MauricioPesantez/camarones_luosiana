@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ItemSinStock } from "@/types/stock";
 
 interface Producto {
@@ -56,6 +56,9 @@ export default function CrearOrden() {
   const [agregadoReciente, setAgregadoReciente] = useState<Set<string>>(
     new Set(),
   );
+  const [carritoAlcanzado, setCarritoAlcanzado] = useState(false);
+  const inicioRef = useRef<HTMLDivElement>(null);
+  const carritoRef = useRef<HTMLDivElement>(null);
 
   const cargarProductos = async () => {
     try {
@@ -77,6 +80,30 @@ export default function CrearOrden() {
       cargarProductos();
     }
   }, [usuario]);
+
+  useEffect(() => {
+    const actualizarDestinoScroll = () => {
+      const carritoElement = carritoRef.current;
+      if (!carritoElement) return;
+
+      const limiteVisible = Math.max(120, window.innerHeight * 0.55);
+      setCarritoAlcanzado(
+        carritoElement.getBoundingClientRect().top <= limiteVisible,
+      );
+    };
+
+    const frame = window.requestAnimationFrame(actualizarDestinoScroll);
+    window.addEventListener("scroll", actualizarDestinoScroll, {
+      passive: true,
+    });
+    window.addEventListener("resize", actualizarDestinoScroll);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", actualizarDestinoScroll);
+      window.removeEventListener("resize", actualizarDestinoScroll);
+    };
+  }, []);
 
   if (authLoading) {
     return (
@@ -341,7 +368,7 @@ export default function CrearOrden() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div ref={inicioRef} className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Panel de productos */}
@@ -630,7 +657,10 @@ export default function CrearOrden() {
           </div>
 
           {/* Carrito */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div
+            ref={carritoRef}
+            className="scroll-mt-4 bg-white rounded-lg shadow p-6"
+          >
             <h2 className="text-xl font-bold mb-4 text-gray-800">Carrito</h2>
 
             <div className="space-y-3 mb-4 max-h-96 overflow-y-auto">
@@ -752,6 +782,24 @@ export default function CrearOrden() {
             </button>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            const destino = carritoAlcanzado
+              ? inicioRef.current
+              : carritoRef.current;
+            destino?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          className="lg:hidden fixed right-5 bottom-5 z-40 rounded-full bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-xl transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+          aria-label={
+            carritoAlcanzado
+              ? "Volver al inicio de la creación de la orden"
+              : "Ir al carrito de la orden"
+          }
+        >
+          {carritoAlcanzado ? "↑ Volver al inicio" : "↓ Ir al carrito"}
+        </button>
 
         {/* Modal de Stock Insuficiente */}
         {mostrarModalStock && (
