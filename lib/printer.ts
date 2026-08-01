@@ -1,18 +1,45 @@
 import ThermalPrinter from 'node-thermal-printer';
-import { esNivelPicante, obtenerEtiquetaNivelPicante } from '@/types/orden';
+import { esNivelPicante, obtenerEtiquetaNivelPicante } from '../types/orden';
 
-// Representa un valor numérico que puede ser un Decimal de Prisma, number o string
-type NumericValue = number | string | { toNumber(): number; toFixed(d?: number): string };
+const LINE_WIDTH = 42;
+const STRONG_SEPARATOR = '='.repeat(LINE_WIDTH);
+const SECTION_SEPARATOR = '-'.repeat(LINE_WIDTH);
 
-interface ItemComanda {
+type NumericValue = number | string | { toNumber(): number } | { toString(): string };
+
+function ascii(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E\n]/g, '?');
+}
+
+function centered(value: string): string {
+  const clean = ascii(value).slice(0, LINE_WIDTH);
+  return `${' '.repeat(Math.max(0, Math.floor((LINE_WIDTH - clean.length) / 2)))}${clean}`;
+}
+
+function toNumber(value: NumericValue): number {
+  const converted = typeof value === 'object' && 'toNumber' in value
+    ? value.toNumber()
+    : Number(value.toString());
+
+  if (!Number.isFinite(converted)) {
+    throw new Error('El total de la orden no es un valor numerico valido');
+  }
+  return converted;
+}
+
+export interface ItemComanda {
   cantidad: number;
   observaciones?: string | null;
+  esCortesia?: boolean | null;
   producto: {
     nombre: string;
   };
 }
 
-interface OrdenComanda {
+export interface OrdenComanda {
   id: string;
   tipoOrden?: string | null;
   nivelPicante?: string | null;
@@ -21,11 +48,63 @@ interface OrdenComanda {
   telefonoCliente?: string | null;
   mesero: string;
   observaciones?: string | null;
-  recargo?: NumericValue | null;
-  costoEnvio?: NumericValue | null;
+  printRevision?: number | null;
   total: NumericValue;
   createdAt: string | Date;
   items: ItemComanda[];
+}
+
+export function buildOrderTicketLines(orden: OrdenComanda): string[] {
+  const tipoOrden = orden.tipoOrden ?? 'local';
+  const labelTipo = tipoOrden === 'para_llevar'
+    ? 'PARA LLEVAR'
+    : tipoOrden === 'domicilio'
+      ? 'DOMICILIO'
+      : 'LOCAL';
+  const nivelPicante = esNivelPicante(orden.nivelPicante)
+    ? orden.nivelPicante
+    : 'natural';
+  const revision = typeof orden.printRevision === 'number' &&
+    Number.isInteger(orden.printRevision)
+    ? orden.printRevision
+    : 0;
+  const lines = [
+    STRONG_SEPARATOR,
+    centered('ORDEN'),
+    centered(`ORDEN #${orden.id.slice(-6)}  REV ${revision}`),
+    STRONG_SEPARATOR,
+    `Tipo: ${labelTipo}`,
+    `Picante: ${obtenerEtiquetaNivelPicante(nivelPicante).toUpperCase()}`,
+    ...(tipoOrden === 'local'
+      ? [`Mesa: ${orden.numeroMesa ?? '-'}`]
+      : orden.nombreCliente
+        ? [`Cliente: ${orden.nombreCliente}`]
+        : []),
+    ...(orden.telefonoCliente
+      ? [`Telefono: ${orden.telefonoCliente}`]
+      : []),
+    `Mesero: ${orden.mesero}`,
+    `Hora: ${new Date(orden.createdAt).toLocaleString('es-EC')}`,
+    SECTION_SEPARATOR,
+  ];
+
+  for (const item of orden.items) {
+    lines.push(
+      `${item.cantidad}x ${item.producto.nombre}${item.esCortesia ? ' [CORTESIA]' : ''}`,
+    );
+    if (item.observaciones) lines.push(`  Obs: ${item.observaciones}`);
+  }
+
+  if (orden.observaciones) {
+    lines.push(SECTION_SEPARATOR, 'OBSERVACIONES:', orden.observaciones);
+  }
+
+  if (tipoOrden === 'local') {
+    lines.push(SECTION_SEPARATOR, `TOTAL: $${toNumber(orden.total).toFixed(2)}`);
+  }
+
+  lines.push(STRONG_SEPARATOR, '', '', '');
+  return lines.map(ascii);
 }
 
 export class PrinterService {
@@ -46,97 +125,13 @@ export class PrinterService {
 
   async imprimirComanda(orden: OrdenComanda) {
     try {
-      // Configurar impresora
-      this.printer.alignCenter();
-      this.printer.println('================================');
-      this.printer.setTextSize(1, 1);
-      this.printer.bold(true);
-      this.printer.println('COMANDA DE COCINA');
+      // Mantener el mismo formato que print-agent/src/printer.ts para trabajos ORDER.
+      this.printer.setTextSize(0, 0);
       this.printer.bold(false);
-      this.printer.println('================================');
-      this.printer.newLine();
-
-      // Tipo de orden
-      const tipoOrden = orden.tipoOrden ?? 'local';
-      const labelTipo = tipoOrden === 'para_llevar' ? 'PARA LLEVAR'
-        : tipoOrden === 'domicilio' ? 'DOMICILIO'
-          : 'LOCAL';
-      const nivelPicante = esNivelPicante(orden.nivelPicante)
-        ? orden.nivelPicante
-        : 'natural';
-      this.printer.bold(true);
-      this.printer.println(`TIPO: ${labelTipo}`);
-      this.printer.println(
-        `PICANTE: ${obtenerEtiquetaNivelPicante(nivelPicante).toUpperCase()}`,
-      );
-      this.printer.bold(false);
-
-      // Información de la orden
       this.printer.alignLeft();
-      this.printer.bold(true);
-      if (tipoOrden === 'local') {
-        this.printer.println(`Mesa: ${orden.numeroMesa}`);
-      } else {
-        if (orden.nombreCliente) {
-          this.printer.println(`Cliente: ${orden.nombreCliente}`);
-        }
-        if (tipoOrden === 'domicilio' && orden.telefonoCliente) {
-          this.printer.println(`Telefono: ${orden.telefonoCliente}`);
-        }
+      for (const line of buildOrderTicketLines(orden)) {
+        this.printer.println(line);
       }
-      this.printer.println(`Mesero: ${orden.mesero}`);
-      this.printer.bold(false);
-      this.printer.println(`Hora: ${new Date(orden.createdAt).toLocaleTimeString('es-EC')}`);
-      this.printer.println(`Fecha: ${new Date(orden.createdAt).toLocaleDateString('es-EC')}`);
-      this.printer.println('--------------------------------');
-      this.printer.newLine();
-
-      // Items
-      orden.items.forEach((item: ItemComanda) => {
-        this.printer.bold(true);
-        this.printer.setTextSize(1, 1);
-        this.printer.println(`${item.cantidad}x ${item.producto.nombre}`);
-        this.printer.setTextSize(0, 0);
-        this.printer.bold(false);
-
-        if (item.observaciones) {
-          this.printer.println(`   Obs: ${item.observaciones}`);
-        }
-        this.printer.newLine();
-      });
-
-      this.printer.println('--------------------------------');
-
-      // Observaciones generales
-      if (orden.observaciones) {
-        this.printer.bold(true);
-        this.printer.println('OBSERVACIONES GENERALES:');
-        this.printer.bold(false);
-        this.printer.println(orden.observaciones);
-        this.printer.println('--------------------------------');
-      }
-
-      // Desglose de precios
-      this.printer.alignLeft();
-      const subtotal = Number(orden.total) - Number(orden.recargo ?? 0) - Number(orden.costoEnvio ?? 0);
-      this.printer.println(`Subtotal:   $${subtotal.toFixed(2)}`);
-      if (Number(orden.recargo ?? 0) > 0) {
-        this.printer.println(`Recipientes: $${Number(orden.recargo).toFixed(2)}`);
-      }
-      if (Number(orden.costoEnvio ?? 0) > 0) {
-        this.printer.println(`Envio:      $${Number(orden.costoEnvio).toFixed(2)}`);
-      }
-      this.printer.println('--------------------------------');
-      this.printer.bold(true);
-      this.printer.println(`TOTAL:      $${Number(orden.total).toFixed(2)}`);
-      this.printer.bold(false);
-
-      this.printer.newLine();
-      this.printer.alignCenter();
-      this.printer.println(`Orden #${orden.id.slice(-6)}`);
-      this.printer.println('================================');
-      this.printer.newLine();
-      this.printer.newLine();
       this.printer.cut();
 
       // Ejecutar impresión

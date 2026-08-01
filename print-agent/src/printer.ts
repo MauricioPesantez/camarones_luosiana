@@ -86,6 +86,9 @@ function linesForPayload(payload: PrintJobPayload): string[] {
   }
   if (payload.reason) lines.push('-'.repeat(LINE_WIDTH), `Motivo: ${payload.reason}`);
   if (payload.requestedBy) lines.push(`Solicita: ${payload.requestedBy}`);
+  if (order.type === 'local') {
+    lines.push('-'.repeat(LINE_WIDTH), `TOTAL: $${order.total.toFixed(2)}`);
+  }
 
   lines.push('='.repeat(LINE_WIDTH), '', '', '');
   return lines.map(ascii);
