@@ -21,6 +21,9 @@ import {
 } from '@/lib/print-jobs';
 import { isDirectPrintEnabled } from '@/lib/print-config';
 import { allocateDailyOrderNumber } from '@/lib/daily-order-number';
+import { createPaymentLink } from '@/lib/payment-link';
+import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
+import { calcularMovimientosCobro } from '@/types/cobro';
 
 const ORDEN_INCLUDE = {
   items: {
@@ -32,8 +35,18 @@ const ORDEN_INCLUDE = {
 
 class StockConflictError extends Error {}
 
+function withoutPaymentSecrets<T extends { cobroTokenHash?: string | null }>(order: T) {
+  const { cobroTokenHash: _privateTokenHash, ...safeOrder } = order;
+  void _privateTokenHash;
+  return safeOrder;
+}
+
 export async function GET(request: Request) {
   try {
+    const usuario = await getAuthenticatedUser();
+    if (!usuario) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
     const { searchParams } = new URL(request.url);
     const estado = searchParams.get('estado');
 
@@ -44,13 +57,21 @@ export async function GET(request: Request) {
         : { estado }
       : undefined;
 
+    const ownerFilter = ['admin', 'cocina'].includes(usuario.rol)
+      ? {}
+      : {
+          OR: [
+            { creadorId: usuario.id },
+            { creadorId: null, mesero: usuario.nombre },
+          ],
+        };
     const ordenes = await prisma.orden.findMany({
-      where: estadoFiltro,
+      where: { ...ownerFilter, ...(estadoFiltro ?? {}) },
       include: ORDEN_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json(ordenes);
+    return NextResponse.json(ordenes.map(withoutPaymentSecrets));
   } catch (error) {
     console.error('Error al obtener órdenes:', error);
     return NextResponse.json({ error: 'Error al obtener órdenes' }, { status: 500 });
@@ -59,6 +80,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const usuario = await getAuthenticatedUser();
+    if (!usuario) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+    if (!canCollectPayments(usuario)) {
+      return NextResponse.json({ error: 'Rol no autorizado para crear ordenes' }, { status: 403 });
+    }
     const body: CrearOrdenRequest = await request.json();
 
     const tipoOrden: TipoOrden = body.tipoOrden ?? 'local';
@@ -103,6 +131,16 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (
+      tipoOrden === 'domicilio' &&
+      body.metodoPagoPrevisto === 'transferencia' &&
+      body.transferenciaConfirmada !== true
+    ) {
+      return NextResponse.json(
+        { error: 'Debe confirmar que la transferencia ya fue recibida' },
+        { status: 400 },
+      );
+    }
 
     // La modalidad de pago se acuerda al crear solo en domicilio: define si el local
     // le cobra al motorizado (efectivo) o le entrega el envío (transferencia).
@@ -112,20 +150,8 @@ export async function POST(request: Request) {
         ? body.metodoPagoPrevisto
         : null;
 
-    const creador = body.creadorId
-      ? await prisma.usuario.findFirst({
-          where: { id: body.creadorId, activo: true },
-          select: { id: true, nombre: true, rol: true },
-        })
-      : null;
-    const creadorNombre = creador?.nombre ?? body.mesero?.trim();
-
-    if (!creadorNombre) {
-      return NextResponse.json(
-        { error: 'El usuario que crea la orden es requerido' },
-        { status: 400 },
-      );
-    }
+    const creador = usuario;
+    const creadorNombre = usuario.nombre;
 
     const costoEnvio = tipoOrden === 'domicilio' ? (body.costoEnvio ?? 0) : 0;
 
@@ -268,6 +294,14 @@ export async function POST(request: Request) {
     const estadoInicial = hayStockInsuficiente && solicitarAprobacion
       ? 'pendiente_aprobacion_stock'
       : 'pendiente';
+    const paymentLink = createPaymentLink(request.url);
+    // Una transferencia de domicilio confirmada nace pagada, incluso si requiere
+    // aprobacion de stock. Si el admin la rechaza, el cobro queda como reembolso
+    // pendiente y no desaparece del cuadre.
+    const cobradaAlCrear =
+      tipoOrden === 'domicilio' &&
+      metodoPagoPrevisto === 'transferencia' &&
+      body.transferenciaConfirmada === true;
 
     // Orden, stock, historial y trabajo de impresion se confirman juntos.
     const { orden, printJobQueued } = await prisma.$transaction(async (tx) => {
@@ -287,9 +321,23 @@ export async function POST(request: Request) {
           recargo: recargo > 0 ? recargo : null,
           costoEnvio: costoEnvio > 0 ? costoEnvio : null,
           metodoPagoPrevisto,
+          transferenciaConfirmadaAlCrear:
+            tipoOrden === 'domicilio' &&
+            metodoPagoPrevisto === 'transferencia' &&
+            body.transferenciaConfirmada === true,
+          metodoPago: cobradaAlCrear ? 'transferencia' : null,
+          cobrada: cobradaAlCrear,
+          fechaCobro: cobradaAlCrear ? createdAt : null,
+          cobradaPor: cobradaAlCrear ? creadorNombre : null,
+          cobradaPorId: cobradaAlCrear ? creador.id : null,
+          origenCobro: cobradaAlCrear
+            ? 'creacion_domicilio_transferencia'
+            : null,
+          cobroTokenHash: paymentLink.tokenHash,
+          cobroUrl: paymentLink.url,
           mesero: creadorNombre,
-          creadorId: creador?.id ?? null,
-          creadorRol: creador?.rol ?? null,
+          creadorId: creador.id,
+          creadorRol: creador.rol,
           observaciones: body.observaciones,
           total: totalFinal,
           tiempoEstimado,
@@ -360,10 +408,49 @@ export async function POST(request: Request) {
               : null,
           },
           usuarioNombre: creadorNombre,
-          usuarioRol: creador?.rol ?? 'desconocido',
+          usuarioRol: creador.rol,
           diferenciaTotal: Number(totalFinal),
         },
       });
+
+      if (cobradaAlCrear) {
+        const movimientos = calcularMovimientosCobro({
+          tipoOrden,
+          total: totalFinal,
+          costoEnvio,
+          metodoPago: 'transferencia',
+        });
+        await tx.cobro.create({
+          data: {
+            ordenId: nuevaOrden.id,
+            metodoPago: 'transferencia',
+            montoTotal: totalFinal,
+            costoEnvio,
+            ...movimientos,
+            cobradoPorId: creador.id,
+            cobradoPorNombre: creador.nombre,
+            cobradoPorRol: creador.rol,
+            origen: 'creacion_domicilio_transferencia',
+            idempotencyKey: `auto_${nuevaOrden.id}`,
+          },
+        });
+        await tx.historialOrden.create({
+          data: {
+            ordenId: nuevaOrden.id,
+            tipoAccion: 'orden_cobrada_automaticamente',
+            descripcion: 'Domicilio pagado por transferencia al crear la orden',
+            datosDespues: {
+              metodoPago: 'transferencia',
+              total: Number(totalFinal),
+              costoEnvio: Number(costoEnvio),
+              ...movimientos,
+            },
+            usuarioNombre: creador.nombre,
+            usuarioRol: creador.rol,
+            diferenciaTotal: 0,
+          },
+        });
+      }
 
       let queued = false;
       if (
@@ -432,7 +519,7 @@ export async function POST(request: Request) {
 
     // Si hay items sin stock, incluir esa información en la respuesta
     const respuesta = {
-      orden,
+      orden: withoutPaymentSecrets(orden),
       impresion: resultadoImpresion,
       impresionEnCola: printJobQueued,
       desglose: {

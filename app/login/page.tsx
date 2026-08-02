@@ -90,32 +90,38 @@ export default function LoginPage() {
     const usuario = usuarios.find((u) => u.id === usuarioSeleccionado);
     if (!usuario) return;
 
-    // Verificar contraseña si es necesario
-    if (requiresPassword) {
-      if (!password) {
-        alert("Por favor ingresa tu contraseña");
-        return;
-      }
+    if (requiresPassword && !password) {
+      alert("Por favor ingresa tu contraseña");
+      return;
+    }
 
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          usuarioId: usuarioSeleccionado,
-          password,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (!result.success) {
-        alert("Contraseña incorrecta");
-        return;
-      }
+    // Todos los usuarios pasan por el servidor: incluso quienes no tienen clave
+    // necesitan la cookie HttpOnly para abrir un QR en otra pestana.
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        usuarioId: usuarioSeleccionado,
+        password,
+      }),
+    });
+    const result = await res.json();
+    if (!res.ok || !result.success) {
+      alert(result.error || "No se pudo iniciar sesión");
+      return;
     }
 
     // Guardar sesión
-    localStorage.setItem("usuario", JSON.stringify(usuario));
+    localStorage.setItem("usuario", JSON.stringify(result.usuario ?? usuario));
+
+    const requestedNext = new URLSearchParams(window.location.search).get("next");
+    const safeNext = requestedNext?.startsWith("/ordenes/cobrar/")
+      ? requestedNext
+      : null;
+    if (safeNext) {
+      router.push(safeNext);
+      return;
+    }
 
     // Redirigir según rol
     if (usuario.rol === "admin") {

@@ -6,17 +6,26 @@ import {
   enqueueOrderPrintJob,
   shouldEnqueuePrintJob,
 } from '@/lib/print-jobs';
+import { getAuthenticatedUser } from '@/lib/session';
+import { calcularMovimientosCobro } from '@/types/cobro';
 
 class ApprovalConflictError extends Error {}
 
 export async function POST(request: NextRequest) {
   try {
+    const admin = await getAuthenticatedUser();
+    if (!admin) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+    if (admin.rol !== 'admin') {
+      return NextResponse.json({ error: 'Solo los administradores pueden aprobar órdenes' }, { status: 403 });
+    }
     const body: AprobarOrdenRequest = await request.json();
-    const { ordenId, adminId, razon } = body;
+    const { ordenId, razon } = body;
 
-    if (!ordenId || !adminId) {
+    if (!ordenId) {
       return NextResponse.json(
-        { error: 'Se requieren ordenId y adminId' },
+        { error: 'Se requiere ordenId' },
         { status: 400 }
       );
     }
@@ -47,24 +56,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar que el admin existe y es admin
-    const admin = await prisma.usuario.findUnique({
-      where: { id: adminId },
-    });
-
-    if (!admin) {
-      return NextResponse.json(
-        { error: 'Administrador no encontrado' },
-        { status: 404 }
-      );
-    }
-
-    if (admin.rol !== 'admin') {
-      return NextResponse.json(
-        { error: 'Solo los administradores pueden aprobar órdenes' },
-        { status: 403 }
-      );
-    }
+    const pagarTransferencia =
+      orden.tipoOrden === 'domicilio' &&
+      orden.metodoPagoPrevisto === 'transferencia' &&
+      orden.transferenciaConfirmadaAlCrear &&
+      !orden.cobrada;
 
     // Descontar el stock de los productos
     // Usamos una transacción para asegurar atomicidad
@@ -77,8 +73,16 @@ export async function POST(request: NextRequest) {
         data: {
           estado: 'pendiente',
           sinStock: true,
-          aprobadaPorId: adminId,
+          aprobadaPorId: admin.id,
           razonAprobacion: razon || 'Aprobada por administrador',
+          ...(pagarTransferencia && {
+            cobrada: true,
+            metodoPago: 'transferencia',
+            fechaCobro: new Date(),
+            cobradaPor: orden.mesero,
+            cobradaPorId: orden.creadorId,
+            origenCobro: 'aprobacion_domicilio_transferencia',
+          }),
         },
       });
 
@@ -120,6 +124,45 @@ export async function POST(request: NextRequest) {
           razon: razon || 'Aprobada por administrador',
         },
       });
+
+      if (pagarTransferencia) {
+        const movimientos = calcularMovimientosCobro({
+          tipoOrden: orden.tipoOrden,
+          total: orden.total.toString(),
+          costoEnvio: orden.costoEnvio?.toString(),
+          metodoPago: 'transferencia',
+        });
+        await tx.cobro.create({
+          data: {
+            ordenId,
+            metodoPago: 'transferencia',
+            montoTotal: orden.total,
+            costoEnvio: orden.costoEnvio ?? 0,
+            ...movimientos,
+            cobradoPorId: orden.creadorId,
+            cobradoPorNombre: orden.mesero,
+            cobradoPorRol: orden.creadorRol ?? 'desconocido',
+            origen: 'aprobacion_domicilio_transferencia',
+            idempotencyKey: `auto_${ordenId}`,
+          },
+        });
+        await tx.historialOrden.create({
+          data: {
+            ordenId,
+            tipoAccion: 'orden_cobrada_automaticamente',
+            descripcion: 'Transferencia confirmada al aprobar la orden sin stock',
+            datosDespues: {
+              metodoPago: 'transferencia',
+              total: Number(orden.total),
+              costoEnvio: Number(orden.costoEnvio ?? 0),
+              ...movimientos,
+            },
+            usuarioNombre: admin.nombre,
+            usuarioRol: admin.rol,
+            diferenciaTotal: 0,
+          },
+        });
+      }
 
       let queued = false;
       if (shouldEnqueuePrintJob(ordenActualizada.createdAt)) {

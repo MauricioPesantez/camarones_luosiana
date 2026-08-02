@@ -1,5 +1,6 @@
 import { registrarCliente, eliminarCliente } from '@/lib/sse';
 import { randomUUID } from 'crypto';
+import { getAuthenticatedUser } from '@/lib/session';
 
 /**
  * GET /api/ordenes/events
@@ -14,6 +15,11 @@ export const runtime = 'nodejs';
 const encoder = new TextEncoder();
 
 export async function GET() {
+  const usuario = await getAuthenticatedUser();
+  if (!usuario) return new Response('Sesion requerida', { status: 401 });
+  if (!['cocina', 'admin'].includes(usuario.rol)) {
+    return new Response('Rol no autorizado', { status: 403 });
+  }
   const clienteId = randomUUID();
   let keepaliveInterval: NodeJS.Timeout | null = null;
 

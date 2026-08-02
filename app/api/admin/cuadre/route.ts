@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { normalizarNombre } from '@/lib/admin-validaciones';
+import { getAuthenticatedUser } from '@/lib/session';
+import { isConfirmedPaymentInRange } from '@/lib/cuadre-date';
 
 const FECHA_LOCAL = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -24,6 +26,13 @@ function obtenerRangoEcuador(fecha: string): { inicio: Date; fin: Date } | null 
 
 export async function GET(request: Request) {
   try {
+    const usuario = await getAuthenticatedUser();
+    if (!usuario) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+    if (usuario.rol !== 'admin') {
+      return NextResponse.json({ error: 'Solo administradores' }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const fecha = searchParams.get('fecha');
 
@@ -39,12 +48,35 @@ export async function GET(request: Request) {
     const [ordenes, usuarios] = await Promise.all([
       prisma.orden.findMany({
         where: {
-          createdAt: {
-            gte: rango.inicio,
-            lt: rango.fin,
-          },
+          OR: [
+            {
+              createdAt: {
+                gte: rango.inicio,
+                lt: rango.fin,
+              },
+            },
+            {
+              fechaCobro: {
+                gte: rango.inicio,
+                lt: rango.fin,
+              },
+            },
+            {
+              cobro: {
+                is: {
+                  createdAt: {
+                    gte: rango.inicio,
+                    lt: rango.fin,
+                  },
+                },
+              },
+            },
+          ],
         },
         include: {
+          cobro: {
+            select: { createdAt: true, estado: true },
+          },
           creador: {
             select: { id: true, nombre: true, rol: true },
           },
@@ -69,8 +101,22 @@ export async function GET(request: Request) {
       const creadorInferido = usuariosPorNombre.get(
         normalizarNombre(orden.mesero),
       );
+      const cobradaEnFecha = isConfirmedPaymentInRange(orden, rango);
+      const {
+        cobroTokenHash: _privateTokenHash,
+        cobro: _privatePayment,
+        ...safeOrder
+      } = orden;
+      void _privateTokenHash;
+      void _privatePayment;
       return {
-        ...orden,
+        ...safeOrder,
+        // El cuadre es por fecha del movimiento, no por el estado actual. Asi una
+        // orden creada ayer y cobrada hoy no aparece cobrada en ambos cierres.
+        cobrada: cobradaEnFecha,
+        metodoPago: cobradaEnFecha ? orden.metodoPago : null,
+        fechaCobro: cobradaEnFecha ? orden.fechaCobro : null,
+        estadoCobro: orden.cobro?.estado ?? null,
         creadorNombre:
           orden.creador?.nombre ?? creadorInferido?.nombre ?? orden.mesero,
         creadorRol:

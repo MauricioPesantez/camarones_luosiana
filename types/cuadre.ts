@@ -6,6 +6,7 @@ export interface OrdenParaCuadre {
   total: number | string;
   costoEnvio?: number | string | null;
   metodoPago?: string | null;
+  estadoCobro?: string | null;
 }
 
 export interface ResumenCuadre {
@@ -20,6 +21,7 @@ export interface ResumenCuadre {
   efectivoEntregadoMotorizados: number;
   efectivoEnCaja: number;
   transferencias: number;
+  montoReembolsoPendiente: number;
 }
 
 function aCentavos(valor: number | string | null | undefined): number {
@@ -53,6 +55,9 @@ export function calcularResumenCuadre(
 
       acumulado.ordenesCobradas += 1;
       acumulado.totalCobrado += total;
+      if (orden.estadoCobro === "REEMBOLSO_PENDIENTE") {
+        acumulado.montoReembolsoPendiente += total;
+      }
 
       if (!esMetodoPago(orden.metodoPago)) {
         return acumulado;
@@ -91,6 +96,7 @@ export function calcularResumenCuadre(
       efectivoCobradoMotorizados: 0,
       efectivoEntregadoMotorizados: 0,
       transferencias: 0,
+      montoReembolsoPendiente: 0,
     },
   );
 
@@ -114,5 +120,6 @@ export function calcularResumenCuadre(
         resumen.efectivoEntregadoMotorizados,
     ),
     transferencias: aDolares(resumen.transferencias),
+    montoReembolsoPendiente: aDolares(resumen.montoReembolsoPendiente),
   };
 }

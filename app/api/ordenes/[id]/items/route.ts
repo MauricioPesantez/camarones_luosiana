@@ -17,6 +17,8 @@ import {
   type NivelPicante,
   type TipoOrden,
 } from '@/types/orden';
+import { canUserCollectOrder } from '@/lib/order-payment';
+import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
 
 type ItemChange =
   | { accion: 'eliminar'; itemId: string }
@@ -132,8 +134,22 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const usuarioSesion = await getAuthenticatedUser();
+    if (!usuarioSesion) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+    if (!canCollectPayments(usuarioSesion)) {
+      return NextResponse.json({ error: 'Rol no autorizado' }, { status: 403 });
+    }
     const { id } = await params;
-    const body = (await request.json()) as ModificationRequest;
+    const requestBody = (await request.json()) as ModificationRequest;
+    const body: ModificationRequest = {
+      ...requestBody,
+      usuario: {
+        nombre: usuarioSesion.nombre,
+        rol: usuarioSesion.rol,
+      },
+    };
     validateRequest(body);
 
     const result = await prisma.$transaction(
@@ -151,6 +167,13 @@ export async function PATCH(
 
         if (!order) {
           throw new ModificationRequestError('Orden no encontrada', 404);
+        }
+
+        if (!canUserCollectOrder(usuarioSesion, order)) {
+          throw new ModificationRequestError(
+            'No puedes modificar una orden de otro usuario',
+            403,
+          );
         }
 
         if (order.cobrada) {

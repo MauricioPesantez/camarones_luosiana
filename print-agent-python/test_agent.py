@@ -68,12 +68,25 @@ class TicketTests(unittest.TestCase):
         self.assertIn("Cobra al cliente:", text)
         self.assertLess(text.index("TOTAL:"), text.index("Envio:"))
 
+    def test_payment_qr_commands(self):
+        value = payload("domicilio", "efectivo")
+        url = "https://pos.example.com/ordenes/cobrar/token-seguro"
+        value["order"]["paymentUrl"] = url
+        ticket = agent.build_esc_pos_ticket(value, logo_raster=b"")
+        self.assertIn(b"ESCANEA PARA COBRAR", ticket)
+        self.assertIn(url.encode("utf-8"), ticket)
+        self.assertIn(
+            bytes(bytearray([agent.GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30])),
+            ticket,
+        )
+
     def test_transfer_delivery_only_prints_delivery_amount(self):
         text = self.ticket_text(payload("domicilio", "transferencia"))
         self.assertIn("Pago: TRANSFERENCIA", text)
         self.assertIn("Envio:", text)
         self.assertNotIn("TOTAL:", text)
         self.assertNotIn("Subtotal productos:", text)
+        self.assertNotIn("ESCANEA PARA COBRAR", text)
 
     def test_amendment_prints_delta(self):
         value = payload("para_llevar")

@@ -12,6 +12,7 @@ import {
 
 interface Orden {
   id: string;
+  cobroUrl: string | null;
   printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
@@ -50,7 +51,12 @@ interface Orden {
 
 export default function DigitalPage() {
   const { usuario, loading: authLoading, logout } = useAuth("digital");
-  const [vistaActiva, setVistaActiva] = useState<"crear" | "pedidos">("crear");
+  const [vistaActiva, setVistaActiva] = useState<"crear" | "pedidos">(() =>
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("vista") === "pedidos"
+      ? "pedidos"
+      : "crear",
+  );
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [loadingOrdenes, setLoadingOrdenes] = useState(false);
@@ -62,7 +68,9 @@ export default function DigitalPage() {
   // Los pedidos digitales (para_llevar / domicilio) se pueden cobrar desde cualquier
   // estado activo — el pago se confirma al entregar o al recoger.
   const puedeOrdenCobrarse = (o: Orden): boolean =>
-    !o.cobrada && o.estado !== "cancelada";
+    !o.cobrada &&
+    o.estado !== "cancelada" &&
+    o.estado !== "pendiente_aprobacion_stock";
 
   const pedidosPorCobrar = ordenes.filter(puedeOrdenCobrarse);
 
@@ -96,6 +104,7 @@ export default function DigitalPage() {
           metodoPago: metodoPagoSeleccionado,
           cobradaPor: usuario?.nombre ?? "",
           expectedRevision: ordenACobrar.printRevision,
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
       if (res.ok) {
@@ -357,6 +366,14 @@ export default function DigitalPage() {
                         {puedeCobrarse && (
                           <button
                             onClick={() => {
+                              if (orden.cobroUrl) {
+                                const paymentUrl = new URL(
+                                  orden.cobroUrl,
+                                  window.location.origin,
+                                );
+                                window.location.assign(paymentUrl.pathname);
+                                return;
+                              }
                               setOrdenACobrar(orden);
                               // En domicilio ya se acordó la modalidad al crear;
                               // se puede cambiar, pero queda registrado el override.

@@ -141,6 +141,17 @@ function run(): void {
   assert.doesNotMatch(ticketText('para_llevar'), /Mesero:/);
   assert.doesNotMatch(ticketText('domicilio', null), /Cliente:/);
 
+  const qrUrl = 'https://pos.example.com/ordenes/cobrar/token-seguro';
+  const localWithQr = buildEscPosTicket(
+    createPayload('local', null, { paymentUrl: qrUrl }),
+  );
+  assert.ok(localWithQr.includes(Buffer.from('ESCANEA PARA COBRAR', 'ascii')));
+  assert.ok(localWithQr.includes(Buffer.from(qrUrl, 'utf8')));
+  assert.ok(
+    localWithQr.includes(Buffer.from([0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30])),
+    'el ticket debe incluir el comando ESC/POS para imprimir el QR',
+  );
+
   // Payload sin modalidad acordada (generado antes de esta funcionalidad):
   // el ticket de domicilio sigue saliendo sin montos.
   const domicilioLegacy = ticketText('domicilio');
@@ -184,6 +195,14 @@ function run(): void {
   assert.ok(domicilioTransferencia.includes(amountLine('Envio:', '$5.00')));
   assert.doesNotMatch(domicilioTransferencia, /TOTAL:/);
   assert.doesNotMatch(domicilioTransferencia, /Subtotal productos:/);
+
+  const transferenciaSinQr = buildEscPosTicket(
+    createPayload('domicilio', 'Carolina', {
+      paymentMethod: 'transferencia',
+      paymentUrl: null,
+    }),
+  ).toString('ascii');
+  assert.doesNotMatch(transferenciaSinQr, /ESCANEA PARA COBRAR/);
 
   // Para llevar: desglose sin envio y sin modalidad acordada.
   const paraLlevar = ticketText('para_llevar', 'Carolina', {
