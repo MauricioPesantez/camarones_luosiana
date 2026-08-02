@@ -111,7 +111,10 @@ Cada unidad tiene una responsabilidad y se entiende sin leer las demás:
 
 ```tsx
 interface AppShellProps {
+  usuario: Usuario;
+  onLogout: () => void;
   titulo: string;
+  activoId: string;
   badges?: Record<string, number>;
   acciones?: React.ReactNode;
   children: React.ReactNode;
@@ -122,7 +125,10 @@ Uso:
 
 ```tsx
 <AppShell
+  usuario={usuario}
+  onLogout={logout}
   titulo="Mis órdenes"
+  activoId="ordenes"
   badges={{ ordenes: ordenesPorCobrar.length }}
   acciones={<button onClick={cargarOrdenes}>🔄 Actualizar</button>}
 >
@@ -130,7 +136,9 @@ Uso:
 </AppShell>
 ```
 
-La sesión no viaja por props: `AppShell` llama `useAuth()`. Los badges sí, porque son datos que solo la página conoce.
+`usuario` y `onLogout` viajan por props en vez de que `AppShell` llame a `useAuth()` por su cuenta. Cada página ya llama `useAuth(rol)` para su control de acceso, y una segunda llamada dentro del shell dispararía un `GET /api/auth/session` extra por carga de página, además de una segunda ruta de redirección compitiendo con la de la página. `Usuario` pasa a exportarse desde `lib/auth.ts`.
+
+`activoId` también viene de la página, que ya conoce su vista actual. Así el shell no necesita `useSearchParams()`, que en el App Router obligaría a envolver cada página en `<Suspense>` para no romper el build.
 
 Un ítem sin entrada en `badges` se rinde sin badge. Esto es esperado: estando en `/admin` nadie ha cargado el reporte de cortesías, así que ese badge solo aparece dentro de `/admin/reportes`. No se agrega fetching al shell para llenarlos.
 
