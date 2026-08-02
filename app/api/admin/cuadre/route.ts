@@ -1,26 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { normalizarNombre } from '@/lib/admin-validaciones';
-
-const FECHA_LOCAL = /^\d{4}-\d{2}-\d{2}$/;
-
-function obtenerRangoEcuador(fecha: string): { inicio: Date; fin: Date } | null {
-  if (!FECHA_LOCAL.test(fecha)) return null;
-
-  const [year, month, day] = fecha.split('-').map(Number);
-  const inicio = new Date(Date.UTC(year, month - 1, day, 5));
-
-  // Evita aceptar fechas que Date normalizaria silenciosamente (p. ej. 31/02).
-  const fechaValidada = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Guayaquil',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(inicio);
-  if (fechaValidada !== fecha) return null;
-
-  return { inicio, fin: new Date(inicio.getTime() + 24 * 60 * 60 * 1000) };
-}
+import { ZONA_HORARIA, obtenerRangoEcuador } from '@/lib/fecha-ecuador';
+import { RETIRO_SELECT, serializarRetiro } from '@/lib/retiros';
 
 export async function GET(request: Request) {
   try {
@@ -36,7 +18,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Fecha inválida' }, { status: 400 });
     }
 
-    const [ordenes, usuarios] = await Promise.all([
+    // Los retiros viajan con las ordenes y con el mismo rango: una sola vuelta
+    // y una sola definicion de "el dia" para las dos mitades de la caja.
+    const [ordenes, usuarios, retiros] = await Promise.all([
       prisma.orden.findMany({
         where: {
           createdAt: {
@@ -58,6 +42,16 @@ export async function GET(request: Request) {
       }),
       prisma.usuario.findMany({
         select: { id: true, nombre: true, rol: true },
+      }),
+      prisma.retiroCaja.findMany({
+        where: {
+          createdAt: {
+            gte: rango.inicio,
+            lt: rango.fin,
+          },
+        },
+        select: RETIRO_SELECT,
+        orderBy: { createdAt: 'desc' },
       }),
     ]);
 
@@ -83,8 +77,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       fecha,
-      zonaHoraria: 'America/Guayaquil',
+      zonaHoraria: ZONA_HORARIA,
       ordenes: ordenesConCreador,
+      retiros: retiros.map(serializarRetiro),
     });
   } catch (error) {
     console.error('Error en cuadre:', error);

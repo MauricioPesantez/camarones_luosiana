@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
+import RetiroCaja from "@/components/mesero/RetiroCaja";
 import {
   MetodoPago,
   type NivelPicante,
@@ -50,7 +51,9 @@ interface Orden {
 
 export default function MeseroPage() {
   const { usuario, loading: authLoading, logout } = useAuth("mesero");
-  const [vistaActiva, setVistaActiva] = useState<"crear" | "ordenes">("crear");
+  const [vistaActiva, setVistaActiva] = useState<
+    "crear" | "ordenes" | "retiro"
+  >("crear");
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [loadingOrdenes, setLoadingOrdenes] = useState(false);
@@ -164,6 +167,16 @@ export default function MeseroPage() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setVistaActiva("retiro")}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                vistaActiva === "retiro"
+                  ? "bg-amber-600 text-white"
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+            >
+              💸 Retiro de Caja
+            </button>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-white">
@@ -180,9 +193,11 @@ export default function MeseroPage() {
       </div>
 
       {/* Contenido */}
-      {vistaActiva === "crear" ? (
-        <CrearOrden />
-      ) : (
+      {vistaActiva === "crear" && <CrearOrden />}
+
+      {vistaActiva === "retiro" && <RetiroCaja usuario={usuario} />}
+
+      {vistaActiva === "ordenes" && (
         <div className="p-6 max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold text-gray-800">

@@ -155,14 +155,55 @@ model Mesa {
 }
 
 model Usuario {
-  id               String   @id @default(cuid())
-  nombre           String
-  rol              String
-  password         String?
-  activo           Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  ordenesAprobadas Orden[]  @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
-  ordenesCreadas   Orden[]  @relation("OrdenesCreadas")
+  id                 String       @id @default(cuid())
+  nombre             String
+  rol                String
+  password           String?
+  activo             Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  ordenesAprobadas   Orden[]      @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
+  ordenesCreadas     Orden[]      @relation("OrdenesCreadas")
+  retirosRegistrados RetiroCaja[] @relation("RetirosRegistrados")
+  adelantosRecibidos RetiroCaja[] @relation("AdelantosRecibidos")
+  retirosAnulados    RetiroCaja[] @relation("RetirosAnulados")
+}
+
+/// Salida de efectivo de la caja registrada por un empleado (compra de un
+/// implemento, adelanto, etc.). Es inmutable: no se edita ni se borra, solo un
+/// admin puede anularla con una razon, y la anulacion queda visible en el cuadre.
+model RetiroCaja {
+  id       String  @id @default(cuid())
+  monto    Decimal @db.Decimal(10, 2)
+  categoria String // Ver CATEGORIAS_RETIRO en types/retiro.ts
+  motivo   String
+
+  // Quien saca el dinero. El nombre y el rol se congelan igual que en
+  // `Orden.creadorRol`: si el usuario cambia de rol, el cuadre historico no se mueve.
+  usuarioId     String
+  usuario       Usuario @relation("RetirosRegistrados", fields: [usuarioId], references: [id])
+  usuarioNombre String
+  usuarioRol    String
+
+  // Solo para la categoria "adelanto": a quien se le entrega el dinero.
+  beneficiarioId     String?
+  beneficiario       Usuario? @relation("AdelantosRecibidos", fields: [beneficiarioId], references: [id], onDelete: SetNull)
+  beneficiarioNombre String?
+
+  estado           String    @default("registrado") // "registrado" | "anulado"
+  anuladoPorId     String?
+  anuladoPor       Usuario?  @relation("RetirosAnulados", fields: [anuladoPorId], references: [id])
+  anuladoPorNombre String?
+  razonAnulacion   String?
+  anuladoAt        DateTime?
+
+  /// Idempotencia: el mismo envio reintentado no duplica la salida de dinero.
+  clientRequestId String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([usuarioId, createdAt])
 }
 
 model HistorialOrden {

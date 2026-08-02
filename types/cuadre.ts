@@ -1,4 +1,5 @@
-import { esMetodoPago } from "./orden";
+import { esMetodoPago, obtenerCostoEnvio } from "./orden";
+import { ESTADO_RETIRO_ANULADO } from "./retiro";
 
 export interface OrdenParaCuadre {
   cobrada: boolean;
@@ -8,18 +9,32 @@ export interface OrdenParaCuadre {
   metodoPago?: string | null;
 }
 
+export interface RetiroParaCuadre {
+  monto: number | string;
+  estado: string;
+}
+
 export interface ResumenCuadre {
   totalOrdenes: number;
   ordenesCobradas: number;
   ordenesSinCobrar: number;
-  montoTotalOrdenes: number;
-  montoSinCobrar: number;
-  totalCobrado: number;
+  /** Venta del local: totales sin el envio, cobradas y no cobradas. */
+  ventasTotales: number;
+  ventasSinCobrar: number;
+  ventasCobradas: number;
   efectivoVentasDirectas: number;
   efectivoCobradoMotorizados: number;
   efectivoEntregadoMotorizados: number;
   efectivoEnCaja: number;
-  transferencias: number;
+  /** Venta propia cobrada por transferencia, sin el envio. */
+  transferenciasVentas: number;
+  /** Lo que realmente llego al banco: incluye el envio que se devuelve. */
+  depositosRecibidos: number;
+  /** Dinero del motorizado que paso por las ordenes cobradas. No es ingreso. */
+  enviosMotorizados: number;
+  /** Efectivo que los empleados sacaron de la caja. Los anulados no cuentan. */
+  retirosEfectivo: number;
+  cantidadRetiros: number;
 }
 
 function aCentavos(valor: number | string | null | undefined): number {
@@ -31,52 +46,67 @@ function aDolares(centavos: number): number {
 }
 
 /**
- * Resume solo dinero efectivamente cobrado.
+ * Resume el dinero del dia.
  *
- * En domicilio, el costo de envio pertenece al motorizado:
- * - pago en efectivo: el motorizado entrega al local total menos envio;
- * - pago por transferencia: el local recibe el total y entrega el envio en efectivo.
+ * Regla que manda sobre todo lo demas: el costo de envio no es del local, asi
+ * que no entra en ninguna cifra de venta. Se descuenta de toda orden a
+ * domicilio, sin importar el metodo de pago ni si la orden es anterior a que
+ * se registrara la modalidad.
+ *
+ * De ahi se desprende la liquidacion con el motorizado:
+ * - efectivo: el motorizado cobra el total al cliente y entrega al local la
+ *   venta propia; el envio nunca toca la caja;
+ * - transferencia: el cliente deposita el total, asi que el banco recibe el
+ *   envio y el local se lo devuelve al motorizado en efectivo.
+ *
+ * Los retiros son la otra mitad de la caja: gastos que los empleados pagan con
+ * el efectivo del dia. Solo tocan `efectivoEnCaja`; no son una venta ni una
+ * venta negativa, asi que ninguna cifra de venta los mira.
  */
 export function calcularResumenCuadre(
   ordenes: readonly OrdenParaCuadre[],
+  retiros: readonly RetiroParaCuadre[] = [],
 ): ResumenCuadre {
   const resumen = ordenes.reduce(
     (acumulado, orden) => {
       const total = aCentavos(orden.total);
-      acumulado.montoTotalOrdenes += total;
+      const costoEnvio = aCentavos(obtenerCostoEnvio(orden));
+      const ventaPropia = total - costoEnvio;
+
+      acumulado.ventasTotales += ventaPropia;
 
       if (!orden.cobrada) {
         acumulado.ordenesSinCobrar += 1;
-        acumulado.montoSinCobrar += total;
+        acumulado.ventasSinCobrar += ventaPropia;
         return acumulado;
       }
 
       acumulado.ordenesCobradas += 1;
-      acumulado.totalCobrado += total;
+      acumulado.ventasCobradas += ventaPropia;
+      acumulado.enviosMotorizados += costoEnvio;
 
+      // Ordenes viejas cobradas sin metodo registrado: cuentan como venta,
+      // pero no se puede decir donde quedo la plata.
       if (!esMetodoPago(orden.metodoPago)) {
         return acumulado;
       }
 
-      const costoEnvio = Math.max(0, aCentavos(orden.costoEnvio));
-
       if (orden.tipoOrden === "domicilio") {
         if (orden.metodoPago === "efectivo") {
-          acumulado.efectivoCobradoMotorizados += Math.max(
-            0,
-            total - costoEnvio,
-          );
+          acumulado.efectivoCobradoMotorizados += ventaPropia;
         } else {
-          acumulado.transferencias += total;
+          acumulado.transferenciasVentas += ventaPropia;
+          acumulado.depositosRecibidos += total;
           acumulado.efectivoEntregadoMotorizados += costoEnvio;
         }
         return acumulado;
       }
 
       if (orden.metodoPago === "efectivo") {
-        acumulado.efectivoVentasDirectas += total;
+        acumulado.efectivoVentasDirectas += ventaPropia;
       } else {
-        acumulado.transferencias += total;
+        acumulado.transferenciasVentas += ventaPropia;
+        acumulado.depositosRecibidos += ventaPropia;
       }
 
       return acumulado;
@@ -84,23 +114,33 @@ export function calcularResumenCuadre(
     {
       ordenesCobradas: 0,
       ordenesSinCobrar: 0,
-      montoTotalOrdenes: 0,
-      montoSinCobrar: 0,
-      totalCobrado: 0,
+      ventasTotales: 0,
+      ventasSinCobrar: 0,
+      ventasCobradas: 0,
       efectivoVentasDirectas: 0,
       efectivoCobradoMotorizados: 0,
       efectivoEntregadoMotorizados: 0,
-      transferencias: 0,
+      transferenciasVentas: 0,
+      depositosRecibidos: 0,
+      enviosMotorizados: 0,
     },
+  );
+
+  const retirosRegistrados = retiros.filter(
+    (retiro) => retiro.estado !== ESTADO_RETIRO_ANULADO,
+  );
+  const retirosEfectivo = retirosRegistrados.reduce(
+    (total, retiro) => total + aCentavos(retiro.monto),
+    0,
   );
 
   return {
     totalOrdenes: ordenes.length,
     ordenesCobradas: resumen.ordenesCobradas,
     ordenesSinCobrar: resumen.ordenesSinCobrar,
-    montoTotalOrdenes: aDolares(resumen.montoTotalOrdenes),
-    montoSinCobrar: aDolares(resumen.montoSinCobrar),
-    totalCobrado: aDolares(resumen.totalCobrado),
+    ventasTotales: aDolares(resumen.ventasTotales),
+    ventasSinCobrar: aDolares(resumen.ventasSinCobrar),
+    ventasCobradas: aDolares(resumen.ventasCobradas),
     efectivoVentasDirectas: aDolares(resumen.efectivoVentasDirectas),
     efectivoCobradoMotorizados: aDolares(
       resumen.efectivoCobradoMotorizados,
@@ -111,8 +151,13 @@ export function calcularResumenCuadre(
     efectivoEnCaja: aDolares(
       resumen.efectivoVentasDirectas +
         resumen.efectivoCobradoMotorizados -
-        resumen.efectivoEntregadoMotorizados,
+        resumen.efectivoEntregadoMotorizados -
+        retirosEfectivo,
     ),
-    transferencias: aDolares(resumen.transferencias),
+    transferenciasVentas: aDolares(resumen.transferenciasVentas),
+    depositosRecibidos: aDolares(resumen.depositosRecibidos),
+    enviosMotorizados: aDolares(resumen.enviosMotorizados),
+    retirosEfectivo: aDolares(retirosEfectivo),
+    cantidadRetiros: retirosRegistrados.length,
   };
 }
