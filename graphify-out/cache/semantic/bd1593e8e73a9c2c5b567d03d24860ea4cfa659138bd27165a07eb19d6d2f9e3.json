@@ -1,0 +1,1 @@
+{"nodes": [{"id": "_id__route_get", "label": "GET /api/usuarios/[id]", "file_type": "code", "source_file": "app/api/usuarios/[id]/route.ts", "source_location": "L6", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
