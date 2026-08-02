@@ -51,7 +51,8 @@ Dentro:
 
 Fuera:
 
-- Autenticación de servidor (ver "Riesgo asumido").
+- Construir la autenticación de servidor: la aporta `feat/cobro` y esta feature
+  se apoya en ella (ver "Autenticación").
 - Fondo inicial de caja / saldo real. `efectivoEnCaja` sigue siendo "lo que
   debe haber por la operación del día", no un saldo contable.
 - Impresión de comprobante. `PrintJob` tiene FK obligatoria a `Orden`; imprimir
@@ -61,32 +62,31 @@ Fuera:
 - Retiros por rol `admin` o `digital`. Es un cambio de una línea cuando se
   quiera.
 
-## Riesgo asumido
+## Autenticación (resuelto al integrar `feat/cobro`)
 
-Igual que en el diseño de menú y usuarios: **esta feature no arregla la
-autenticación**. `lib/auth.ts` lee `localStorage` en el cliente y ninguna ruta
-`/api/*` valida sesión.
+El diseño original asumía que no había sesión de servidor y aceptaba, como
+riesgo declarado, que cualquiera pudiera hacer `POST /api/retiros` con un
+`usuarioId` válido y fabricar una salida de dinero a nombre de un mesero —
+la primera ruta del sistema cuyo único efecto es **reducir el dinero que se le
+exige a la caja**, es decir, la ideal para tapar un faltante.
 
-Consecuencia concreta y nueva: cualquiera con acceso de red puede hacer
-`POST /api/retiros` con un `usuarioId` válido y fabricar una salida de dinero a
-nombre de un mesero. No es peor estructuralmente que poder crear o cobrar
-órdenes hoy, pero es la primera ruta cuyo único efecto es **reducir el dinero
-que se le exige a la caja** — es decir, la que sirve directamente para tapar un
-faltante.
+Ese riesgo **ya no aplica**. La rama `feat/cobro` incorporó sesiones de servidor
+(`SesionUsuario` + `lib/session.ts`), así que los retiros derivan al autor de
+`getAuthenticatedUser()`:
 
-Mitigaciones que sí entran en esta feature, todas de servidor:
+1. `POST /api/retiros` exige sesión (401 sin ella) y rol `mesero` (403). El
+   cuerpo **no lleva `usuarioId`**: no hay forma de registrar a nombre de otro.
+2. `PATCH /api/retiros/[id]/anular` exige sesión con rol `admin`. El cuerpo
+   **no lleva `adminId`**; enviarlo no convierte a nadie en administrador.
+3. `GET /api/retiros` acota por sesión: un mesero solo ve los suyos, el admin
+   los ve todos.
+4. Nombre y rol se congelan desde la base, nunca desde el cuerpo.
+5. Registro inmutable: no hay `PUT` ni `DELETE`, solo anulación con razón.
+6. `clientRequestId` único: el doble clic o el reintento no duplican un egreso.
 
-1. `usuarioId` se verifica contra la base: debe existir, estar `activo` y tener
-   rol `mesero`. No se confía en el cliente.
-2. El nombre y el rol se toman de la base, nunca del body. El body no puede
-   inventar autoría.
-3. Registro inmutable: no hay `PUT` ni `DELETE`. Solo `anular` con razón,
-   ejecutable únicamente por un usuario con rol `admin` verificado en servidor.
-4. `clientRequestId` único: el doble clic o el reintento de red no duplican un
-   egreso.
-
-Lo que queda pendiente y debería ser el siguiente trabajo: sesión de servidor
-firmada, de la que se derive el usuario en vez de recibirlo por body.
+Lo que sigue pendiente del sistema en general: las contraseñas se comparan en
+texto plano (`app/api/auth/login/route.ts`) y un usuario sin contraseña entra
+eligiendo su nombre. Eso es anterior a esta feature y no la bloquea.
 
 ## Modelo de datos
 
@@ -202,7 +202,8 @@ copiando el estilo de `lib/admin-validaciones.ts` (`ErrorValidacion`, `ejecutar`
 
 ### `POST /api/retiros`
 
-Body: `{ usuarioId, categoria, motivo, monto, beneficiarioId?, clientRequestId }`
+Body: `{ categoria, motivo, monto, beneficiarioId?, clientRequestId }`. El autor
+sale de la sesión, no del cuerpo.
 
 Validación pura:
 
@@ -218,7 +219,7 @@ Validación pura:
 
 Validación contra base:
 
-- `usuarioId` → existe, `activo`, `rol === 'mesero'`. Si no: `403`.
+- Sesión válida (`401` sin ella) con `rol === 'mesero'` (`403` en otro caso).
 - `beneficiarioId` → existe y `activo`. Si no: `400`.
 - Snapshot de `usuarioNombre`, `usuarioRol`, `beneficiarioNombre` desde la base.
 
@@ -226,16 +227,16 @@ Idempotencia: si el `create` choca con la unicidad de `clientRequestId`
 (Prisma `P2002`), se devuelve el registro existente con `200` en vez de un
 error. Mismo espíritu que `dedupeKey` en `PrintJob`.
 
-### `GET /api/retiros?fecha=YYYY-MM-DD&usuarioId=<id>`
+### `GET /api/retiros?fecha=YYYY-MM-DD`
 
-Devuelve los retiros del día usando el mismo rango horario. `usuarioId` es
-opcional: la pantalla del mesero lo envía para ver solo los suyos.
+Devuelve los retiros del día usando el mismo rango horario. El alcance lo fija
+la sesión: un mesero recibe solo los suyos, el admin los recibe todos.
 
 ### `PATCH /api/retiros/[id]/anular`
 
-Body: `{ adminId, razon }`.
+Body: `{ razon }`. El administrador sale de la sesión.
 
-- `adminId` → existe, `activo`, `rol === 'admin'`. Si no: `403`.
+- Sesión válida con `rol === 'admin'`. Si no: `401` / `403`.
 - `razon` obligatoria.
 - Anulación optimista con el patrón ya usado en cobrar:
   `updateMany({ where: { id, estado: 'registrado' } })` y verificación de
@@ -315,7 +316,10 @@ existe.
 
 ## Migración
 
-Un solo archivo SQL escrito a mano, `prisma/migrations/<ts>_add_retiro_caja/`:
+Un solo archivo SQL escrito a mano,
+`prisma/migrations/20260802020000_add_retiro_caja/`. El número va **después** de
+`20260802010000_add_qr_payments_and_sessions` porque esa ya está aplicada en la
+base; con el orden invertido Prisma reportaría historial divergido. Contiene:
 `CREATE TABLE "RetiroCaja"`, el índice único de `clientRequestId`, los dos
 índices de consulta y las tres FKs a `Usuario`. **Sin backfill** — no hay
 historia que recuperar. Es puramente aditiva: ninguna tabla ni columna existente
@@ -337,9 +341,9 @@ Cada fase deja el repo compilando y con tests en verde.
 
 ## Qué revisaría cuando el sistema crezca
 
-- **Sesión de servidor.** Es la pieza que convierte todos estos guards de rol en
-  seguridad real. Mientras no exista, el registro inmutable y la auditoría son
-  la defensa: no impiden el fraude, lo dejan visible.
+- **Contraseñas en texto plano.** La sesión de servidor ya cerró el agujero de
+  autoría, pero el login sigue comparando claves sin hashear y deja entrar sin
+  clave a quien no tenga una. Es la siguiente pieza que sostiene todo lo demás.
 - **Adelantos como entidad propia.** Si empiezan a necesitar saldo acumulado por
   empleado y descuento en el pago, `RetiroCaja` deja de alcanzar y `adelanto`
   debería migrar a su propio modelo, dejando aquí solo el egreso de efectivo.
