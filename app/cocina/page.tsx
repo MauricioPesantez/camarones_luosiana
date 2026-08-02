@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import OrdenCard from "@/components/cocina/OrdenCard";
 import { useAuth } from "@/lib/auth";
+import { NivelPicante } from "@/types/orden";
 
 interface Producto {
   id: string;
@@ -20,10 +21,14 @@ interface Item {
   precioUnitario: number;
   subtotal: number;
   observaciones?: string;
+  nivelPicante?: NivelPicante | null;
 }
 
 interface Orden {
   id: string;
+  numeroDiario: number | null;
+  fechaNumeroDiario: string | null;
+  printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
@@ -43,9 +48,13 @@ interface Orden {
 
 interface Notificacion {
   id: string;
+  numeroDiario: number | null;
+  fechaNumeroDiario: string | null;
+  revision: number;
   tipoOrden: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
+  telefonoCliente: string | null;
   mesero: string;
   tiempoEstimado: number;
   itemsCount: number;
@@ -150,7 +159,7 @@ export default function CocinaPage() {
         const titulo =
           orden.tipoOrden === "local"
             ? `Mesa ${orden.numeroMesa}`
-            : (orden.nombreCliente ?? "Cliente");
+            : (orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente");
         new Notification(`🍳 Nueva orden — ${titulo}`, {
           body: `Mesero: ${orden.mesero} · ${orden.itemsCount} ítem(s)`,
           icon: "/favicon.ico",
@@ -162,6 +171,9 @@ export default function CocinaPage() {
     eventSource.addEventListener("regresa-a-cocina", (e: MessageEvent) => {
       const data = JSON.parse(e.data) as {
         ordenId: string;
+        numeroDiario: number | null;
+        fechaNumeroDiario: string | null;
+        revision: number;
         tituloOrden: string;
         itemsNuevos: number;
       };
@@ -174,7 +186,7 @@ export default function CocinaPage() {
         Notification.permission === "granted"
       ) {
         new Notification(`🔄 Orden modificada — ${data.tituloOrden}`, {
-          body: `${data.itemsNuevos} item(s) nuevo(s) agregado(s)`,
+          body: `Orden #${data.numeroDiario ?? data.ordenId.slice(-6)} · Rev ${data.revision} · ${data.itemsNuevos} item(s) nuevo(s)`,
           icon: "/favicon.ico",
         });
       }
@@ -253,7 +265,11 @@ export default function CocinaPage() {
                         notificacion.tipoOrden === "domicilio"
                           ? "🛵 Domicilio"
                           : "🥡 Para llevar"
-                      } — ${notificacion.nombreCliente}`}
+                      } — ${
+                        notificacion.nombreCliente ??
+                        notificacion.telefonoCliente ??
+                        "Cliente"
+                      }`}
                 </p>
                 <p className="text-sm opacity-90">
                   Mesero: {notificacion.mesero} · {notificacion.itemsCount}

@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  NivelPicante,
+  obtenerEtiquetaNivelPicante,
+} from "@/types/orden";
 
 interface Producto {
   id: string;
@@ -18,12 +22,16 @@ interface Item {
   precioUnitario: number;
   subtotal: number;
   observaciones?: string;
+  nivelPicante?: NivelPicante | null;
   esCortesia?: boolean;
   adminCortesia?: string;
 }
 
 interface Orden {
   id: string;
+  numeroDiario: number | null;
+  fechaNumeroDiario: string | null;
+  printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
@@ -164,7 +172,7 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
       {orden.modificada && (
         <div className="mb-3 bg-blue-100 border-l-4 border-blue-500 p-2 rounded">
           <span className="text-blue-800 text-sm font-bold">
-            🔄 Orden Modificada
+            🔄 Orden #{orden.numeroDiario ?? orden.id.slice(-6)} · Revisión {orden.printRevision}
           </span>
         </div>
       )}
@@ -181,6 +189,9 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
       {/* Header con tipo de orden e identificador */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-bold bg-gray-900 text-white px-2 py-1 rounded">
+            #{orden.numeroDiario ?? orden.id.slice(-6)}
+          </span>
           {(!orden.tipoOrden || orden.tipoOrden === "local") && (
             <span className="text-xs font-bold bg-blue-600 text-white px-2 py-1 rounded">
               🍽 LOCAL
@@ -200,7 +211,7 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
         <h2 className="text-2xl font-bold text-gray-800">
           {!orden.tipoOrden || orden.tipoOrden === "local"
             ? `Mesa ${orden.numeroMesa}`
-            : orden.nombreCliente}
+            : (orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente")}
         </h2>
         {orden.tipoOrden === "domicilio" && orden.telefonoCliente && (
           <p className="text-gray-600 text-sm">Telf: {orden.telefonoCliente}</p>
@@ -253,6 +264,11 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
                   Nota: {item.observaciones}
                 </p>
               )}
+              {item.nivelPicante && (
+                <p className="text-sm font-bold text-red-700 mt-1 pl-2">
+                  🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                </p>
+              )}
             </div>
           ) : (
             <div key={index} className="bg-white bg-opacity-60 rounded p-3">
@@ -269,6 +285,11 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
               {item.observaciones && (
                 <p className="text-sm text-gray-600 italic mt-1">
                   Nota: {item.observaciones}
+                </p>
+              )}
+              {item.nivelPicante && (
+                <p className="text-sm font-bold text-red-700 mt-1">
+                  🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
                 </p>
               )}
             </div>

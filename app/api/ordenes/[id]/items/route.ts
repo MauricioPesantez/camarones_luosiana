@@ -1,333 +1,620 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
-import { notificarClientes } from '@/lib/sse';
 import { Prisma } from '@prisma/client';
+
+import { prisma } from '@/lib/db';
+import {
+  PRINT_JOB_TYPES,
+  enqueueOrderPrintJob,
+  shouldEnqueuePrintJob,
+  type AmendmentChangeSource,
+} from '@/lib/print-jobs';
+import { notificarClientes } from '@/lib/sse';
+import {
+  calcularRecargoEnvases,
+  esCategoriaCombo,
+  esNivelPicante,
+  RECARGO_RECIPIENTES,
+  type NivelPicante,
+  type TipoOrden,
+} from '@/types/orden';
+
+type ItemChange =
+  | { accion: 'eliminar'; itemId: string }
+  | {
+      accion: 'agregar';
+      productoId: string;
+      cantidad: number;
+      observaciones?: string;
+      nivelPicante?: NivelPicante;
+    }
+  | { accion: 'modificar'; itemId: string; cantidad: number };
+
+interface ModificationRequest {
+  items: ItemChange[];
+  razon: string;
+  expectedRevision: number;
+  usuario: {
+    nombre: string;
+    rol: string;
+  };
+}
+
+interface HistoryRecord {
+  tipoAccion: string;
+  descripcion: string;
+  itemAfectado?: Prisma.InputJsonValue;
+  datosAntes?: Prisma.InputJsonValue;
+  datosDespues?: Prisma.InputJsonValue;
+  usuarioNombre: string;
+  usuarioRol: string;
+  razon: string;
+  diferenciaTotal: number;
+}
+
+class ModificationRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+function validateRequest(body: ModificationRequest): void {
+  if (!body.razon?.trim()) {
+    throw new ModificationRequestError(
+      'La razón del cambio es obligatoria',
+      400,
+    );
+  }
+
+  if (!body.usuario?.nombre?.trim() || !body.usuario?.rol?.trim()) {
+    throw new ModificationRequestError(
+      'El usuario que realiza el cambio es requerido',
+      400,
+    );
+  }
+
+  if (!Array.isArray(body.items) || body.items.length === 0) {
+    throw new ModificationRequestError(
+      'Se requiere al menos un cambio de items',
+      400,
+    );
+  }
+
+  if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 0) {
+    throw new ModificationRequestError(
+      'La revisión esperada de la orden es requerida',
+      400,
+    );
+  }
+
+  const touchedItems = new Set<string>();
+
+  for (const change of body.items) {
+    if (!change || typeof change !== 'object') {
+      throw new ModificationRequestError('Cambio de item inválido', 400);
+    }
+    if (!['agregar', 'modificar', 'eliminar'].includes(change.accion)) {
+      throw new ModificationRequestError('Acción de item inválida', 400);
+    }
+
+    if (change.accion === 'agregar') {
+      if (!change.productoId?.trim()) {
+        throw new ModificationRequestError('El producto es requerido', 400);
+      }
+      if (!Number.isInteger(change.cantidad) || change.cantidad < 1) {
+        throw new ModificationRequestError('La cantidad debe ser mayor a cero', 400);
+      }
+    } else {
+      if (!change.itemId?.trim()) {
+        throw new ModificationRequestError('El item es requerido', 400);
+      }
+      if (touchedItems.has(change.itemId)) {
+        throw new ModificationRequestError(
+          'Un item no puede modificarse más de una vez en la misma solicitud',
+          400,
+        );
+      }
+      touchedItems.add(change.itemId);
+      if (
+        change.accion === 'modificar' &&
+        (!Number.isInteger(change.cantidad) || change.cantidad < 1)
+      ) {
+        throw new ModificationRequestError('La cantidad debe ser mayor a cero', 400);
+      }
+    }
+  }
+}
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { items, razon, usuario } = body;
+    const body = (await request.json()) as ModificationRequest;
+    validateRequest(body);
 
-    // Validar que la razón sea obligatoria
-    if (!razon || razon.trim() === '') {
-      return NextResponse.json(
-        { error: 'La razón del cambio es obligatoria' },
-        { status: 400 }
-      );
-    }
-
-    // Obtener la orden actual con sus items
-    const ordenActual = await prisma.orden.findUnique({
-      where: { id },
-      include: {
-        items: {
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const order = await tx.orden.findUnique({
+          where: { id },
           include: {
-            producto: true,
+            items: {
+              include: {
+                producto: true,
+              },
+            },
           },
-        },
-      },
-    });
+        });
 
-    if (!ordenActual) {
-      return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
-    }
-
-    // Validar que la orden esté en un estado editable (cualquiera antes de cobrada/cancelada)
-    const estadosEditables = ['pendiente', 'en_preparacion', 'lista'];
-    if (!estadosEditables.includes(ordenActual.estado)) {
-      return NextResponse.json(
-        { error: 'Solo se pueden modificar órdenes activas' },
-        { status: 400 }
-      );
-    }
-
-    const estabaLista = ordenActual.estado === 'lista';
-
-    // Validar acciones inválidas para órdenes lista
-    if (estabaLista) {
-      const accionesInvalidas = items.filter(
-        (i: { accion: string; itemId?: string; cantidad?: number }) => {
-          if (i.accion === 'eliminar') return true; // nunca permitir eliminar
-          if (i.accion === 'modificar') {
-            // Solo rechazar si reduce la cantidad por debajo de la original
-            const itemOriginal = ordenActual.items.find((orig) => orig.id === i.itemId);
-            if (!itemOriginal) return false;
-            return (i.cantidad ?? 0) < itemOriginal.cantidad;
-          }
-          return false;
+        if (!order) {
+          throw new ModificationRequestError('Orden no encontrada', 404);
         }
-      );
-      if (accionesInvalidas.length > 0) {
-        return NextResponse.json(
-          { error: 'No se pueden eliminar items ni reducir cantidades de una orden ya lista.' },
-          { status: 400 }
-        );
-      }
-    }
 
-    const totalAnterior = Number(ordenActual.total);
+        if (order.cobrada) {
+          throw new ModificationRequestError(
+            'No se puede modificar una orden que ya fue cobrada',
+            409,
+          );
+        }
 
-    interface HistorialRegistro {
-      tipoAccion: string;
-      descripcion: string;
-      itemAfectado?: Prisma.InputJsonValue;
-      datosAntes?: Prisma.InputJsonValue;
-      datosDespues?: Prisma.InputJsonValue;
-      usuarioNombre: string;
-      usuarioRol: string;
-      razon: string;
-      diferenciaTotal: number;
-    }
+        if (order.printRevision !== body.expectedRevision) {
+          throw new ModificationRequestError(
+            'La orden cambió mientras estaba abierta. Recárgala e intenta nuevamente.',
+            409,
+          );
+        }
 
-    const historialRegistros: HistorialRegistro[] = [];
+        const editableStatuses = ['pendiente', 'en_preparacion', 'lista'];
+        if (!editableStatuses.includes(order.estado)) {
+          throw new ModificationRequestError(
+            'Solo se pueden modificar órdenes activas',
+            400,
+          );
+        }
 
-    // Procesar cada cambio de item dentro de una transacción para manejar stock
-    await prisma.$transaction(async (tx) => {
-      for (const itemCambio of items) {
-        const { accion, productoId, cantidad, itemId } = itemCambio;
+        const wasReady = order.estado === 'lista';
+        if (wasReady) {
+          const invalidChange = body.items.some((change) => {
+            if (change.accion === 'eliminar') return true;
+            if (change.accion !== 'modificar') return false;
 
-        if (accion === 'eliminar') {
-          // Encontrar el item a eliminar
-          const itemAEliminar = ordenActual.items.find((i) => i.id === itemId);
-          if (itemAEliminar) {
-            // Devolver stock al producto
-            await tx.producto.update({
-              where: { id: itemAEliminar.productoId },
-              data: {
-                stock: {
-                  increment: itemAEliminar.cantidad,
-                },
-              },
-            });
+            const original = order.items.find(
+              (item) => item.id === change.itemId,
+            );
+            return original ? change.cantidad < original.cantidad : true;
+          });
 
-            // Eliminar el item
-            await tx.item.delete({
-              where: { id: itemId },
-            });
-
-            // Registrar en historial
-            historialRegistros.push({
-              tipoAccion: 'item_eliminado',
-              descripcion: `Eliminado: ${itemAEliminar.cantidad}x ${itemAEliminar.producto.nombre}`,
-              itemAfectado: {
-                id: itemAEliminar.id,
-                nombre: itemAEliminar.producto.nombre,
-                cantidad: itemAEliminar.cantidad,
-                precio: Number(itemAEliminar.precioUnitario),
-              },
-              datosAntes: {
-                cantidad: itemAEliminar.cantidad,
-                subtotal: Number(itemAEliminar.subtotal),
-              },
-              usuarioNombre: usuario.nombre,
-              usuarioRol: usuario.rol,
-              razon,
-              diferenciaTotal: -Number(itemAEliminar.subtotal),
-            });
+          if (invalidChange) {
+            throw new ModificationRequestError(
+              'No se pueden eliminar items ni reducir cantidades de una orden ya lista.',
+              400,
+            );
           }
-        } else if (accion === 'agregar') {
-          // Obtener información del producto
-          const producto = await tx.producto.findUnique({
-            where: { id: productoId },
-          });
+        }
 
-          if (!producto) continue;
+        const previousTotal = Number(order.total);
+        const packagingApplies = order.tipoOrden !== 'local';
+        const history: HistoryRecord[] = [];
+        const amendmentChanges: AmendmentChangeSource[] = [];
 
-          const precioUnitario = Number(producto.precio);
-          const subtotal = cantidad * precioUnitario;
-
-          // Descontar stock del producto
-          await tx.producto.update({
-            where: { id: productoId },
-            data: {
-              stock: {
-                decrement: cantidad,
-              },
-            },
-          });
-
-          // Crear el nuevo item
-          const nuevoItem = await tx.item.create({
-            data: {
-              ordenId: id,
-              productoId,
-              cantidad,
-              precioUnitario,
-              subtotal,
-            },
-          });
-
-          // Registrar en historial
-          historialRegistros.push({
-            tipoAccion: 'item_agregado',
-            descripcion: `Agregado: ${cantidad}x ${producto.nombre}`,
-            itemAfectado: {
-              id: nuevoItem.id,
-              nombre: producto.nombre,
-              cantidad,
-              precio: precioUnitario,
-            },
-            datosDespues: {
-              cantidad,
-              subtotal,
-            },
-            usuarioNombre: usuario.nombre,
-            usuarioRol: usuario.rol,
-            razon,
-            diferenciaTotal: subtotal,
-          });
-        } else if (accion === 'modificar') {
-          // Modificar cantidad de un item existente
-          const itemAModificar = ordenActual.items.find((i) => i.id === itemId);
-          if (itemAModificar) {
-            const precioUnitario = Number(itemAModificar.precioUnitario);
-            const nuevoSubtotal = cantidad * precioUnitario;
-            const subtotalAnterior = Number(itemAModificar.subtotal);
-
-            // Ajustar stock: devolver la cantidad anterior y descontar la nueva
-            const diferenciaCantidad = cantidad - itemAModificar.cantidad;
+        for (const change of body.items) {
+          if (change.accion === 'eliminar') {
+            const item = order.items.find(
+              (current) => current.id === change.itemId,
+            );
+            if (!item) {
+              throw new ModificationRequestError('Item no encontrado', 404);
+            }
 
             await tx.producto.update({
-              where: { id: itemAModificar.productoId },
-              data: {
-                stock: {
-                  decrement: diferenciaCantidad,
-                },
-              },
+              where: { id: item.productoId },
+              data: { stock: { increment: item.cantidad } },
             });
+            await tx.item.delete({ where: { id: item.id } });
 
-            await tx.item.update({
-              where: { id: itemId },
-              data: {
-                cantidad,
-                subtotal: nuevoSubtotal,
-              },
-            });
-
-            // Registrar en historial
-            historialRegistros.push({
-              tipoAccion: 'item_modificado',
-              descripcion: `Modificado: ${itemAModificar.producto.nombre} (${itemAModificar.cantidad} → ${cantidad})`,
+            history.push({
+              tipoAccion: 'item_eliminado',
+              descripcion: `Eliminado: ${item.cantidad}x ${item.producto.nombre}`,
               itemAfectado: {
-                id: itemAModificar.id,
-                nombre: itemAModificar.producto.nombre,
-                cantidad: itemAModificar.cantidad,
-                precio: precioUnitario,
+                id: item.id,
+                nombre: item.producto.nombre,
+                cantidad: item.cantidad,
+                precio: Number(item.precioUnitario),
               },
               datosAntes: {
-                cantidad: itemAModificar.cantidad,
-                subtotal: subtotalAnterior,
+                cantidad: item.cantidad,
+                subtotal: Number(item.subtotal),
+              },
+              usuarioNombre: body.usuario.nombre,
+              usuarioRol: body.usuario.rol,
+              razon: body.razon,
+              diferenciaTotal: -Number(item.subtotal),
+            });
+            amendmentChanges.push({
+              action: 'REMOVE',
+              itemId: item.id,
+              productId: item.productoId,
+              productName: item.producto.nombre,
+              previousQuantity: item.cantidad,
+              quantity: 0,
+              quantityDelta: -item.cantidad,
+              unitPrice: Number(item.precioUnitario),
+              amountDelta: -Number(item.subtotal),
+              surchargeDelta:
+                packagingApplies && esCategoriaCombo(item.producto.categoria)
+                  ? -item.cantidad * RECARGO_RECIPIENTES
+                  : 0,
+              observations: item.observaciones,
+              spiceLevel: item.nivelPicante,
+              complimentary: item.esCortesia,
+            });
+            continue;
+          }
+
+          if (change.accion === 'agregar') {
+            const product = await tx.producto.findUnique({
+              where: { id: change.productoId },
+            });
+            if (!product) {
+              throw new ModificationRequestError('Producto no encontrado', 404);
+            }
+            if (!product.disponible) {
+              throw new ModificationRequestError(
+                'El producto no está disponible',
+                400,
+              );
+            }
+            if (
+              esCategoriaCombo(product.categoria) &&
+              !esNivelPicante(change.nivelPicante)
+            ) {
+              throw new ModificationRequestError(
+                `El nivel de picante es requerido para ${product.nombre}`,
+                400,
+              );
+            }
+
+            const stockUpdate = await tx.producto.updateMany({
+              where: {
+                id: product.id,
+                stock: { gte: change.cantidad },
+              },
+              data: { stock: { decrement: change.cantidad } },
+            });
+            if (stockUpdate.count !== 1) {
+              throw new ModificationRequestError(
+                `Stock insuficiente para ${product.nombre}`,
+                409,
+              );
+            }
+
+            const unitPrice = Number(product.precio);
+            const subtotal = change.cantidad * unitPrice;
+            const newItem = await tx.item.create({
+              data: {
+                ordenId: id,
+                productoId: product.id,
+                cantidad: change.cantidad,
+                precioUnitario: unitPrice,
+                subtotal,
+                observaciones: change.observaciones,
+                nivelPicante:
+                  esCategoriaCombo(product.categoria) &&
+                  esNivelPicante(change.nivelPicante)
+                    ? change.nivelPicante
+                    : null,
+              },
+            });
+
+            history.push({
+              tipoAccion: 'item_agregado',
+              descripcion: `Agregado: ${change.cantidad}x ${product.nombre}`,
+              itemAfectado: {
+                id: newItem.id,
+                nombre: product.nombre,
+                cantidad: change.cantidad,
+                precio: unitPrice,
               },
               datosDespues: {
-                cantidad,
-                subtotal: nuevoSubtotal,
+                cantidad: change.cantidad,
+                subtotal,
               },
-              usuarioNombre: usuario.nombre,
-              usuarioRol: usuario.rol,
-              razon,
-              diferenciaTotal: nuevoSubtotal - subtotalAnterior,
+              usuarioNombre: body.usuario.nombre,
+              usuarioRol: body.usuario.rol,
+              razon: body.razon,
+              diferenciaTotal: subtotal,
+            });
+            amendmentChanges.push({
+              action: 'ADD',
+              itemId: newItem.id,
+              productId: product.id,
+              productName: product.nombre,
+              previousQuantity: 0,
+              quantity: change.cantidad,
+              quantityDelta: change.cantidad,
+              unitPrice,
+              amountDelta: subtotal,
+              surchargeDelta:
+                packagingApplies && esCategoriaCombo(product.categoria)
+                  ? change.cantidad * RECARGO_RECIPIENTES
+                  : 0,
+              observations: change.observaciones,
+              spiceLevel: newItem.nivelPicante,
+              complimentary: false,
+            });
+            continue;
+          }
+
+          const item = order.items.find(
+            (current) => current.id === change.itemId,
+          );
+          if (!item) {
+            throw new ModificationRequestError('Item no encontrado', 404);
+          }
+          if (change.cantidad === item.cantidad) continue;
+
+          const quantityDifference = change.cantidad - item.cantidad;
+          if (quantityDifference > 0) {
+            const stockUpdate = await tx.producto.updateMany({
+              where: {
+                id: item.productoId,
+                stock: { gte: quantityDifference },
+              },
+              data: { stock: { decrement: quantityDifference } },
+            });
+            if (stockUpdate.count !== 1) {
+              throw new ModificationRequestError(
+                `Stock insuficiente para ${item.producto.nombre}`,
+                409,
+              );
+            }
+          } else {
+            await tx.producto.update({
+              where: { id: item.productoId },
+              data: { stock: { increment: -quantityDifference } },
             });
           }
+
+          const unitPrice = Number(item.precioUnitario);
+          const previousSubtotal = Number(item.subtotal);
+          const newSubtotal = change.cantidad * unitPrice;
+          await tx.item.update({
+            where: { id: item.id },
+            data: {
+              cantidad: change.cantidad,
+              subtotal: newSubtotal,
+            },
+          });
+
+          history.push({
+            tipoAccion: 'item_modificado',
+            descripcion: `Modificado: ${item.producto.nombre} (${item.cantidad} → ${change.cantidad})`,
+            itemAfectado: {
+              id: item.id,
+              nombre: item.producto.nombre,
+              cantidad: item.cantidad,
+              precio: unitPrice,
+            },
+            datosAntes: {
+              cantidad: item.cantidad,
+              subtotal: previousSubtotal,
+            },
+            datosDespues: {
+              cantidad: change.cantidad,
+              subtotal: newSubtotal,
+            },
+            usuarioNombre: body.usuario.nombre,
+            usuarioRol: body.usuario.rol,
+            razon: body.razon,
+            diferenciaTotal: newSubtotal - previousSubtotal,
+          });
+          amendmentChanges.push({
+            action: 'UPDATE',
+            itemId: item.id,
+            productId: item.productoId,
+            productName: item.producto.nombre,
+            previousQuantity: item.cantidad,
+            quantity: change.cantidad,
+            quantityDelta: quantityDifference,
+            unitPrice,
+            amountDelta: newSubtotal - previousSubtotal,
+            surchargeDelta:
+              packagingApplies && esCategoriaCombo(item.producto.categoria)
+                ? quantityDifference * RECARGO_RECIPIENTES
+                : 0,
+            observations: item.observaciones,
+            spiceLevel: item.nivelPicante,
+            complimentary: item.esCortesia,
+          });
         }
-      }
-    });
 
-    // Recalcular el total de la orden
-    const itemsActualizados = await prisma.item.findMany({
-      where: { ordenId: id },
-    });
+        if (history.length === 0) {
+          throw new ModificationRequestError(
+            'No hay cambios efectivos para guardar',
+            400,
+          );
+        }
 
-    const nuevoTotal = itemsActualizados.reduce(
-      (sum, item) => sum + Number(item.subtotal),
-      0
+        const updatedItems = await tx.item.findMany({
+          where: { ordenId: id },
+          include: { producto: true },
+        });
+        if (updatedItems.length === 0) {
+          throw new ModificationRequestError(
+            'La orden debe conservar al menos un item',
+            400,
+          );
+        }
+
+        const productsSubtotal = updatedItems.reduce(
+          (sum, item) => sum + Number(item.subtotal),
+          0,
+        );
+        const orderType = (
+          order.tipoOrden === 'domicilio' || order.tipoOrden === 'para_llevar'
+            ? order.tipoOrden
+            : 'local'
+        ) as TipoOrden;
+        const newSurcharge = calcularRecargoEnvases(
+          orderType,
+          updatedItems.map((item) => ({
+            cantidad: item.cantidad,
+            categoria: item.producto.categoria,
+          })),
+        );
+        const previousSurcharge = Number(order.recargo ?? 0);
+        if (newSurcharge !== previousSurcharge) {
+          history.push({
+            tipoAccion: 'recargo_envases_actualizado',
+            descripcion: `Recargo de envases actualizado: $${previousSurcharge.toFixed(2)} → $${newSurcharge.toFixed(2)}`,
+            datosAntes: { recargo: previousSurcharge },
+            datosDespues: { recargo: newSurcharge },
+            usuarioNombre: body.usuario.nombre,
+            usuarioRol: body.usuario.rol,
+            razon: body.razon,
+            diferenciaTotal: newSurcharge - previousSurcharge,
+          });
+        }
+        const newTotal =
+          productsSubtotal +
+          newSurcharge +
+          Number(order.costoEnvio ?? 0);
+
+        let baseTime = 0;
+        let additionalTime = 0;
+        updatedItems.forEach((item) => {
+          const preparationTime = item.producto.tiempoPreparacion || 0;
+          if (item.producto.categoria === 'Platos Fuertes') {
+            baseTime = Math.max(baseTime, preparationTime);
+          } else if (
+            item.producto.categoria === 'Acompañamientos' ||
+            item.producto.categoria === 'Entradas'
+          ) {
+            additionalTime += preparationTime * 0.1;
+          }
+        });
+
+        const newEstimatedTime = Math.ceil(baseTime + additionalTime);
+        const hasNewPreparation = amendmentChanges.some(
+          (change) => change.quantityDelta > 0,
+        );
+        const newStatus = wasReady && hasNewPreparation ? 'en_preparacion' : undefined;
+
+        const orderUpdate = await tx.orden.updateMany({
+          where: {
+            id,
+            cobrada: false,
+            printRevision: body.expectedRevision,
+          },
+          data: {
+            total: newTotal,
+            recargo: newSurcharge > 0 ? newSurcharge : null,
+            tiempoEstimado: newEstimatedTime,
+            modificada: true,
+            printRevision: body.expectedRevision + 1,
+            ...(newStatus ? { estado: newStatus } : {}),
+          },
+        });
+        if (orderUpdate.count !== 1) {
+          throw new ModificationRequestError(
+            'La orden fue cobrada o modificada al mismo tiempo. Recárgala e intenta nuevamente.',
+            409,
+          );
+        }
+
+        const updatedOrder = await tx.orden.findUniqueOrThrow({
+          where: { id },
+          include: {
+            items: {
+              include: {
+                producto: true,
+              },
+            },
+          },
+        });
+
+        await tx.historialOrden.createMany({
+          data: history.map((record) => ({
+            ...record,
+            ordenId: id,
+          })),
+        });
+
+        let printJobQueued = false;
+        const amendmentCreatedAt = new Date();
+        if (shouldEnqueuePrintJob(amendmentCreatedAt)) {
+          await enqueueOrderPrintJob(tx, updatedOrder, {
+            type: PRINT_JOB_TYPES.AMENDMENT,
+            revision: updatedOrder.printRevision,
+            changes: amendmentChanges,
+            reason: body.razon,
+            requestedBy: body.usuario.nombre,
+            now: amendmentCreatedAt,
+          });
+          printJobQueued = true;
+        }
+
+        return {
+          order: updatedOrder,
+          changesCount: history.length,
+          previousTotal,
+          newTotal,
+          returnsToKitchen: Boolean(newStatus),
+          newItemsCount: amendmentChanges.reduce(
+            (total, change) => total + Math.max(0, change.quantityDelta),
+            0,
+          ),
+          printJobQueued,
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
 
-    // Recalcular tiempo estimado
-    const productosIds = itemsActualizados.map((i) => i.productoId);
-    const productos = await prisma.producto.findMany({
-      where: { id: { in: productosIds } },
-    });
-
-    let tiempoBase = 0;
-    let tiempoAdicional = 0;
-
-    itemsActualizados.forEach((item) => {
-      const producto = productos.find((p) => p.id === item.productoId);
-      const tiempoPreparacion = producto?.tiempoPreparacion || 0;
-
-      if (producto?.categoria === 'Platos Fuertes') {
-        tiempoBase = Math.max(tiempoBase, tiempoPreparacion);
-      } else if (
-        producto?.categoria === 'Acompañamientos' ||
-        producto?.categoria === 'Entradas'
-      ) {
-        tiempoAdicional += tiempoPreparacion * 0.1;
-      }
-    });
-
-    const nuevoTiempoEstimado = Math.ceil(tiempoBase + tiempoAdicional);
-
-    // Actualizar la orden — si estaba lista y se agregaron items, regresa a cocina
-    const tieneItemsNuevos = historialRegistros.some(r => r.tipoAccion === 'item_agregado');
-    const nuevoEstado = estabaLista && tieneItemsNuevos ? 'en_preparacion' : undefined;
-
-    await prisma.orden.update({
-      where: { id },
-      data: {
-        total: nuevoTotal,
-        tiempoEstimado: nuevoTiempoEstimado,
-        modificada: true,
-        ...(nuevoEstado ? { estado: nuevoEstado } : {}),
-      },
-    });
-
-    // Crear registros en el historial
-    await prisma.historialOrden.createMany({
-      data: historialRegistros.map((registro) => ({
-        ...registro,
+    if (result.returnsToKitchen) {
+      const title =
+        !result.order.tipoOrden || result.order.tipoOrden === 'local'
+          ? `Mesa ${result.order.numeroMesa}`
+          : (result.order.nombreCliente ?? 'Cliente');
+      notificarClientes('regresa-a-cocina', {
         ordenId: id,
-      })),
-    });
-
-    // Obtener la orden actualizada
-    const ordenActualizada = await prisma.orden.findUnique({
-      where: { id },
-      include: {
-        items: {
-          include: {
-            producto: true,
-          },
-        },
-      },
-    });
-
-    // Si la orden regresó a cocina, notificar en tiempo real via SSE
-    if (nuevoEstado && ordenActualizada) {
-      const titulo =
-        !ordenActualizada.tipoOrden || ordenActualizada.tipoOrden === 'local'
-          ? `Mesa ${ordenActualizada.numeroMesa}`
-          : (ordenActualizada.nombreCliente ?? 'Cliente');
-      const itemsNuevos = historialRegistros.filter(r => r.tipoAccion === 'item_agregado').length;
-      notificarClientes('regresa-a-cocina', { ordenId: id, tituloOrden: titulo, itemsNuevos });
+        numeroDiario: result.order.numeroDiario,
+        fechaNumeroDiario: result.order.fechaNumeroDiario,
+        revision: result.order.printRevision,
+        tituloOrden: title,
+        itemsNuevos: result.newItemsCount,
+      });
     }
 
     return NextResponse.json({
-      orden: ordenActualizada,
-      cambios: historialRegistros.length,
-      totalAnterior,
-      totalNuevo: nuevoTotal,
-      diferencia: nuevoTotal - totalAnterior,
-      regresaACocina: !!nuevoEstado,
+      orden: result.order,
+      cambios: result.changesCount,
+      totalAnterior: result.previousTotal,
+      totalNuevo: result.newTotal,
+      diferencia: result.newTotal - result.previousTotal,
+      regresaACocina: result.returnsToKitchen,
+      impresionEnCola: result.printJobQueued,
     });
   } catch (error) {
+    if (error instanceof ModificationRequestError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2034'
+    ) {
+      return NextResponse.json(
+        { error: 'La orden cambió al mismo tiempo. Intenta nuevamente.' },
+        { status: 409 },
+      );
+    }
+
     console.error('Error al modificar orden:', error);
     return NextResponse.json(
       { error: 'Error al modificar orden' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

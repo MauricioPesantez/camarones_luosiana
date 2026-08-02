@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Vista previa de comandas térmicas para pedidos locales, a domicilio y para retirar."
+    />
+    <title>Vista previa de comandas · Restaurant POS</title>
+    <style id="dynamic-print-page">
+      @page {
+        size: A4 landscape;
+        margin: 12mm;
+      }
+    </style>
+    <style>
+      :root {
+        --ink: #171b16;
+        --muted: #667064;
+        --canvas: #f3f0e8;
+        --panel: #fcfbf7;
+        --line: #d9d4c8;
+        --brand: #ea5a2a;
+        --brand-dark: #b93413;
+        --green: #173f36;
+        --green-soft: #dfe9e1;
+        --paper-width: 80mm;
+        --shadow: 0 22px 50px rgba(37, 33, 24, 0.13),
+          0 3px 8px rgba(37, 33, 24, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        color-scheme: light;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 4% 10%, rgba(234, 90, 42, 0.12), transparent 24rem),
+          linear-gradient(180deg, #f8f6f0 0%, var(--canvas) 100%);
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        border-bottom: 1px solid rgba(23, 27, 22, 0.09);
+        background: rgba(248, 246, 240, 0.88);
+        backdrop-filter: blur(18px);
+      }
+
+      .topbar__inner {
+        width: min(1240px, calc(100% - 40px));
+        min-height: 72px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 11px;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+
+      .brand__mark {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 10px;
+        color: #fff;
+        background: var(--brand);
+        box-shadow: 0 7px 18px rgba(234, 90, 42, 0.28);
+      }
+
+      .brand__mark svg {
+        width: 19px;
+        height: 19px;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 11px;
+        border: 1px solid #d7ded8;
+        border-radius: 999px;
+        color: #325148;
+        background: rgba(255, 255, 255, 0.7);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .status::before {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #30a46c;
+        box-shadow: 0 0 0 4px rgba(48, 164, 108, 0.12);
+        content: "";
+      }
+
+      main {
+        width: min(1320px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 70px 0 88px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 36px;
+        margin-bottom: 42px;
+      }
+
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 16px;
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 850;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        width: 28px;
+        height: 2px;
+        background: var(--brand);
+        content: "";
+      }
+
+      h1 {
+        max-width: 780px;
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(42px, 6vw, 72px);
+        font-weight: 500;
+        letter-spacing: -0.055em;
+        line-height: 0.98;
+      }
+
+      .intro {
+        max-width: 620px;
+        margin: 22px 0 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.65;
+      }
+
+      .print-all {
+        min-width: 190px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        padding: 13px 18px;
+        border: 0;
+        border-radius: 12px;
+        color: #fff;
+        background: var(--green);
+        box-shadow: 0 9px 22px rgba(23, 63, 54, 0.18);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 800;
+        transition: transform 160ms ease, box-shadow 160ms ease;
+      }
+
+      .print-all:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 13px 27px rgba(23, 63, 54, 0.24);
+      }
+
+      .print-all svg,
+      .ticket-action svg {
+        width: 17px;
+        height: 17px;
+      }
+
+      .spec-strip {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        margin-bottom: 30px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.54);
+      }
+
+      .spec {
+        min-height: 74px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+      }
+
+      .spec + .spec {
+        border-left: 1px solid var(--line);
+      }
+
+      .spec__number {
+        min-width: 38px;
+        color: var(--brand);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 30px;
+        line-height: 1;
+      }
+
+      .spec__copy {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .spec__copy strong {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      .preview-section + .preview-section {
+        margin-top: 54px;
+      }
+
+      .preview-section__heading {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 24px;
+        margin: 0 0 18px;
+      }
+
+      .preview-section__heading h2 {
+        margin: 0 0 5px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 30px;
+        font-weight: 500;
+        letter-spacing: -0.035em;
+      }
+
+      .preview-section__heading p {
+        max-width: 680px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+
+      .preview-card {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid rgba(23, 27, 22, 0.09);
+        border-radius: 20px;
+        background: rgba(252, 251, 247, 0.72);
+        box-shadow: 0 2px 0 rgba(255, 255, 255, 0.85) inset;
+      }
+
+      .preview-card__header {
+        min-height: 84px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 20px;
+        border-bottom: 1px solid rgba(23, 27, 22, 0.08);
+      }
+
+      .case-label {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .case-icon {
+        width: 38px;
+        height: 38px;
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 11px;
+        color: var(--green);
+        background: var(--green-soft);
+      }
+
+      .case-icon svg {
+        width: 20px;
+        height: 20px;
+      }
+
+      .case-label h2 {
+        margin: 0 0 3px;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+      }
+
+      .case-label p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .ticket-action {
+        width: 36px;
+        height: 36px;
+        display: grid;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid #d7d3c9;
+        border-radius: 10px;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        transition: border-color 160ms ease, color 160ms ease,
+          transform 160ms ease;
+      }
+
+      .ticket-action:hover {
+        transform: translateY(-1px);
+        border-color: var(--brand);
+        color: var(--brand-dark);
+      }
+
+      .preview-stage {
+        min-height: 680px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 34px 18px 48px;
+        background:
+          linear-gradient(rgba(23, 27, 22, 0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(23, 27, 22, 0.025) 1px, transparent 1px),
+          #e9e6de;
+        background-size: 18px 18px;
+      }
+
+      .preview-card--amendment .preview-stage {
+        min-height: 610px;
+      }
+
+      .preview-card--amendment .ticket {
+        min-height: 520px;
+      }
+
+      .ticket {
+        position: relative;
+        width: min(var(--paper-width), 100%);
+        min-height: 588px;
+        padding: 9mm 6.5mm 12mm;
+        color: #060606;
+        background: #fff;
+        box-shadow: var(--shadow);
+        font-family: "Courier New", Courier, monospace;
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        line-height: 1.35;
+      }
+
+      .ticket::after {
+        position: absolute;
+        right: 0;
+        bottom: -7px;
+        left: 0;
+        height: 8px;
+        background: linear-gradient(135deg, #fff 5px, transparent 0) 0 0,
+          linear-gradient(225deg, #fff 5px, transparent 0) 0 0;
+        background-size: 10px 8px;
+        content: "";
+      }
+
+      .printer-rule {
+        width: 100%;
+        margin: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-align: center;
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0;
+        line-height: 1.2;
+      }
+
+      .ticket__logo {
+        display: block;
+        width: 21mm;
+        max-width: 72%;
+        height: auto;
+        margin: 0 auto 3mm;
+      }
+
+      .ticket__title {
+        margin: 0;
+        text-align: center;
+        font-size: 15px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        line-height: 1.2;
+      }
+
+      .ticket__meta {
+        margin: 0 0 7px;
+      }
+
+      .meta-row {
+        display: grid;
+        grid-template-columns: 60px minmax(0, 1fr);
+        gap: 4px;
+      }
+
+      .meta-row + .meta-row {
+        margin-top: 2px;
+      }
+
+      .meta-row dt,
+      .meta-row dd {
+        margin: 0;
+      }
+
+      .meta-row dt {
+        font-weight: 500;
+      }
+
+      .meta-row dd {
+        overflow-wrap: anywhere;
+      }
+
+      .meta-row--emphasis dt {
+        width: fit-content;
+        padding: 0 3px;
+        color: #fff;
+        background: #000;
+        font-weight: 700;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      /* La opcion elegida sale en video inverso, igual que en la impresora. */
+      .meta-row--selected dd {
+        width: fit-content;
+        padding: 0 3px;
+        color: #fff;
+        background: #000;
+        font-weight: 700;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .ticket__spice {
+        margin: 0 0 7px;
+      }
+
+      .items {
+        margin: 12px 0 8px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .item + .item {
+        margin-top: 14px;
+      }
+
+      .item__main {
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: 0;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+
+      .item__note {
+        display: block;
+        margin: 4px 0 0 11px;
+        font-size: 11px;
+        line-height: 1.3;
+      }
+
+      .item__selection {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        margin: 4px 0 0 11px;
+        font-size: 11px;
+        line-height: 1.3;
+      }
+
+      .item__selection strong {
+        width: fit-content;
+        padding: 0 3px;
+        color: #fff;
+        background: #000;
+        font-weight: 700;
+        text-transform: uppercase;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .general-note {
+        margin: 8px 0;
+      }
+
+      .general-note strong {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 11.5px;
+      }
+
+      .ticket__footer {
+        margin-top: 11px;
+        text-align: center;
+      }
+
+      .local-total {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 7px;
+        font-weight: 900;
+      }
+
+      .amount-lines {
+        margin-top: 7px;
+      }
+
+      .amount-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .amount-line + .amount-line {
+        margin-top: 2px;
+      }
+
+      .amount-line--strong {
+        font-weight: 900;
+      }
+
+      .ticket-alert {
+        margin: 5px 0 0;
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .footer-note {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        margin-top: 24px;
+        padding: 18px 20px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.5);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .footer-note strong {
+        color: var(--ink);
+      }
+
+      .footer-note code {
+        padding: 2px 5px;
+        border-radius: 5px;
+        color: #343a33;
+        background: rgba(23, 27, 22, 0.07);
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 11px;
+      }
+
+      @media (max-width: 1040px) {
+        .preview-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 720px) {
+        .topbar__inner,
+        main {
+          width: min(100% - 24px, 560px);
+        }
+
+        main {
+          padding-top: 42px;
+        }
+
+        .hero {
+          grid-template-columns: 1fr;
+          align-items: start;
+          gap: 24px;
+        }
+
+        h1 {
+          font-size: clamp(40px, 15vw, 58px);
+        }
+
+        .print-all {
+          width: 100%;
+        }
+
+        .spec-strip,
+        .preview-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .spec + .spec {
+          border-top: 1px solid var(--line);
+          border-left: 0;
+        }
+
+        .preview-section__heading {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .footer-note {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+
+      @media print {
+        html,
+        body {
+          background: #fff !important;
+        }
+
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .topbar,
+        .hero,
+        .spec-strip,
+        .preview-section__heading,
+        .preview-card__header,
+        .footer-note {
+          display: none !important;
+        }
+
+        main {
+          width: auto;
+          margin: 0;
+          padding: 0;
+        }
+
+        .preview-section + .preview-section {
+          margin-top: 8mm;
+        }
+
+        .preview-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 80mm);
+          align-items: start;
+          justify-content: start;
+          gap: 8mm;
+        }
+
+        .preview-card {
+          width: auto;
+          display: block;
+          flex: 0 0 auto;
+          overflow: visible;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        .preview-stage {
+          min-height: 0;
+          display: block;
+          padding: 0;
+          background: transparent;
+        }
+
+        .ticket {
+          width: var(--paper-width);
+          min-height: 0;
+          padding: 7mm 5mm 9mm;
+          box-shadow: none;
+        }
+
+        .ticket::after {
+          display: none;
+        }
+
+        body[data-print-target]:not([data-print-target="all"])
+          .preview-card {
+          display: none;
+        }
+
+        body[data-print-target="order-local"] .preview-card[data-ticket="order-local"],
+        body[data-print-target="order-takeaway"] .preview-card[data-ticket="order-takeaway"],
+        body[data-print-target="order-delivery-cash"] .preview-card[data-ticket="order-delivery-cash"],
+        body[data-print-target="order-delivery-transfer"] .preview-card[data-ticket="order-delivery-transfer"],
+        body[data-print-target="amend-local"] .preview-card[data-ticket="amend-local"],
+        body[data-print-target="amend-takeaway"] .preview-card[data-ticket="amend-takeaway"],
+        body[data-print-target="amend-delivery-cash"] .preview-card[data-ticket="amend-delivery-cash"],
+        body[data-print-target="amend-delivery-transfer"] .preview-card[data-ticket="amend-delivery-transfer"] {
+          display: block;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar__inner">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 2v6M10 2v6M8 2v20M16 2c2 3 2 7 0 10v10" />
+            </svg>
+          </span>
+          Restaurant POS · Impresiones
+        </div>
+        <span class="status">Plantilla lista</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">Comandas de cocina</p>
+          <h1 id="page-title">Orden inicial y modificaciones.</h1>
+          <p class="intro">
+            Vista previa fiel al ticket térmico de 80 mm. La orden inicial conserva
+            su desglose según tipo y pago; cada modificación usa el número diario,
+            la fecha y la revisión, e imprime el ajuste de productos y envases cuando corresponde.
+          </p>
+        </div>
+        <button class="print-all" type="button" onclick="printTickets('all')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <path d="M6 14h12v8H6z" />
+          </svg>
+          Imprimir hoja demo
+        </button>
+      </section>
+
+      <section class="spec-strip" aria-label="Especificaciones de la plantilla">
+        <div class="spec">
+          <span class="spec__number">80</span>
+          <span class="spec__copy"><strong>milímetros</strong>Ancho de papel térmico</span>
+        </div>
+        <div class="spec">
+          <span class="spec__number">42</span>
+          <span class="spec__copy"><strong>caracteres</strong>Ancho usado por el agente</span>
+        </div>
+        <div class="spec">
+          <span class="spec__number">4</span>
+          <span class="spec__copy"><strong>casos por flujo</strong>Local, llevar y dos pagos de domicilio</span>
+        </div>
+      </section>
+
+      <section class="preview-section" aria-labelledby="initial-orders-title">
+        <header class="preview-section__heading">
+          <div>
+            <h2 id="initial-orders-title">Impresión inicial</h2>
+            <p>Incluye todos los productos y los montos que corresponden al tipo de orden.</p>
+          </div>
+        </header>
+
+        <div class="preview-grid" aria-label="Vistas previas de órdenes iniciales">
+          <article class="preview-card" data-ticket="order-local">
+            <header class="preview-card__header">
+              <div class="case-label"><span class="case-icon" aria-hidden="true">01</span><div><h2>Local</h2><p>Total completo de la mesa</p></div></div>
+              <button class="ticket-action" type="button" onclick="printTickets('order-local')" aria-label="Imprimir orden local">↗</button>
+            </header>
+            <div class="preview-stage"><section class="ticket" aria-label="Orden inicial local">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #123</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Mesa:</dt><dd>8</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:42:18</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">2x Combo Especial</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Leve</strong></span><span class="item__note">Obs: Sin cebolla</span></li><li class="item"><div class="item__main">1x Wantan frito</div></li><li class="item"><div class="item__main">2x Limonada natural</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note"><strong>OBSERVACIONES:</strong>Servir entradas primero.</div>
+              <div class="printer-rule">------------------------------------------</div><div class="local-total"><span>TOTAL:</span><span>$31.75</span></div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+
+          <article class="preview-card" data-ticket="order-takeaway">
+            <header class="preview-card__header">
+              <div class="case-label"><span class="case-icon" aria-hidden="true">02</span><div><h2>Para llevar</h2><p>Productos + recipientes</p></div></div>
+              <button class="ticket-action" type="button" onclick="printTickets('order-takeaway')" aria-label="Imprimir orden para llevar">↗</button>
+            </header>
+            <div class="preview-stage"><section class="ticket" aria-label="Orden inicial para llevar">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #124</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>PARA LLEVAR</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Andres Perez</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:48:05</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">2x Combo Tallarín</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Picante 2</strong></span><span class="item__note">Obs: Uno sin pimiento</span></li><li class="item"><div class="item__main">1x Costillas BBQ</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-lines"><div class="amount-line"><span>Subtotal productos:</span><span>$45.00</span></div><div class="amount-line"><span>Recipientes:</span><span>$2.50</span></div></div>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>TOTAL:</span><span>$47.50</span></div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+
+          <article class="preview-card" data-ticket="order-delivery-cash">
+            <header class="preview-card__header">
+              <div class="case-label"><span class="case-icon" aria-hidden="true">03</span><div><h2>Domicilio · efectivo</h2><p>El motorizado cobra al cliente</p></div></div>
+              <button class="ticket-action" type="button" onclick="printTickets('order-delivery-cash')" aria-label="Imprimir domicilio en efectivo">↗</button>
+            </header>
+            <div class="preview-stage"><section class="ticket" aria-label="Orden inicial a domicilio en efectivo">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #125</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>EFECTIVO</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Carolina</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0987654321</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:53:41</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div><ul class="items"><li class="item"><div class="item__main">1x Combo Familiar</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Natural</strong></span><span class="item__note">Obs: Salsa aparte</span></li><li class="item"><div class="item__main">1x Arroz blanco</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-lines"><div class="amount-line"><span>Subtotal productos:</span><span>$100.00</span></div><div class="amount-line"><span>Recipientes:</span><span>$1.25</span></div></div>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>TOTAL:</span><span>$101.25</span></div>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note"><strong>DELIVERY:</strong></div><div class="amount-lines"><div class="amount-line"><span>Envio:</span><span>$5.00</span></div><div class="amount-line"><span>Cobra al cliente:</span><span>$106.25</span></div></div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+
+          <article class="preview-card" data-ticket="order-delivery-transfer">
+            <header class="preview-card__header">
+              <div class="case-label"><span class="case-icon" aria-hidden="true">04</span><div><h2>Domicilio · transferencia</h2><p>En local se mueve solo el envío</p></div></div>
+              <button class="ticket-action" type="button" onclick="printTickets('order-delivery-transfer')" aria-label="Imprimir domicilio por transferencia">↗</button>
+            </header>
+            <div class="preview-stage"><section class="ticket" aria-label="Orden inicial a domicilio por transferencia">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #126</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>TRANSFERENCIA</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Gabriela</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0991234567</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 14:01:12</dd></div></dl>
+              <div class="printer-rule">------------------------------------------</div><ul class="items"><li class="item"><div class="item__main">2x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Natural</strong></span></li><li class="item"><div class="item__main">1x Limonada natural</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>Envio:</span><span>$5.00</span></div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="preview-section" aria-labelledby="amendments-title">
+        <header class="preview-section__heading">
+          <div>
+            <h2 id="amendments-title">Reimpresión por modificación</h2>
+            <p>La revisión identifica la misma orden. Se imprime el delta con signo; los cargos fijos no se repiten.</p>
+          </div>
+        </header>
+
+        <div class="preview-grid" aria-label="Vistas previas de modificaciones">
+          <article class="preview-card preview-card--amendment" data-ticket="amend-local">
+            <header class="preview-card__header"><div class="case-label"><span class="case-icon" aria-hidden="true">+1</span><div><h2>Modificar local</h2><p>Solo el valor agregado</p></div></div><button class="ticket-action" type="button" onclick="printTickets('amend-local')" aria-label="Imprimir modificación local">↗</button></header>
+            <div class="preview-stage"><section class="ticket" aria-label="Modificación de orden local">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #123 31-07 REV 2</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Mesa:</dt><dd>8</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:10:00</dd></div></dl><div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Natural</strong></span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+
+          <article class="preview-card preview-card--amendment" data-ticket="amend-takeaway">
+            <header class="preview-card__header"><div class="case-label"><span class="case-icon" aria-hidden="true">−1</span><div><h2>Modificar para llevar</h2><p>Ejemplo de producto retirado</p></div></div><button class="ticket-action" type="button" onclick="printTickets('amend-takeaway')" aria-label="Imprimir modificación para llevar">↗</button></header>
+            <div class="preview-stage"><section class="ticket" aria-label="Modificación de orden para llevar">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #124 31-07 REV 3</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>PARA LLEVAR</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Andres Perez</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:12:26</dd></div></dl><div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">- 1x Costillas BBQ</div><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>-$6.50</span></div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>-$6.50</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente retiro un producto</div><div class="general-note">Solicita: Daniel</div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+
+          <article class="preview-card preview-card--amendment" data-ticket="amend-delivery-cash">
+            <header class="preview-card__header"><div class="case-label"><span class="case-icon" aria-hidden="true">+1</span><div><h2>Domicilio · efectivo</h2><p>Sin recobrar envío o recipientes</p></div></div><button class="ticket-action" type="button" onclick="printTickets('amend-delivery-cash')" aria-label="Imprimir modificación domicilio efectivo">↗</button></header>
+            <div class="preview-stage"><section class="ticket" aria-label="Modificación domicilio en efectivo">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #125 31-07 REV 2</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>EFECTIVO</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Carolina</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0987654321</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:15:03</dd></div></dl><div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Picante 1</strong></span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div><div class="amount-line"><span>&nbsp;&nbsp;Envases:</span><span>$1.25</span></div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div><div class="amount-line amount-line--strong"><span>AJUSTE ENVASES:</span><span>$1.25</span></div><div class="amount-line amount-line--strong"><span>AJUSTE TOTAL:</span><span>$7.75</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+
+          <article class="preview-card preview-card--amendment" data-ticket="amend-delivery-transfer">
+            <header class="preview-card__header"><div class="case-label"><span class="case-icon" aria-hidden="true">+1</span><div><h2>Domicilio · transferencia</h2><p>Solo se imprime el nuevo producto</p></div></div><button class="ticket-action" type="button" onclick="printTickets('amend-delivery-transfer')" aria-label="Imprimir modificación domicilio transferencia">↗</button></header>
+            <div class="preview-stage"><section class="ticket" aria-label="Modificación domicilio por transferencia">
+              <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
+              <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #126 31-07 REV 2</h3><div class="printer-rule">==========================================</div>
+              <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>TRANSFERENCIA</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Gabriela</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0991234567</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:18:44</dd></div></dl><div class="printer-rule">------------------------------------------</div>
+              <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Leve</strong></span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div><div class="amount-line"><span>&nbsp;&nbsp;Envases:</span><span>$1.25</span></div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div><div class="amount-line amount-line--strong"><span>AJUSTE ENVASES:</span><span>$1.25</span></div><div class="amount-line amount-line--strong"><span>AJUSTE TOTAL:</span><span>$7.75</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
+              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+            </section></div>
+          </article>
+        </div>
+      </section>
+
+      <aside class="footer-note">
+        <span><strong>Regla de seguridad:</strong> una modificación no repite el <code>TOTAL</code>, el <code>Envio</code> ni el recargo completo; solo muestra el delta de envases cuando cambia la cantidad de combos.</span>
+        <span>“Para llevar” corresponde al valor interno <code>para_llevar</code>.</span>
+      </aside>
+    </main>
+
+    <script>
+      const pageStyle = document.getElementById("dynamic-print-page");
+
+      function printTickets(target) {
+        document.body.dataset.printTarget = target;
+        pageStyle.textContent =
+          target === "all"
+            ? "@page { size: A4 landscape; margin: 12mm; }"
+            : "@page { size: 80mm 200mm; margin: 0; }";
+        window.print();
+      }
+
+      window.addEventListener("afterprint", () => {
+        delete document.body.dataset.printTarget;
+        pageStyle.textContent = "@page { size: A4 landscape; margin: 12mm; }";
+      });
+    </script>
+  </body>
+</html>

@@ -4,10 +4,15 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
-import { MetodoPago } from "@/types/orden";
+import {
+  MetodoPago,
+  type NivelPicante,
+  obtenerEtiquetaNivelPicante,
+} from "@/types/orden";
 
 interface Orden {
   id: string;
+  printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
@@ -21,6 +26,7 @@ interface Orden {
   modificada: boolean;
   cobrada: boolean;
   metodoPago: string | null;
+  metodoPagoPrevisto: MetodoPago | null;
   cobradaPor: string | null;
   createdAt: string;
   items: {
@@ -36,6 +42,7 @@ interface Orden {
     };
     precioUnitario: number;
     subtotal: number;
+    nivelPicante?: NivelPicante | null;
     esCortesia?: boolean;
     adminCortesia?: string;
   }[];
@@ -91,6 +98,7 @@ export default function MeseroPage() {
         body: JSON.stringify({
           metodoPago: metodoPagoSeleccionado,
           cobradaPor: usuario?.nombre ?? "",
+          expectedRevision: ordenACobrar.printRevision,
         }),
       });
       if (res.ok) {
@@ -308,6 +316,11 @@ export default function MeseroPage() {
                                 <span className="text-sm font-semibold text-amber-900 flex-1">
                                   {item.cantidad}x {item.producto.nombre}
                                 </span>
+                                {item.nivelPicante && (
+                                  <span className="text-xs font-bold text-red-700">
+                                    🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                                  </span>
+                                )}
                                 <span className="text-xs font-bold text-amber-600 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                                   CORTESÍA
                                 </span>
@@ -315,6 +328,11 @@ export default function MeseroPage() {
                             ) : (
                               <div key={idx} className="text-sm text-gray-600">
                                 {item.cantidad}x {item.producto.nombre}
+                                {item.nivelPicante && (
+                                  <span className="ml-2 font-bold text-red-700">
+                                    🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                                  </span>
+                                )}
                               </div>
                             ),
                           )}
@@ -339,25 +357,31 @@ export default function MeseroPage() {
                           <button
                             onClick={() => {
                               setOrdenACobrar(orden);
-                              setMetodoPagoSeleccionado("efectivo");
+                              // En domicilio ya se acordó la modalidad al crear;
+                              // se puede cambiar, pero queda registrado el override.
+                              setMetodoPagoSeleccionado(
+                                orden.metodoPagoPrevisto ?? "efectivo",
+                              );
                             }}
                             className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition-colors"
                           >
                             💵 Cobrar Orden
                           </button>
                         )}
-                        <button
-                          onClick={() => setOrdenEditar(orden)}
-                          className={`w-full py-2 rounded-lg font-semibold transition-colors text-white ${
-                            orden.estado === "lista"
-                              ? "bg-orange-500 hover:bg-orange-600"
-                              : "bg-blue-600 hover:bg-blue-700"
-                          }`}
-                        >
-                          {orden.estado === "lista"
-                            ? "➕ Agregar más items"
-                            : "✏️ Editar Orden"}
-                        </button>
+                        {!orden.cobrada && (
+                          <button
+                            onClick={() => setOrdenEditar(orden)}
+                            className={`w-full py-2 rounded-lg font-semibold transition-colors text-white ${
+                              orden.estado === "lista"
+                                ? "bg-orange-500 hover:bg-orange-600"
+                                : "bg-blue-600 hover:bg-blue-700"
+                            }`}
+                          >
+                            {orden.estado === "lista"
+                              ? "➕ Agregar más items"
+                              : "✏️ Editar Orden"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -378,7 +402,9 @@ export default function MeseroPage() {
             <p className="text-gray-600 mb-1">
               {!ordenACobrar.tipoOrden || ordenACobrar.tipoOrden === "local"
                 ? `Mesa ${ordenACobrar.numeroMesa}`
-                : ordenACobrar.nombreCliente}
+                : (ordenACobrar.nombreCliente ??
+                  ordenACobrar.telefonoCliente ??
+                  "Cliente")}
             </p>
             <p className="text-2xl font-bold text-green-600 mb-5">
               ${Number(ordenACobrar.total).toFixed(2)}
@@ -409,6 +435,18 @@ export default function MeseroPage() {
                 🏦 Transferencia
               </button>
             </div>
+
+            {ordenACobrar.metodoPagoPrevisto &&
+              metodoPagoSeleccionado !== ordenACobrar.metodoPagoPrevisto && (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 mb-6">
+                  <p className="text-sm text-amber-800">
+                    ⚠️ El pedido se acordó en{" "}
+                    <strong>{ordenACobrar.metodoPagoPrevisto}</strong>. El cambio
+                    queda registrado en el historial y altera la liquidación con
+                    el motorizado.
+                  </p>
+                </div>
+              )}
 
             <div className="flex gap-3">
               <button

@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from "react";
 import HistorialOrdenTimeline from "./HistorialOrdenTimeline";
+import {
+  type NivelPicante,
+  obtenerEtiquetaNivelPicante,
+} from "@/types/orden";
 
 interface Producto {
   id: string;
@@ -20,6 +24,7 @@ interface ItemOrden {
   precioUnitario: number;
   subtotal: number;
   observaciones?: string;
+  nivelPicante?: NivelPicante | null;
   esCortesia?: boolean;
   adminCortesia?: string | null;
 }
@@ -165,7 +170,7 @@ export default function DetalleOrdenModal({
             <h2 className="text-2xl font-bold text-gray-800">
               {!orden.tipoOrden || orden.tipoOrden === "local"
                 ? `Mesa ${orden.numeroMesa}`
-                : orden.nombreCliente}
+                : (orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente")}
             </h2>
             <p className="text-sm text-gray-500">
               {new Date(orden.createdAt).toLocaleString("es-EC")}
@@ -395,6 +400,11 @@ export default function DetalleOrdenModal({
                                   Nota: {item.observaciones}
                                 </p>
                               )}
+                              {item.nivelPicante && (
+                                <p className="text-xs font-bold text-red-700 mt-0.5">
+                                  🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                                </p>
+                              )}
                               {item.esCortesia && item.adminCortesia && (
                                 <p className="text-xs text-emerald-600 mt-0.5">
                                   Autorizado por: {item.adminCortesia}
@@ -467,7 +477,7 @@ export default function DetalleOrdenModal({
                                 colSpan={4}
                                 className="px-4 py-2 text-right text-sm text-gray-600"
                               >
-                                Recargo (
+                                Envases de combos (
                                 {orden.tipoOrden === "domicilio"
                                   ? "domicilio"
                                   : "para llevar"}

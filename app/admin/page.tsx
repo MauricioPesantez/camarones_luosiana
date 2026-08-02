@@ -4,10 +4,18 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import DetalleOrdenModal from "@/components/admin/DetalleOrdenModal";
 import { ProductoStockBajo } from "@/types/stock";
-import { OrdenPendienteAprobacion, MetodoPago } from "@/types/orden";
+import {
+  OrdenPendienteAprobacion,
+  MetodoPago,
+  type NivelPicante,
+  obtenerEtiquetaNivelPicante,
+} from "@/types/orden";
+import { calcularResumenCuadre } from "@/types/cuadre";
+import { obtenerEtiquetaRol, ROLES } from "@/types/usuario";
 
 interface Orden {
   id: string;
+  printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
@@ -15,12 +23,15 @@ interface Orden {
   recargo: number | null;
   costoEnvio: number | null;
   mesero: string;
+  creadorNombre: string;
+  creadorRol: string;
   estado: string;
   total: number;
   tiempoEstimado: number;
   modificada: boolean;
   cobrada: boolean;
   metodoPago: string | null;
+  metodoPagoPrevisto: string | null;
   fechaCobro: string | null;
   cobradaPor: string | null;
   createdAt: string;
@@ -35,7 +46,30 @@ interface Orden {
     precioUnitario: number;
     subtotal: number;
     observaciones?: string;
+    nivelPicante?: NivelPicante | null;
   }[];
+}
+
+function obtenerFechaEcuador(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Guayaquil",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function obtenerTituloOrden(orden: {
+  tipoOrden?: string | null;
+  numeroMesa: number | null;
+  nombreCliente: string | null;
+  telefonoCliente?: string | null;
+}): string {
+  if (!orden.tipoOrden || orden.tipoOrden === "local") {
+    return `Mesa ${orden.numeroMesa}`;
+  }
+
+  return orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente";
 }
 
 export default function AdminPage() {
@@ -45,8 +79,12 @@ export default function AdminPage() {
     null,
   );
   const [fechaFiltro, setFechaFiltro] = useState(
-    new Date().toISOString().split("T")[0],
+    obtenerFechaEcuador,
   );
+  const [rolCreadorFiltro, setRolCreadorFiltro] = useState("todos");
+  const [usuarioCreadorFiltro, setUsuarioCreadorFiltro] = useState("todos");
+  const [tipoOrdenFiltro, setTipoOrdenFiltro] = useState("todos");
+  const [estadoCobroFiltro, setEstadoCobroFiltro] = useState("todos");
   const [loading, setLoading] = useState(false);
   const [productosStockBajo, setProductosStockBajo] = useState<
     ProductoStockBajo[]
@@ -68,7 +106,10 @@ export default function AdminPage() {
     try {
       const res = await fetch(`/api/admin/cuadre?fecha=${fechaFiltro}`);
       const data = await res.json();
-      setOrdenes(data);
+      if (!res.ok) {
+        throw new Error(data.error || "Error al cargar el cuadre");
+      }
+      setOrdenes(data.ordenes || []);
     } catch (error) {
       console.error("Error al cargar órdenes:", error);
     } finally {
@@ -165,6 +206,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           metodoPago: metodoPagoAdmin,
           cobradaPor: usuario?.nombre ?? "",
+          expectedRevision: ordenACobrar.printRevision,
         }),
       });
       if (res.ok) {
@@ -237,29 +279,44 @@ export default function AdminPage() {
     };
   };
 
-  const totalDelDia = ordenes.reduce(
-    (total, orden) => total + Number(orden.total),
-    0,
-  );
+  const creadoresDisponibles = Array.from(
+    new Map(
+      ordenes
+        .filter(
+          (orden) =>
+            rolCreadorFiltro === "todos" ||
+            orden.creadorRol === rolCreadorFiltro,
+        )
+        .map((orden) => [
+          orden.creadorNombre,
+          { nombre: orden.creadorNombre, rol: orden.creadorRol },
+        ]),
+    ).values(),
+  ).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 
-  const ordenesCobradas = ordenes.filter((o) => o.estado === "cobrada");
-  const totalEfectivo = ordenesCobradas
-    .filter((o) => o.metodoPago === "efectivo")
-    .reduce((total, orden) => total + Number(orden.total), 0);
-  const totalTransferencia = ordenesCobradas
-    .filter((o) => o.metodoPago === "transferencia")
-    .reduce((total, orden) => total + Number(orden.total), 0);
+  const ordenesFiltradas = ordenes.filter(
+    (orden) =>
+      (rolCreadorFiltro === "todos" ||
+        orden.creadorRol === rolCreadorFiltro) &&
+      (usuarioCreadorFiltro === "todos" ||
+        orden.creadorNombre === usuarioCreadorFiltro) &&
+      (tipoOrdenFiltro === "todos" || orden.tipoOrden === tipoOrdenFiltro) &&
+      (estadoCobroFiltro === "todos" ||
+        (estadoCobroFiltro === "cobradas" && orden.cobrada) ||
+        (estadoCobroFiltro === "sin_cobrar" && !orden.cobrada)),
+  );
+  const resumenCuadre = calcularResumenCuadre(ordenesFiltradas);
 
   const ordenesPorEstado = {
-    pendiente: ordenes.filter(
+    pendiente: ordenesFiltradas.filter(
       (o) =>
         o.estado === "pendiente" ||
         o.estado === "en_preparacion" ||
         o.estado === "lista" ||
         o.estado === "entregada",
     ).length,
-    cobrada: ordenesCobradas.length,
-    total: ordenes.length,
+    cobrada: resumenCuadre.ordenesCobradas,
+    total: ordenesFiltradas.length,
   };
 
   // Calcular estadísticas de tiempo (usadas por fila)
@@ -285,6 +342,12 @@ export default function AdminPage() {
             >
               📦 Productos
             </a>
+            <a
+              href="/admin/usuarios"
+              className="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-semibold"
+            >
+              👥 Usuarios
+            </a>
             <span className="text-gray-600">
               Admin: <span className="font-bold">{usuario?.nombre}</span>
             </span>
@@ -297,21 +360,89 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Filtro de Fecha */}
+        {/* Filtros del cuadre */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex items-center gap-4">
-            <label className="font-semibold text-gray-700">
-              Fecha del Cuadre:
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+            <label className="text-sm font-semibold text-gray-700">
+              Fecha del cuadre
+              <input
+                type="date"
+                value={fechaFiltro}
+                onChange={(e) => setFechaFiltro(e.target.value)}
+                className="mt-1 block w-full border rounded-lg px-4 py-2 text-black"
+              />
             </label>
-            <input
-              type="date"
-              value={fechaFiltro}
-              onChange={(e) => setFechaFiltro(e.target.value)}
-              className="border rounded-lg px-4 py-2 text-black"
-            />
+            <label className="text-sm font-semibold text-gray-700">
+              Rol que creó la orden
+              <select
+                value={rolCreadorFiltro}
+                onChange={(e) => {
+                  setRolCreadorFiltro(e.target.value);
+                  setUsuarioCreadorFiltro("todos");
+                }}
+                className="mt-1 block w-full border rounded-lg px-4 py-2 text-black bg-white"
+              >
+                <option value="todos">Todos los roles</option>
+                {ROLES.map((rol) => (
+                  <option key={rol.value} value={rol.value}>
+                    {rol.label}
+                  </option>
+                ))}
+                {ordenes.some((orden) => orden.creadorRol === "desconocido") && (
+                  <option value="desconocido">Sin rol identificado</option>
+                )}
+              </select>
+            </label>
+            <label className="text-sm font-semibold text-gray-700">
+              Usuario creador
+              <select
+                value={usuarioCreadorFiltro}
+                onChange={(e) => setUsuarioCreadorFiltro(e.target.value)}
+                className="mt-1 block w-full border rounded-lg px-4 py-2 text-black bg-white"
+              >
+                <option value="todos">Todos los usuarios</option>
+                {creadoresDisponibles.map((creador) => (
+                  <option key={creador.nombre} value={creador.nombre}>
+                    {creador.nombre} · {obtenerEtiquetaRol(creador.rol)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm font-semibold text-gray-700">
+              Tipo de orden
+              <select
+                value={tipoOrdenFiltro}
+                onChange={(e) => setTipoOrdenFiltro(e.target.value)}
+                className="mt-1 block w-full border rounded-lg px-4 py-2 text-black bg-white"
+              >
+                <option value="todos">Todos los tipos</option>
+                <option value="local">Local / mesa</option>
+                <option value="para_llevar">Para llevar</option>
+                <option value="domicilio">Domicilio</option>
+              </select>
+            </label>
+            <label className="text-sm font-semibold text-gray-700">
+              Estado de cobro
+              <select
+                value={estadoCobroFiltro}
+                onChange={(e) => setEstadoCobroFiltro(e.target.value)}
+                className="mt-1 block w-full border rounded-lg px-4 py-2 text-black bg-white"
+              >
+                <option value="todos">Todas</option>
+                <option value="cobradas">Cobradas</option>
+                <option value="sin_cobrar">No cobradas</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-500">
+              El reporte incluye órdenes creadas en Ecuador durante la fecha
+              seleccionada. El monto de órdenes incluye cobradas y no cobradas;
+              la caja y las transferencias solo incluyen pagos confirmados.
+            </p>
             <button
               onClick={cargarOrdenes}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+              className="shrink-0 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
             >
               Actualizar
             </button>
@@ -341,9 +472,7 @@ export default function AdminPage() {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <p className="font-semibold text-lg">
-                            {!orden.tipoOrden || orden.tipoOrden === "local"
-                              ? `Mesa ${orden.numeroMesa}`
-                              : orden.nombreCliente}{" "}
+                            {obtenerTituloOrden(orden)}{" "}
                             - {orden.mesero}
                           </p>
                           <p className="text-sm text-gray-600">
@@ -454,10 +583,7 @@ export default function AdminPage() {
                 Aprobar Orden sin Stock
               </h3>
               <p className="text-gray-700 mb-4">
-                {!ordenParaAprobar.tipoOrden ||
-                ordenParaAprobar.tipoOrden === "local"
-                  ? `Mesa ${ordenParaAprobar.numeroMesa}`
-                  : ordenParaAprobar.nombreCliente}{" "}
+                {obtenerTituloOrden(ordenParaAprobar)}{" "}
                 - {ordenParaAprobar.mesero}
               </p>
               <div className="mb-4">
@@ -496,26 +622,103 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-xs text-gray-600 mb-1">Total del Día</h3>
-            <p className="text-xl font-bold text-green-600">
-              ${totalDelDia.toFixed(2)}
+        {/* Cuadro de caja */}
+        <div className="mb-6 rounded-xl border border-slate-200 bg-slate-900 p-5 shadow-lg">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-white">Cuadro de caja</h2>
+              <p className="text-sm text-slate-300">
+                Resultado según los filtros seleccionados
+              </p>
+            </div>
+            <p className="text-sm text-slate-300">
+              {resumenCuadre.ordenesCobradas} cobradas ·{" "}
+              {resumenCuadre.ordenesSinCobrar} no cobradas
             </p>
           </div>
-          <div className="bg-green-50 rounded-lg shadow p-4 border border-green-200">
-            <h3 className="text-xs text-gray-600 mb-1">💵 Efectivo</h3>
-            <p className="text-xl font-bold text-green-700">
-              ${totalEfectivo.toFixed(2)}
-            </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="rounded-lg bg-violet-500 p-4 text-white">
+              <h3 className="text-sm font-semibold text-violet-50">
+                🧾 Monto total de órdenes
+              </h3>
+              <p className="mt-1 text-3xl font-black">
+                ${resumenCuadre.montoTotalOrdenes.toFixed(2)}
+              </p>
+              <p className="mt-2 text-xs text-violet-50">
+                Incluye órdenes cobradas y no cobradas según los filtros
+              </p>
+            </div>
+            <div className="rounded-lg bg-amber-500 p-4 text-white">
+              <h3 className="text-sm font-semibold text-amber-50">
+                ⏳ Pendiente por cobrar
+              </h3>
+              <p className="mt-1 text-3xl font-black">
+                ${resumenCuadre.montoSinCobrar.toFixed(2)}
+              </p>
+              <p className="mt-2 text-xs text-amber-50">
+                Total de las órdenes que todavía no registran pago
+              </p>
+            </div>
+            <div className="rounded-lg bg-emerald-500 p-4 text-white">
+              <h3 className="text-sm font-semibold text-emerald-50">
+                💰 Efectivo que debe haber en caja
+              </h3>
+              <p className="mt-1 text-3xl font-black">
+                ${resumenCuadre.efectivoEnCaja.toFixed(2)}
+              </p>
+              <p className="mt-2 text-xs text-emerald-50">
+                Ventas + cobros a motorizados − entregas a motorizados
+              </p>
+            </div>
+            <div className="rounded-lg bg-blue-500 p-4 text-white">
+              <h3 className="text-sm font-semibold text-blue-50">
+                🏦 Transferencias del día
+              </h3>
+              <p className="mt-1 text-3xl font-black">
+                ${resumenCuadre.transferencias.toFixed(2)}
+              </p>
+              <p className="mt-2 text-xs text-blue-50">
+                Valor que debería constar en las cuentas bancarias
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-600 bg-slate-800 p-4 text-white">
+              <h3 className="text-sm font-semibold text-slate-300">
+                Total cobrado a clientes
+              </h3>
+              <p className="mt-1 text-3xl font-black">
+                ${resumenCuadre.totalCobrado.toFixed(2)}
+              </p>
+              <p className="mt-2 text-xs text-slate-400">
+                Incluye el envío que finalmente corresponde al motorizado
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-600 bg-slate-800 p-4">
+              <h3 className="text-xs text-slate-300">💵 Cobrado en el local</h3>
+              <p className="mt-1 text-xl font-bold text-emerald-300">
+                +${resumenCuadre.efectivoVentasDirectas.toFixed(2)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-600 bg-slate-800 p-4">
+              <h3 className="text-xs text-slate-300">
+                🛵 Cobrado a motorizados
+              </h3>
+              <p className="mt-1 text-xl font-bold text-emerald-300">
+                +${resumenCuadre.efectivoCobradoMotorizados.toFixed(2)}
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-600 bg-slate-800 p-4">
+              <h3 className="text-xs text-slate-300">
+                🛵 Entregado a motorizados
+              </h3>
+              <p className="mt-1 text-xl font-bold text-amber-300">
+                -${resumenCuadre.efectivoEntregadoMotorizados.toFixed(2)}
+              </p>
+            </div>
           </div>
-          <div className="bg-blue-50 rounded-lg shadow p-4 border border-blue-200">
-            <h3 className="text-xs text-gray-600 mb-1">🏦 Transferencia</h3>
-            <p className="text-xl font-bold text-blue-700">
-              ${totalTransferencia.toFixed(2)}
-            </p>
-          </div>
+        </div>
+
+        {/* Estadísticas operativas */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-xs text-gray-600 mb-1">Total Órdenes</h3>
             <p className="text-xl font-bold text-blue-600">
@@ -544,9 +747,9 @@ export default function AdminPage() {
 
           {loading ? (
             <div className="p-8 text-center">Cargando...</div>
-          ) : ordenes.length === 0 ? (
+          ) : ordenesFiltradas.length === 0 ? (
             <div className="p-8 text-center text-black">
-              No hay órdenes para esta fecha
+              No hay órdenes que coincidan con los filtros
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -563,7 +766,7 @@ export default function AdminPage() {
                       Mesa / Cliente
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Mesero
+                      Creada por
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Items
@@ -583,7 +786,7 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {ordenes.map((orden) => {
+                  {ordenesFiltradas.map((orden) => {
                     const estadoTiempo = calcularEstadoTiempo(orden);
                     return (
                       <tr
@@ -615,18 +818,26 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm font-medium text-gray-700">
-                          {!orden.tipoOrden || orden.tipoOrden === "local"
-                            ? `Mesa ${orden.numeroMesa}`
-                            : orden.nombreCliente}
+                          {obtenerTituloOrden(orden)}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">
-                          {orden.mesero}
+                          <div className="font-medium">
+                            {orden.creadorNombre || orden.mesero}
+                          </div>
+                          <span className="mt-1 inline-block rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                            {obtenerEtiquetaRol(orden.creadorRol)}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">
                           <div className="space-y-1">
                             {orden.items.map((item, idx) => (
                               <div key={idx} className="text-xs text-gray-700">
                                 {item.cantidad}x {item.producto.nombre}
+                                {item.nivelPicante && (
+                                  <span className="ml-1 font-bold text-red-700">
+                                    🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                                  </span>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -769,9 +980,7 @@ export default function AdminPage() {
               💵 Cobrar Orden
             </h3>
             <p className="text-gray-600 mb-1">
-              {!ordenACobrar.tipoOrden || ordenACobrar.tipoOrden === "local"
-                ? `Mesa ${ordenACobrar.numeroMesa}`
-                : ordenACobrar.nombreCliente}{" "}
+              {obtenerTituloOrden(ordenACobrar)}{" "}
               — {ordenACobrar.mesero}
             </p>
             <p className="text-2xl font-bold text-green-600 mb-5">

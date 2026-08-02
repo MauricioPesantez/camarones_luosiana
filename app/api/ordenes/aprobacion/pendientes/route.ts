@@ -30,9 +30,12 @@ export async function GET() {
 
     const ordenesPendientes: OrdenPendienteAprobacion[] = ordenes.map(orden => ({
       id: orden.id,
+      numeroDiario: orden.numeroDiario,
+      fechaNumeroDiario: orden.fechaNumeroDiario,
       tipoOrden: (orden.tipoOrden ?? 'local') as OrdenPendienteAprobacion['tipoOrden'],
       numeroMesa: orden.numeroMesa,
       nombreCliente: orden.nombreCliente,
+      telefonoCliente: orden.telefonoCliente,
       mesero: orden.mesero,
       total: Number(orden.total),
       itemsSinStock: Array.isArray(orden.itemsSinStock)
@@ -50,6 +53,7 @@ export async function GET() {
         precioUnitario: Number(item.precioUnitario),
         subtotal: Number(item.subtotal),
         observaciones: item.observaciones,
+        nivelPicante: item.nivelPicante as OrdenPendienteAprobacion['items'][number]['nivelPicante'],
       })),
     }));
 

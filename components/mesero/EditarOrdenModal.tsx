@@ -1,6 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  NIVELES_PICANTE,
+  RECARGO_RECIPIENTES,
+  type NivelPicante,
+  calcularRecargoEnvases,
+  esCategoriaCombo,
+  obtenerEtiquetaNivelPicante,
+} from "@/types/orden";
 
 interface Producto {
   id: string;
@@ -17,14 +25,17 @@ interface Item {
   producto: Producto;
   precioUnitario: number;
   subtotal: number;
+  nivelPicante?: NivelPicante | null;
 }
 
 interface Orden {
   id: string;
+  printRevision: number;
   tipoOrden: string;
   estado: string;
   numeroMesa: number | null;
   nombreCliente: string | null;
+  telefonoCliente?: string | null;
   recargo: number | null;
   costoEnvio: number | null;
   total: number;
@@ -50,6 +61,9 @@ export default function EditarOrdenModal({
   const [loading, setLoading] = useState(false);
   const [mostrarAgregar, setMostrarAgregar] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState("");
+  const [nivelPicanteNuevo, setNivelPicanteNuevo] = useState<
+    NivelPicante | ""
+  >("");
 
   // Mapa inmutable de cantidades originales al abrir el modal
   const cantidadesOriginales = new Map(
@@ -135,9 +149,18 @@ export default function EditarOrdenModal({
 
     const producto = productos.find((p) => p.id === productoSeleccionado);
     if (!producto) return;
+    if (esCategoriaCombo(producto.categoria) && !nivelPicanteNuevo) {
+      alert("Selecciona el nivel de picante del combo");
+      return;
+    }
 
     // Verificar si el producto ya existe en la orden
-    const itemExistente = items.find((i) => i.producto.id === producto.id);
+    const itemExistente = items.find(
+      (i) =>
+        i.producto.id === producto.id &&
+        (!esCategoriaCombo(producto.categoria) ||
+          i.nivelPicante === nivelPicanteNuevo),
+    );
     if (itemExistente) {
       // Incrementar cantidad si ya existe
       modificarCantidad(itemExistente.id, 1);
@@ -149,11 +172,15 @@ export default function EditarOrdenModal({
         producto,
         precioUnitario: producto.precio,
         subtotal: producto.precio,
+        nivelPicante: esCategoriaCombo(producto.categoria)
+          ? nivelPicanteNuevo || null
+          : null,
       };
       setItems((prev) => [...prev, nuevoItem]);
     }
 
     setProductoSeleccionado("");
+    setNivelPicanteNuevo("");
     setMostrarAgregar(false);
   };
 
@@ -162,7 +189,17 @@ export default function EditarOrdenModal({
       (sum, item) => sum + Number(item.subtotal),
       0,
     );
-    const recargo = Number(orden.recargo ?? 0);
+    const recargo = calcularRecargoEnvases(
+      orden.tipoOrden === "domicilio"
+        ? "domicilio"
+        : orden.tipoOrden === "para_llevar"
+          ? "para_llevar"
+          : "local",
+      items.map((item) => ({
+        cantidad: item.cantidad,
+        categoria: item.producto.categoria,
+      })),
+    );
     const envio = Number(orden.costoEnvio ?? 0);
     return subtotal + recargo + envio;
   };
@@ -176,6 +213,7 @@ export default function EditarOrdenModal({
     itemId?: string;
     productoId?: string;
     cantidad?: number;
+    nivelPicante?: NivelPicante;
   }
 
   const obtenerCambios = () => {
@@ -211,6 +249,7 @@ export default function EditarOrdenModal({
           accion: "agregar",
           productoId: item.producto.id,
           cantidad: item.cantidad,
+          nivelPicante: item.nivelPicante ?? undefined,
         });
       }
     });
@@ -240,6 +279,7 @@ export default function EditarOrdenModal({
           items: cambios,
           razon,
           usuario,
+          expectedRevision: orden.printRevision,
         }),
       });
 
@@ -249,7 +289,11 @@ export default function EditarOrdenModal({
         throw new Error(data.error || "Error al modificar orden");
       }
 
-      if (data.regresaACocina) {
+      if (!data.impresionEnCola) {
+        alert(
+          "⚠️ Los cambios se guardaron, pero no se enviaron a impresión. Verifica la configuración de la cola antes de continuar.",
+        );
+      } else if (data.regresaACocina) {
         alert(
           "✅ Items agregados. La orden volvió a cocina para preparar los nuevos productos.",
         );
@@ -286,7 +330,7 @@ export default function EditarOrdenModal({
               {orden.tipoOrden === "para_llevar" &&
                 `🥡 Para Llevar · ${orden.nombreCliente ?? ""}`}
               {orden.tipoOrden === "domicilio" &&
-                `🛵 Domicilio · ${orden.nombreCliente ?? ""}`}
+                `🛵 Domicilio · ${orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente"}`}
             </p>
           </div>
           <button
@@ -351,6 +395,11 @@ export default function EditarOrdenModal({
                     <p className="text-sm text-gray-500">
                       ${Number(item.precioUnitario).toFixed(2)} c/u
                     </p>
+                    {item.nivelPicante && (
+                      <p className="text-xs font-bold text-red-700 mt-1">
+                        🌶️ {obtenerEtiquetaNivelPicante(item.nivelPicante)}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -413,7 +462,10 @@ export default function EditarOrdenModal({
               </h4>
               <select
                 value={productoSeleccionado}
-                onChange={(e) => setProductoSeleccionado(e.target.value)}
+                onChange={(e) => {
+                  setProductoSeleccionado(e.target.value);
+                  setNivelPicanteNuevo("");
+                }}
                 className="w-full border rounded-lg px-3 py-2 mb-2 text-black"
               >
                 <option value="">-- Seleccione --</option>
@@ -424,6 +476,30 @@ export default function EditarOrdenModal({
                   </option>
                 ))}
               </select>
+              {esCategoriaCombo(
+                productos.find((producto) => producto.id === productoSeleccionado)
+                  ?.categoria,
+              ) && (
+                <select
+                  value={nivelPicanteNuevo}
+                  onChange={(event) =>
+                    setNivelPicanteNuevo(
+                      event.target.value as NivelPicante | "",
+                    )
+                  }
+                  className="w-full border rounded-lg px-3 py-2 mb-2 text-black bg-white"
+                  required
+                >
+                  <option value="" disabled>
+                    -- Nivel de picante --
+                  </option>
+                  {NIVELES_PICANTE.map((nivel) => (
+                    <option key={nivel.value} value={nivel.value}>
+                      {nivel.label}
+                    </option>
+                  ))}
+                </select>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={agregarProducto}
@@ -436,6 +512,7 @@ export default function EditarOrdenModal({
                   onClick={() => {
                     setMostrarAgregar(false);
                     setProductoSeleccionado("");
+                    setNivelPicanteNuevo("");
                   }}
                   className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 rounded-lg font-semibold"
                 >
@@ -469,17 +546,34 @@ export default function EditarOrdenModal({
               </span>
             </div>
             {/* Recargo para llevar / domicilio */}
-            {Number(orden.recargo ?? 0) > 0 && (
+            {calcularRecargoEnvases(
+              orden.tipoOrden === "domicilio"
+                ? "domicilio"
+                : orden.tipoOrden === "para_llevar"
+                  ? "para_llevar"
+                  : "local",
+              items.map((item) => ({
+                cantidad: item.cantidad,
+                categoria: item.producto.categoria,
+              })),
+            ) > 0 && (
               <div className="flex justify-between mb-2 text-sm">
                 <span className="text-yellow-700">
-                  Recargo (
-                  {orden.tipoOrden === "para_llevar"
-                    ? "Para Llevar"
-                    : "Domicilio"}
-                  ):
+                  Envases de combos (${RECARGO_RECIPIENTES.toFixed(2)} c/u):
                 </span>
                 <span className="font-medium text-yellow-700">
-                  +${Number(orden.recargo).toFixed(2)}
+                  +$
+                  {calcularRecargoEnvases(
+                    orden.tipoOrden === "domicilio"
+                      ? "domicilio"
+                      : orden.tipoOrden === "para_llevar"
+                        ? "para_llevar"
+                        : "local",
+                    items.map((item) => ({
+                      cantidad: item.cantidad,
+                      categoria: item.producto.categoria,
+                    })),
+                  ).toFixed(2)}
                 </span>
               </div>
             )}
