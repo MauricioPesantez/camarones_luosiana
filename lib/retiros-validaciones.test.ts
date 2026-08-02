@@ -4,7 +4,6 @@ import { MONTO_MAXIMO_RETIRO } from "../types/retiro";
 
 function base(extra: Record<string, unknown> = {}) {
   return {
-    usuarioId: "usuario-1",
     categoria: "insumos",
     motivo: "Compra de guantes",
     monto: 12.5,
@@ -23,7 +22,6 @@ function error(body: unknown): string {
 const valido = validarRetiroNuevo(base());
 assert.ok(valido.ok);
 assert.deepEqual(valido.data, {
-  usuarioId: "usuario-1",
   categoria: "insumos",
   motivo: "Compra de guantes",
   monto: 12.5,
@@ -32,12 +30,9 @@ assert.deepEqual(valido.data, {
 });
 
 // Los textos se recortan.
-const conEspacios = validarRetiroNuevo(
-  base({ motivo: "  Taxi al mercado  ", usuarioId: " usuario-1 " }),
-);
+const conEspacios = validarRetiroNuevo(base({ motivo: "  Taxi al mercado  " }));
 assert.ok(conEspacios.ok);
 assert.equal(conEspacios.data.motivo, "Taxi al mercado");
-assert.equal(conEspacios.data.usuarioId, "usuario-1");
 
 // Montos que no pueden salir de la caja.
 assert.match(error(base({ monto: 0 })), /mayor que 0/);
@@ -64,7 +59,6 @@ assert.equal(montoTexto.data.monto, 7.05);
 // Campos obligatorios.
 assert.match(error(base({ motivo: "" })), /motivo/i);
 assert.match(error(base({ motivo: "   " })), /motivo/i);
-assert.match(error(base({ usuarioId: "" })), /usuario/i);
 assert.match(error(base({ clientRequestId: "" })), /identificador/i);
 assert.match(error(base({ categoria: "sueldos" })), /categoria/i);
 assert.match(error(base({ categoria: undefined })), /categoria/i);
@@ -94,14 +88,21 @@ assert.ok(validarRetiroNuevo(base({ beneficiarioId: null })).ok);
 assert.ok(validarRetiroNuevo(base({ beneficiarioId: undefined })).ok);
 
 // Anulacion.
-const anulacion = validarAnulacion({ adminId: "admin-1", razon: " Gasto duplicado " });
+const anulacion = validarAnulacion({ razon: " Gasto duplicado " });
 assert.ok(anulacion.ok);
-assert.deepEqual(anulacion.data, { adminId: "admin-1", razon: "Gasto duplicado" });
+assert.deepEqual(anulacion.data, { razon: "Gasto duplicado" });
 
-const sinRazon = validarAnulacion({ adminId: "admin-1", razon: "" });
-assert.equal(sinRazon.ok, false);
+assert.equal(validarAnulacion({ razon: "" }).ok, false);
+assert.equal(validarAnulacion({ razon: "   " }).ok, false);
+assert.equal(validarAnulacion({}).ok, false);
 
-const sinAdmin = validarAnulacion({ razon: "Gasto duplicado" });
-assert.equal(sinAdmin.ok, false);
+// El autor de la anulacion sale de la sesion: un adminId en el cuerpo se ignora
+// sin que eso convierta a nadie en administrador.
+const conAdminIdEnElCuerpo = validarAnulacion({
+  adminId: "usuario-cualquiera",
+  razon: "Gasto duplicado",
+});
+assert.ok(conAdminIdEnElCuerpo.ok);
+assert.deepEqual(conAdminIdEnElCuerpo.data, { razon: "Gasto duplicado" });
 
 console.log("retiros-validaciones tests passed");

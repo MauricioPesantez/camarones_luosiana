@@ -19,6 +19,8 @@ export interface PrintOrderSnapshot {
    * generados antes de esta funcionalidad no traen el campo.
    */
   paymentMethod?: 'efectivo' | 'transferencia' | null;
+  /** Opcional para compatibilidad con trabajos creados antes del cobro QR. */
+  paymentUrl?: string | null;
   total: number;
   createdAt: string;
   items: Array<{

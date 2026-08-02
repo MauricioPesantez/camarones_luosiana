@@ -6,8 +6,12 @@ import {
 } from '../types/retiro';
 import type { ResultadoValidacion } from './admin-validaciones';
 
+/**
+ * Quien registra el retiro NO viaja en el cuerpo: sale de la sesion de servidor
+ * (`getAuthenticatedUser`). Un body no puede elegir a nombre de quien sale el
+ * dinero de la caja.
+ */
 export interface DatosRetiro {
-  usuarioId: string;
   categoria: CategoriaRetiro;
   motivo: string;
   monto: number;
@@ -17,7 +21,6 @@ export interface DatosRetiro {
 }
 
 export interface DatosAnulacion {
-  adminId: string;
   razon: string;
 }
 
@@ -113,7 +116,6 @@ export function validarRetiroNuevo(body: unknown): ResultadoValidacion<DatosReti
     const categoria = categoriaValida(datos.categoria);
 
     return {
-      usuarioId: texto(datos.usuarioId, 'El usuario'),
       categoria,
       motivo: texto(datos.motivo, 'El motivo'),
       monto: monto(datos.monto),
@@ -127,7 +129,6 @@ export function validarAnulacion(body: unknown): ResultadoValidacion<DatosAnulac
   return ejecutar(() => {
     const datos = objeto(body);
     return {
-      adminId: texto(datos.adminId, 'El administrador'),
       razon: texto(datos.razon, 'La razon de la anulacion'),
     };
   });

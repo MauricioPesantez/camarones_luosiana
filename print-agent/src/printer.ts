@@ -287,8 +287,42 @@ function encodeTicketLines(lines: string[]): Buffer {
   return Buffer.concat(chunks);
 }
 
+/** QR nativo ESC/POS (modelo 2, tamano 5, correccion M). */
+export function encodeEscPosQr(data: string): Buffer {
+  const value = Buffer.from(data, 'utf8');
+  if (value.length === 0 || value.length > 1024) {
+    throw new PrinterError('URL de cobro no valida', 'INVALID_PAYMENT_URL');
+  }
+  const storeLength = value.length + 3;
+  return Buffer.concat([
+    ALIGN_CENTER,
+    Buffer.from('ESCANEA PARA COBRAR\n', 'ascii'),
+    Buffer.from([GS, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]),
+    Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x05]),
+    Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31]),
+    Buffer.from([
+      GS,
+      0x28,
+      0x6b,
+      storeLength & 0xff,
+      (storeLength >> 8) & 0xff,
+      0x31,
+      0x50,
+      0x30,
+    ]),
+    value,
+    Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]),
+    Buffer.from('\nSe requiere iniciar sesion\n\n', 'ascii'),
+    ALIGN_LEFT,
+  ]);
+}
+
 export function buildEscPosTicket(payload: PrintJobPayload): Buffer {
   const text = encodeTicketLines(linesForPayload(payload));
+  const paymentQr =
+    payload.jobType !== 'AMENDMENT' && payload.order.paymentUrl
+      ? encodeEscPosQr(payload.order.paymentUrl)
+      : Buffer.alloc(0);
   let logo: ReturnType<typeof loadLogoRaster> | null = null;
 
   try {
@@ -305,6 +339,7 @@ export function buildEscPosTicket(payload: PrintJobPayload): Buffer {
     ...(logo && logo.length > 0 ? [ALIGN_CENTER, logo, Buffer.from('\n')] : []),
     ALIGN_LEFT,
     text,
+    paymentQr,
     Buffer.from([GS, 0x56, 0x00]),
   ]);
 }

@@ -5,6 +5,7 @@ import {
   esNivelPicante,
   obtenerEtiquetaNivelPicante,
 } from '../types/orden';
+import { shouldPrintPaymentQr } from './payment-link';
 
 const LINE_WIDTH = 42;
 const STRONG_SEPARATOR = '='.repeat(LINE_WIDTH);
@@ -140,6 +141,8 @@ export interface OrdenComanda {
   recargo?: NumericValue | null;
   costoEnvio?: NumericValue | null;
   metodoPagoPrevisto?: string | null;
+  cobrada?: boolean;
+  cobroUrl?: string | null;
   total: NumericValue;
   createdAt: string | Date;
   items: ItemComanda[];
@@ -274,6 +277,20 @@ export class PrinterService {
         } else {
           this.printer.println(line);
         }
+      }
+      if (shouldPrintPaymentQr(orden)) {
+        this.printer.alignCenter();
+        this.printer.bold(true);
+        this.printer.println('ESCANEA PARA COBRAR');
+        this.printer.bold(false);
+        this.printer.printQR(orden.cobroUrl!, {
+          cellSize: 5,
+          correction: 'M',
+          model: 2,
+        });
+        this.printer.println('Se requiere iniciar sesion');
+        this.printer.alignLeft();
+        this.printer.newLine();
       }
       this.printer.cut();
 

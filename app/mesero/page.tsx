@@ -13,6 +13,7 @@ import {
 
 interface Orden {
   id: string;
+  cobroUrl: string | null;
   printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
@@ -51,9 +52,15 @@ interface Orden {
 
 export default function MeseroPage() {
   const { usuario, loading: authLoading, logout } = useAuth("mesero");
+  // El cobro por QR devuelve al mesero a su lista con ?vista=ordenes.
   const [vistaActiva, setVistaActiva] = useState<
     "crear" | "ordenes" | "retiro"
-  >("crear");
+  >(() =>
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("vista") === "ordenes"
+      ? "ordenes"
+      : "crear",
+  );
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [loadingOrdenes, setLoadingOrdenes] = useState(false);
@@ -66,7 +73,9 @@ export default function MeseroPage() {
     const esLocal = !o.tipoOrden || o.tipoOrden === "local";
     return esLocal
       ? o.estado === "lista"
-      : !o.cobrada && o.estado !== "cancelada";
+      : !o.cobrada &&
+          o.estado !== "cancelada" &&
+          o.estado !== "pendiente_aprobacion_stock";
   };
 
   const ordenesPorCobrar = ordenes.filter(puedeOrdenCobrarse);
@@ -102,6 +111,7 @@ export default function MeseroPage() {
           metodoPago: metodoPagoSeleccionado,
           cobradaPor: usuario?.nombre ?? "",
           expectedRevision: ordenACobrar.printRevision,
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
       if (res.ok) {
@@ -371,6 +381,14 @@ export default function MeseroPage() {
                         {puedeCobrarse && (
                           <button
                             onClick={() => {
+                              if (orden.cobroUrl) {
+                                const paymentUrl = new URL(
+                                  orden.cobroUrl,
+                                  window.location.origin,
+                                );
+                                window.location.assign(paymentUrl.pathname);
+                                return;
+                              }
                               setOrdenACobrar(orden);
                               // En domicilio ya se acordó la modalidad al crear;
                               // se puede cambiar, pero queda registrado el override.

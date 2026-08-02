@@ -7,6 +7,7 @@ import {
   serializarRetiro,
 } from '@/lib/retiros';
 import { validarAnulacion } from '@/lib/retiros-validaciones';
+import { getAuthenticatedUser } from '@/lib/session';
 
 class AnulacionConflictError extends Error {}
 
@@ -16,25 +17,25 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+
+    const admin = await getAuthenticatedUser();
+    if (!admin) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+    if (admin.rol !== 'admin') {
+      return NextResponse.json(
+        { error: 'Solo un administrador puede anular un retiro' },
+        { status: 403 },
+      );
+    }
+
     const validacion = validarAnulacion(await request.json());
 
     if (!validacion.ok) {
       return NextResponse.json({ error: validacion.error }, { status: 400 });
     }
 
-    const { adminId, razon } = validacion.data;
-
-    const admin = await prisma.usuario.findFirst({
-      where: { id: adminId, activo: true },
-      select: { id: true, nombre: true, rol: true },
-    });
-
-    if (!admin || admin.rol !== 'admin') {
-      return NextResponse.json(
-        { error: 'Solo un administrador puede anular un retiro' },
-        { status: 403 },
-      );
-    }
+    const { razon } = validacion.data;
 
     const existente = await prisma.retiroCaja.findUnique({
       where: { id },

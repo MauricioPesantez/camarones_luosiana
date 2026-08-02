@@ -60,7 +60,8 @@ export default function RetiroCaja({ usuario }: Props) {
     let vigente = true;
     const fecha = obtenerFechaEcuador();
 
-    fetch(`/api/retiros?fecha=${fecha}&usuarioId=${usuario.id}`)
+    // El servidor acota al usuario de la sesion: un mesero solo ve los suyos.
+    fetch(`/api/retiros?fecha=${fecha}`)
       .then((res) => res.json())
       .then((data) => {
         // Una respuesta que llega tarde no puede pisar a una mas reciente.
@@ -93,7 +94,6 @@ export default function RetiroCaja({ usuario }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          usuarioId: usuario.id,
           categoria,
           motivo,
           monto: Number(monto),

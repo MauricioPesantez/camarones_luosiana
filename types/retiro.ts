@@ -61,8 +61,8 @@ export interface RetiroCaja {
   createdAt: string;
 }
 
+/** El autor sale de la sesion de servidor, nunca del cuerpo de la peticion. */
 export interface CrearRetiroRequest {
-  usuarioId: string;
   categoria: CategoriaRetiro;
   motivo: string;
   monto: number;
@@ -72,6 +72,5 @@ export interface CrearRetiroRequest {
 }
 
 export interface AnularRetiroRequest {
-  adminId: string;
   razon: string;
 }

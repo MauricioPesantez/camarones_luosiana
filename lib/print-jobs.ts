@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 // Import relativo: este modulo se ejecuta con ts-node en los tests, donde el alias @/ no aplica.
 import { esMetodoPago, type MetodoPago, type NivelPicante } from '../types/orden';
+import { shouldPrintPaymentQr } from './payment-link';
 
 export const PRINT_PAYLOAD_VERSION = 1 as const;
 export const DEFAULT_AUTO_PRINT_WINDOW_MINUTES = 5;
@@ -75,6 +76,8 @@ export interface PrintOrderSource {
   recargo?: NumericValue | null;
   costoEnvio?: NumericValue | null;
   metodoPagoPrevisto?: string | null;
+  cobrada?: boolean;
+  cobroUrl?: string | null;
   total: NumericValue;
   createdAt: string | Date;
   items: readonly PrintItemSource[];
@@ -118,6 +121,8 @@ export interface PrintOrderSnapshot {
    * queda null y el ticket se imprime igual que antes de esta funcionalidad.
    */
   paymentMethod: MetodoPago | null;
+  /** URL opaca; el QR identifica la orden pero la pagina exige sesion. */
+  paymentUrl: string | null;
   total: number;
   createdAt: string;
   items: Array<{
@@ -329,6 +334,10 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
     throw new Error('La orden debe incluir al menos un item imprimible');
   }
 
+  const paymentUrl = shouldPrintPaymentQr(order)
+    ? normalizeOptionalText(order.cobroUrl)
+    : null;
+
   return {
     id,
     shortCode: id.slice(-6),
@@ -343,6 +352,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
     surcharge: toNumber(order.recargo),
     deliveryCost: toNumber(order.costoEnvio),
     paymentMethod: normalizePaymentMethod(order.tipoOrden, order.metodoPagoPrevisto),
+    paymentUrl,
     total: toNumber(order.total),
     createdAt: toIsoString(order.createdAt, 'orden.createdAt'),
     items: order.items.map((item) => {

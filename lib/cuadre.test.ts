@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { calcularResumenCuadre } from "../types/cuadre";
+import { isConfirmedPaymentInRange } from "./cuadre-date";
 
 const resumen = calcularResumenCuadre([
   {
@@ -53,6 +54,7 @@ assert.deepEqual(resumen, {
   enviosMotorizados: 11,
   retirosEfectivo: 0,
   cantidadRetiros: 0,
+  montoReembolsoPendiente: 0,
 });
 
 // El envio jamas entra en una cifra de venta.
@@ -224,5 +226,68 @@ const todosAnulados = calcularResumenCuadre(ventasDelDia, [
 assert.equal(todosAnulados.retirosEfectivo, 0);
 assert.equal(todosAnulados.cantidadRetiros, 0);
 assert.equal(todosAnulados.efectivoEnCaja, 80);
+
+// ---------------------------------------------------------------------------
+// Cobros: fecha del movimiento y reembolsos pendientes
+// ---------------------------------------------------------------------------
+
+const rangoCierre = {
+  inicio: new Date("2026-08-02T05:00:00.000Z"),
+  fin: new Date("2026-08-03T05:00:00.000Z"),
+};
+assert.equal(
+  isConfirmedPaymentInRange(
+    {
+      cobrada: true,
+      fechaCobro: new Date("2026-08-03T06:00:00.000Z"),
+    },
+    rangoCierre,
+  ),
+  false,
+  "un cobro del dia siguiente no debe contarse retroactivamente",
+);
+assert.equal(
+  isConfirmedPaymentInRange(
+    {
+      cobrada: true,
+      fechaCobro: new Date("2026-08-02T15:00:00.000Z"),
+      cobro: {
+        createdAt: new Date("2026-08-02T15:00:00.000Z"),
+        estado: "CONFIRMADO",
+      },
+    },
+    rangoCierre,
+  ),
+  true,
+);
+assert.equal(
+  isConfirmedPaymentInRange(
+    {
+      cobrada: true,
+      cobro: {
+        createdAt: new Date("2026-08-02T15:00:00.000Z"),
+        estado: "REEMBOLSO_PENDIENTE",
+      },
+    },
+    rangoCierre,
+  ),
+  true,
+);
+
+const conReembolsoPendiente = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "domicilio",
+    total: 40,
+    costoEnvio: 5,
+    metodoPago: "transferencia",
+    estadoCobro: "REEMBOLSO_PENDIENTE",
+  },
+]);
+// La venta propia excluye el envio, pero la deuda con el cliente no: el cliente
+// pago los 40 completos y hay que devolverle los 40.
+assert.equal(conReembolsoPendiente.transferenciasVentas, 35);
+assert.equal(conReembolsoPendiente.depositosRecibidos, 40);
+assert.equal(conReembolsoPendiente.montoReembolsoPendiente, 40);
 
 console.log("cuadre tests passed");

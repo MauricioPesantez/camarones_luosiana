@@ -13,6 +13,7 @@ import {
   obtenerEtiquetaNivelPicante,
 } from "@/types/orden";
 import { calcularResumenCuadre } from "@/types/cuadre";
+import { obtenerFechaEcuador } from "@/lib/fecha-ecuador";
 import { obtenerEtiquetaRol, ROLES } from "@/types/usuario";
 import {
   ESTADO_RETIRO_ANULADO,
@@ -22,6 +23,7 @@ import {
 
 interface Orden {
   id: string;
+  cobroUrl: string | null;
   printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
@@ -55,15 +57,6 @@ interface Orden {
     observaciones?: string;
     nivelPicante?: NivelPicante | null;
   }[];
-}
-
-function obtenerFechaEcuador(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Guayaquil",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
 }
 
 function obtenerTituloOrden(orden: {
@@ -219,6 +212,7 @@ export default function AdminPage() {
           metodoPago: metodoPagoAdmin,
           cobradaPor: usuario?.nombre ?? "",
           expectedRevision: ordenACobrar.printRevision,
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
       if (res.ok) {
@@ -298,7 +292,7 @@ export default function AdminPage() {
       const res = await fetch(`/api/retiros/${retiroAAnular.id}/anular`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adminId: usuario.id, razon: razonAnulacion }),
+        body: JSON.stringify({ razon: razonAnulacion }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -810,6 +804,19 @@ export default function AdminPage() {
                 Dinero del motorizado. Fuera de toda cifra de venta
               </p>
             </div>
+            {resumenCuadre.montoReembolsoPendiente > 0 && (
+              <div className="rounded-lg border border-red-400 bg-red-950 p-4">
+                <h3 className="text-xs font-semibold text-red-200">
+                  ⚠️ Reembolsos pendientes
+                </h3>
+                <p className="mt-1 text-xl font-bold text-red-200">
+                  ${resumenCuadre.montoReembolsoPendiente.toFixed(2)}
+                </p>
+                <p className="mt-2 text-xs text-red-300">
+                  Dinero recibido que todavía debe devolverse al cliente
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1196,12 +1203,21 @@ export default function AdminPage() {
                                 </span>
                               )}
                             </div>
-                          ) : orden.estado !== "cancelada" ? (
+                          ) : orden.estado !== "cancelada" &&
+                            orden.estado !== "pendiente_aprobacion_stock" ? (
                             ((!orden.tipoOrden || orden.tipoOrden === "local")
                               ? ["lista", "entregada"].includes(orden.estado)
                               : true) ? (
                               <button
                                 onClick={() => {
+                                  if (orden.cobroUrl) {
+                                    const paymentUrl = new URL(
+                                      orden.cobroUrl,
+                                      window.location.origin,
+                                    );
+                                    window.location.assign(paymentUrl.pathname);
+                                    return;
+                                  }
                                   setOrdenACobrar(orden);
                                   setMetodoPagoAdmin("efectivo");
                                 }}

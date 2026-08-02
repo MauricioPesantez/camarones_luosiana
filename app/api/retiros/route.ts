@@ -4,13 +4,18 @@ import { prisma } from '@/lib/db';
 import { obtenerRangoEcuador } from '@/lib/fecha-ecuador';
 import { RETIRO_SELECT, serializarRetiro } from '@/lib/retiros';
 import { validarRetiroNuevo } from '@/lib/retiros-validaciones';
+import { getAuthenticatedUser } from '@/lib/session';
 import { CATEGORIA_ADELANTO, ROL_REGISTRA_RETIRO } from '@/types/retiro';
 
 export async function GET(request: Request) {
   try {
+    const usuario = await getAuthenticatedUser();
+    if (!usuario) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const fecha = searchParams.get('fecha');
-    const usuarioId = searchParams.get('usuarioId');
 
     if (!fecha) {
       return NextResponse.json({ error: 'Fecha requerida' }, { status: 400 });
@@ -21,10 +26,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Fecha inválida' }, { status: 400 });
     }
 
+    // Solo el admin ve los retiros de todos; el resto ve unicamente los suyos.
     const retiros = await prisma.retiroCaja.findMany({
       where: {
         createdAt: { gte: rango.inicio, lt: rango.fin },
-        ...(usuarioId ? { usuarioId } : {}),
+        ...(usuario.rol === 'admin' ? {} : { usuarioId: usuario.id }),
       },
       select: RETIRO_SELECT,
       orderBy: { createdAt: 'desc' },
@@ -45,6 +51,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    // La autoria sale de la sesion firmada, no del cuerpo: nadie puede registrar
+    // una salida de dinero a nombre de otro.
+    const usuario = await getAuthenticatedUser();
+    if (!usuario) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+
     const validacion = validarRetiroNuevo(await request.json());
 
     if (!validacion.ok) {
@@ -52,20 +65,6 @@ export async function POST(request: Request) {
     }
 
     const datos = validacion.data;
-
-    // La autoria se resuelve contra la base, nunca con lo que mande el cliente:
-    // el body solo puede senalar un id, no inventar un nombre ni un rol.
-    const usuario = await prisma.usuario.findFirst({
-      where: { id: datos.usuarioId, activo: true },
-      select: { id: true, nombre: true, rol: true },
-    });
-
-    if (!usuario) {
-      return NextResponse.json(
-        { error: 'El usuario que registra el retiro no existe o está inactivo' },
-        { status: 403 },
-      );
-    }
 
     if (usuario.rol !== ROL_REGISTRA_RETIRO) {
       return NextResponse.json(

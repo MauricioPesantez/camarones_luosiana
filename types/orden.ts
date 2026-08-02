@@ -165,6 +165,8 @@ export interface CrearOrdenRequest {
   telefonoCliente?: string;
   costoEnvio?: number;
   metodoPagoPrevisto?: MetodoPago;
+  /** Confirmación operativa de que el dinero ya ingresó al crear el domicilio. */
+  transferenciaConfirmada?: boolean;
   // Comunes
   mesero: string;
   /** Usuario autenticado que crea la orden. */
@@ -205,6 +207,8 @@ export interface OrdenConStock {
   cobrada: boolean;
   fechaCobro: Date | null;
   cobradaPor: string | null;
+  cobradaPorId?: string | null;
+  cobroUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
   impresa: boolean;
@@ -212,9 +216,12 @@ export interface OrdenConStock {
 
 export interface CobrarOrdenRequest {
   metodoPago: MetodoPago;
-  cobradaPor: string;
   /** Evita cobrar un total que cambió mientras el modal estaba abierto. */
   expectedRevision: number;
+  /** Permite reintentar la misma confirmación sin duplicar el movimiento. */
+  idempotencyKey: string;
+  /** Se llenará cuando la integración S3 confirme el objeto. */
+  comprobanteTransferenciaKey?: string;
 }
 
 export interface AprobarOrdenRequest {

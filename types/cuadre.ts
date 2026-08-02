@@ -7,6 +7,7 @@ export interface OrdenParaCuadre {
   total: number | string;
   costoEnvio?: number | string | null;
   metodoPago?: string | null;
+  estadoCobro?: string | null;
 }
 
 export interface RetiroParaCuadre {
@@ -35,6 +36,11 @@ export interface ResumenCuadre {
   /** Efectivo que los empleados sacaron de la caja. Los anulados no cuentan. */
   retirosEfectivo: number;
   cantidadRetiros: number;
+  /**
+   * Deuda con el cliente, no una venta: es lo que el cliente pago y todavia hay
+   * que devolverle, asi que va en bruto e incluye el envio.
+   */
+  montoReembolsoPendiente: number;
 }
 
 function aCentavos(valor: number | string | null | undefined): number {
@@ -85,6 +91,12 @@ export function calcularResumenCuadre(
       acumulado.ventasCobradas += ventaPropia;
       acumulado.enviosMotorizados += costoEnvio;
 
+      // El reembolso es lo que hay que devolverle al cliente: va en bruto,
+      // porque el cliente pago el envio junto con el pedido.
+      if (orden.estadoCobro === "REEMBOLSO_PENDIENTE") {
+        acumulado.montoReembolsoPendiente += total;
+      }
+
       // Ordenes viejas cobradas sin metodo registrado: cuentan como venta,
       // pero no se puede decir donde quedo la plata.
       if (!esMetodoPago(orden.metodoPago)) {
@@ -123,6 +135,7 @@ export function calcularResumenCuadre(
       transferenciasVentas: 0,
       depositosRecibidos: 0,
       enviosMotorizados: 0,
+      montoReembolsoPendiente: 0,
     },
   );
 
@@ -159,5 +172,6 @@ export function calcularResumenCuadre(
     enviosMotorizados: aDolares(resumen.enviosMotorizados),
     retirosEfectivo: aDolares(retirosEfectivo),
     cantidadRetiros: retirosRegistrados.length,
+    montoReembolsoPendiente: aDolares(resumen.montoReembolsoPendiente),
   };
 }
