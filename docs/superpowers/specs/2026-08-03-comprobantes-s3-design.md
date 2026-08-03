@@ -150,13 +150,16 @@ permisos que mantener.
    cliente nunca elige dónde se escribe.
 6. `putObject`, y devolver `{ objectKey }`.
 
-### `PATCH /api/cobros/[token]`
+### Validación de la key en `collectOrderPayment`
 
-Se endurece la ruta existente, que hoy pasa `body.comprobanteTransferenciaKey`
-directo a Prisma sin validar.
+Hoy la key llega cruda a Prisma por **dos** puertas: `PATCH /api/cobros/[token]`
+y `PATCH /api/ordenes/[id]/cobrar`. Validar solo en la primera dejaría la
+segunda abierta, así que la validación vive en `lib/order-payment.ts`, el punto
+único por el que pasan ambas.
 
 - Si llega key: `parseComprobanteKey` debe devolver el `ordenId` de esta misma
-  orden **y** `objectExists` debe confirmarla. Cualquier fallo responde `400`.
+  orden **y** `objectExists` debe confirmarla. Cualquier fallo lanza
+  `PaymentValidationError`, que las dos rutas ya traducen a `400`.
 - Si no llega key: el cobro procede. El historial registra que la transferencia
   quedó sin comprobante.
 
@@ -198,9 +201,10 @@ ni expone imágenes con datos bancarios a quien sólo estaba revisando totales.
 "Comprobante" con el botón "Ver comprobante" si hay key, o la leyenda
 "Registrado sin comprobante" si no la hay.
 
-**Cuadre de caja.** `app/api/admin/cuadre/route.ts` ya incluye
-`cobro: { select: { createdAt, estado } }`; se agrega
-`comprobanteTransferenciaKey` a ese select, sin consulta adicional. Cada
+**Cuadre de caja.** `app/api/admin/cuadre/route.ts` arma su respuesta con
+`...safeOrder`, que ya arrastra todos los escalares de `Orden`; por lo tanto
+`comprobanteTransferenciaKey` viaja sin ningún cambio de consulta. Solo hace
+falta declararlo en la interfaz `Orden` del cliente y renderizarlo. Cada
 transferencia lleva un indicador: 📎 que abre el comprobante, o aviso ámbar "sin
 comprobante".
 
