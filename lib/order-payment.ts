@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db';
-import type { AuthenticatedUser } from '@/lib/session';
+import { canCollectPayments, type AuthenticatedUser } from '@/lib/session';
 import { calcularMovimientosCobro } from '@/types/cobro';
 import { esMetodoPago, type MetodoPago } from '@/types/orden';
 
@@ -14,7 +14,15 @@ const ORDER_WITH_ITEMS = {
   items: { include: { producto: true } },
 } satisfies Prisma.OrdenInclude;
 
-export function canUserCollectOrder(
+// El cobro no depende de quién creó la orden: cualquier rol habilitado para cobrar
+// puede cerrar el pago de cualquier orden (turnos, relevos, caja compartida).
+export function canUserCollectOrder(user: AuthenticatedUser): boolean {
+  return canCollectPayments(user);
+}
+
+// Modificar los items de una orden sí sigue reservado a su creador (o al admin):
+// editar productos de una orden ajena es una acción distinta a cobrarla.
+export function canUserModifyOrder(
   user: AuthenticatedUser,
   order: { creadorId?: string | null; mesero: string },
 ): boolean {
@@ -93,8 +101,8 @@ export async function collectOrderPayment(input: {
 
   const existing = await prisma.orden.findUnique({ where: { id: input.orderId } });
   if (!existing) throw new PaymentNotFoundError('Orden no encontrada');
-  if (!canUserCollectOrder(input.user, existing)) {
-    throw new PaymentForbiddenError('No puedes cobrar una orden de otro usuario');
+  if (!canUserCollectOrder(input.user)) {
+    throw new PaymentForbiddenError('Tu rol no puede cobrar órdenes');
   }
   validateOrderCanBePaid(existing, input.expectedRevision, input.origen);
 

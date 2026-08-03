@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 
 import CobrarOrdenClient from '@/components/cobros/CobrarOrdenClient';
 import { prisma } from '@/lib/db';
-import { canUserCollectOrder } from '@/lib/order-payment';
 import { hashPaymentToken } from '@/lib/payment-link';
 import {
   canCollectPayments,
@@ -61,9 +60,8 @@ export default async function CobrarOrdenPage({
   });
 
   if (!orden) redirect(roleOrdersHome(usuario.rol, 'enlace_invalido'));
-  if (!canUserCollectOrder(usuario, orden)) {
-    redirect(roleOrdersHome(usuario.rol, 'sin_permiso'));
-  }
+  // El permiso de cobro ya se validó por rol arriba: quien tenga el enlace y pueda
+  // cobrar cierra el pago aunque la orden la haya creado otro usuario.
   if (orden.cobrada) redirect(roleOrdersHome(usuario.rol, 'ya_cobrada'));
   if (orden.estado === 'cancelada') {
     redirect(roleOrdersHome(usuario.rol, 'cancelada'));
