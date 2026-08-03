@@ -12,12 +12,20 @@ import {
 
 export default async function CobrarOrdenPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ origen?: string }>;
 }) {
   const { token } = await params;
+  const { origen } = await searchParams;
+  // Desde la lista interna se navega en la misma pestaña: ahí no se debe cerrar
+  // nada al terminar. El enlace/QR sí abre una pestaña dedicada al cobro.
+  const abiertoDesdeLista = origen === 'lista';
   const usuario = await getAuthenticatedUser();
-  const currentPath = `/ordenes/cobrar/${encodeURIComponent(token)}`;
+  const currentPath = `/ordenes/cobrar/${encodeURIComponent(token)}${
+    abiertoDesdeLista ? '?origen=lista' : ''
+  }`;
   if (!usuario) {
     redirect(`/login?next=${encodeURIComponent(currentPath)}`);
   }
@@ -92,6 +100,7 @@ export default async function CobrarOrdenPage({
       orden={serializableOrder}
       usuario={usuario}
       successUrl={roleOrdersHome(usuario.rol, 'cobro_exitoso')}
+      cerrarAlFinalizar={!abiertoDesdeLista}
     />
   );
 }

@@ -51,11 +51,13 @@ export default function CobrarOrdenClient({
   orden,
   usuario,
   successUrl,
+  cerrarAlFinalizar,
 }: {
   token: string;
   orden: CobroOrder;
   usuario: AuthenticatedUser;
   successUrl: string;
+  cerrarAlFinalizar: boolean;
 }) {
   const router = useRouter();
   const idempotencyKey = useRef(crypto.randomUUID());
@@ -64,6 +66,7 @@ export default function CobrarOrdenClient({
   const [photo, setPhoto] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [cobrado, setCobrado] = useState<MetodoPago | null>(null);
 
   const subtotalProductos = orden.items.reduce(
     (total, item) => total + item.subtotal,
@@ -89,8 +92,17 @@ export default function CobrarOrdenClient({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "No se pudo registrar el cobro");
-      router.replace(successUrl);
-      router.refresh();
+      if (!cerrarAlFinalizar) {
+        router.replace(successUrl);
+        router.refresh();
+        return;
+      }
+      // El cobro llegó desde el enlace/QR, en una pestaña dedicada. Se muestra la
+      // confirmación y se pide cerrarla. El navegador solo permite `close()` si la
+      // pestaña la abrió un script o si no acumuló historial (p. ej. no pasó por el
+      // login): cuando lo bloquea, esta misma pantalla queda como salida manual.
+      setCobrado(metodoPago);
+      window.close();
     } catch (paymentError) {
       setError(
         paymentError instanceof Error
@@ -101,6 +113,33 @@ export default function CobrarOrdenClient({
       setLoading(false);
     }
   };
+
+  if (cobrado) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-6 text-slate-900">
+        <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-lg">
+          <p className="text-5xl">✅</p>
+          <h1 className="mt-3 text-2xl font-bold">Cobro registrado</h1>
+          <p className="mt-1 text-slate-600">
+            Orden #{orden.numeroDiario ?? orden.id.slice(-6)} ·{" "}
+            <strong>${orden.total.toFixed(2)}</strong> en {cobrado}.
+          </p>
+          <p className="mt-4 text-sm text-slate-500">
+            Ya puedes cerrar esta pestaña.
+          </p>
+          <button
+            onClick={() => {
+              window.close();
+              router.replace(successUrl);
+            }}
+            className="mt-5 w-full rounded-xl bg-slate-900 py-3 font-bold text-white hover:bg-slate-800"
+          >
+            Cerrar y volver a mis órdenes
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 text-slate-900">

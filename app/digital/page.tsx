@@ -330,7 +330,11 @@ function DigitalContenido() {
                                   orden.cobroUrl,
                                   window.location.origin,
                                 );
-                                window.location.assign(paymentUrl.pathname);
+                                // origen=lista: se navega en la misma pestaña,
+                                // así que al terminar se vuelve en vez de cerrar.
+                                window.location.assign(
+                                  `${paymentUrl.pathname}?origen=lista`,
+                                );
                                 return;
                               }
                               setOrdenACobrar(orden);
