@@ -597,7 +597,7 @@ export default function AdminPage() {
 
         {/* Modal de Aprobación */}
         {mostrarModalAprobacion && ordenParaAprobar && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h3 className="text-xl font-bold mb-4">
                 Aprobar Orden sin Stock
@@ -916,7 +916,7 @@ export default function AdminPage() {
 
         {/* Modal de anulación de retiro */}
         {retiroAAnular && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h3 className="text-xl font-bold text-gray-800 mb-2">
                 Anular retiro
@@ -1233,7 +1233,7 @@ export default function AdminPage() {
 
       {/* Modal Cobrar (Admin) */}
       {ordenACobrar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
             <h3 className="text-xl font-bold mb-2 text-gray-800">
               💵 Cobrar Orden
