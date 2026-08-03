@@ -69,12 +69,35 @@ export default function AppShell({
     useState<ContextoNav["permisoNotificaciones"]>("no-soportado");
   const esMovil = useEsMovil();
 
+  // Se suscribe en vez de leer una sola vez: al conceder el permiso desde el
+  // propio menu, el item "Activar notificaciones" tiene que desaparecer sin
+  // que haga falta recargar. La Permissions API avisa del cambio; si no esta
+  // disponible, queda la lectura puntual.
   useEffect(() => {
     if (typeof Notification === "undefined") return;
-    const id = requestAnimationFrame(() =>
-      setPermisoNotificaciones(Notification.permission),
-    );
-    return () => cancelAnimationFrame(id);
+
+    let cancelado = false;
+    let estado: PermissionStatus | null = null;
+    const sincronizar = () => {
+      if (!cancelado) setPermisoNotificaciones(Notification.permission);
+    };
+
+    const id = requestAnimationFrame(sincronizar);
+
+    navigator.permissions
+      ?.query({ name: "notifications" as PermissionName })
+      .then((resultado) => {
+        if (cancelado) return;
+        estado = resultado;
+        resultado.addEventListener("change", sincronizar);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelado = true;
+      cancelAnimationFrame(id);
+      estado?.removeEventListener("change", sincronizar);
+    };
   }, []);
 
   // Al pasar a escritorio el drawer se desmonta; se limpia tambien el estado
