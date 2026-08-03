@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface Usuario {
+export interface Usuario {
   id: string;
   nombre: string;
   rol: string;
