@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import AppShell from "@/components/shell/AppShell";
 
 interface Estadisticas {
   resumen: {
@@ -44,15 +46,16 @@ interface ReporteCortesias {
   topAdmins: Array<{ nombre: string; cantidad: number }>;
 }
 
-export default function ReportesPage() {
-  const { usuario, loading: authLoading } = useAuth();
+function ReportesContenido() {
+  const { usuario, loading: authLoading, logout } = useAuth();
   const [estadisticas, setEstadisticas] = useState<Estadisticas | null>(null);
   const [reporteCortesias, setReporteCortesias] =
     useState<ReporteCortesias | null>(null);
   const [loading, setLoading] = useState(false);
-  const [pestanaActiva, setPestanaActiva] = useState<
-    "modificaciones" | "cortesias"
-  >("modificaciones");
+  // La pestaña vive en la URL para que el menú la enlace directo.
+  const searchParams = useSearchParams();
+  const pestanaActiva: "modificaciones" | "cortesias" =
+    searchParams.get("tab") === "cortesias" ? "cortesias" : "modificaciones";
   const [fechaInicio, setFechaInicio] = useState(
     new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
   );
@@ -108,24 +111,19 @@ export default function ReportesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <AppShell
+      usuario={usuario}
+      onLogout={logout}
+      titulo={pestanaActiva === "cortesias" ? "Cortesías" : "Modificaciones"}
+      activoId={pestanaActiva}
+      badges={
+        reporteCortesias
+          ? { cortesias: reporteCortesias.resumen.totalCortesias }
+          : undefined
+      }
+    >
+      <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">Reportes</h1>
-            <p className="text-gray-600">
-              Análisis de modificaciones y cortesías en las órdenes
-            </p>
-          </div>
-          <a
-            href="/admin"
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 font-semibold"
-          >
-            ← Volver
-          </a>
-        </div>
-
         {/* Filtros de Fecha */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex items-center gap-4 flex-wrap">
@@ -159,38 +157,6 @@ export default function ReportesPage() {
                 Actualizar
               </button>
             </div>
-          </div>
-        </div>
-
-        {/* Pestañas */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="flex border-b">
-            <button
-              onClick={() => setPestanaActiva("modificaciones")}
-              className={`px-6 py-4 font-semibold transition-colors border-b-2 ${
-                pestanaActiva === "modificaciones"
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-600 hover:text-gray-800"
-              }`}
-            >
-              ✏️ Modificaciones
-            </button>
-            <button
-              onClick={() => setPestanaActiva("cortesias")}
-              className={`px-6 py-4 font-semibold transition-colors border-b-2 flex items-center gap-2 ${
-                pestanaActiva === "cortesias"
-                  ? "border-emerald-600 text-emerald-600"
-                  : "border-transparent text-gray-600 hover:text-gray-800"
-              }`}
-            >
-              🎁 Cortesías
-              {reporteCortesias &&
-                reporteCortesias.resumen.totalCortesias > 0 && (
-                  <span className="bg-emerald-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {reporteCortesias.resumen.totalCortesias}
-                  </span>
-                )}
-            </button>
           </div>
         </div>
 
@@ -620,6 +586,15 @@ export default function ReportesPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </AppShell>
+  );
+}
+
+export default function ReportesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReportesContenido />
+    </Suspense>
   );
 }
