@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import AppShell from "@/components/shell/AppShell";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
 import RetiroCaja from "@/components/mesero/RetiroCaja";
@@ -50,17 +52,14 @@ interface Orden {
   }[];
 }
 
-export default function MeseroPage() {
+function MeseroContenido() {
   const { usuario, loading: authLoading, logout } = useAuth("mesero");
-  // El cobro por QR devuelve al mesero a su lista con ?vista=ordenes.
-  const [vistaActiva, setVistaActiva] = useState<
-    "crear" | "ordenes" | "retiro"
-  >(() =>
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("vista") === "ordenes"
-      ? "ordenes"
-      : "crear",
-  );
+  // La vista vive en la URL: el cobro por QR devuelve al mesero a su lista con
+  // ?vista=ordenes, y el drawer y la barra inferior navegan al mismo sitio.
+  const searchParams = useSearchParams();
+  const vistaParam = searchParams.get("vista");
+  const vistaActiva: "crear" | "ordenes" | "retiro" =
+    vistaParam === "ordenes" || vistaParam === "retiro" ? vistaParam : "crear";
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [loadingOrdenes, setLoadingOrdenes] = useState(false);
@@ -146,81 +145,36 @@ export default function MeseroPage() {
 
   if (!usuario) return null;
 
-  return (
-    <div>
-      {/* Header con navegación */}
-      <div className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setVistaActiva("crear")}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                vistaActiva === "crear"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              }`}
-            >
-              ➕ Crear Orden
-            </button>
-            <button
-              onClick={() => setVistaActiva("ordenes")}
-              className={`relative px-4 py-2 rounded-lg font-semibold transition-colors ${
-                vistaActiva === "ordenes"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              }`}
-            >
-              📋 Mis Órdenes
-              {ordenesPorCobrar.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {ordenesPorCobrar.length}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setVistaActiva("retiro")}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                vistaActiva === "retiro"
-                  ? "bg-amber-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              }`}
-            >
-              💸 Retiro de Caja
-            </button>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-white">
-              Usuario: <span className="font-bold">{usuario.nombre}</span>
-            </span>
-            <button
-              onClick={logout}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-        </div>
-      </div>
+  const titulos = {
+    crear: "Crear orden",
+    ordenes: "Mis órdenes",
+    retiro: "Retiro de caja",
+  } as const;
 
-      {/* Contenido */}
+  return (
+    <AppShell
+      usuario={usuario}
+      onLogout={logout}
+      titulo={titulos[vistaActiva]}
+      activoId={vistaActiva}
+      badges={{ ordenes: ordenesPorCobrar.length }}
+      acciones={
+        vistaActiva === "ordenes" ? (
+          <button
+            onClick={cargarOrdenes}
+            className="min-h-11 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            🔄 Actualizar
+          </button>
+        ) : undefined
+      }
+    >
       {vistaActiva === "crear" && <CrearOrden />}
 
       {vistaActiva === "retiro" && <RetiroCaja usuario={usuario} />}
 
       {vistaActiva === "ordenes" && (
         <div className="p-6 max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">
-              Mis Órdenes Activas
-            </h1>
-            <button
-              onClick={cargarOrdenes}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-            >
-              🔄 Actualizar
-            </button>
-          </div>
-
           {loadingOrdenes ? (
             <div className="text-center py-12">Cargando órdenes...</div>
           ) : ordenes.length === 0 ? (
@@ -516,6 +470,14 @@ export default function MeseroPage() {
           usuario={usuario}
         />
       )}
-    </div>
+    </AppShell>
+  );
+}
+
+export default function MeseroPage() {
+  return (
+    <Suspense fallback={null}>
+      <MeseroContenido />
+    </Suspense>
   );
 }

@@ -824,7 +824,7 @@ export default function CrearOrden() {
               : carritoRef.current;
             destino?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
-          className="lg:hidden fixed right-5 bottom-5 z-40 rounded-full bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-xl transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+          className="lg:hidden fixed right-5 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 rounded-full bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-xl transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 md:bottom-5"
           aria-label={
             carritoAlcanzado
               ? "Volver al inicio de la creación de la orden"

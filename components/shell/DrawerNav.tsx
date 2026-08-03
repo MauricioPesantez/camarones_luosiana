@@ -39,20 +39,17 @@ export default function DrawerNav({
   onNavegar,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
-  const [expandidos, setExpandidos] = useState<string[]>([]);
+  // El grupo que contiene la vista activa arranca abierto. En vez de
+  // sincronizar eso con un efecto, se deriva: `alternados` guarda solo los
+  // grupos que el usuario invirtio respecto de ese default.
+  const [alternados, setAlternados] = useState<string[]>([]);
 
-  // Abre por defecto el grupo que contiene la vista activa.
-  useEffect(() => {
-    if (!abierto) return;
-    const padre = secciones
-      .flatMap((s) => s.items)
-      .find((item) => item.hijos?.some((h) => h.id === activoId));
-    if (padre) {
-      setExpandidos((prev) =>
-        prev.includes(padre.id) ? prev : [...prev, padre.id],
-      );
-    }
-  }, [abierto, activoId, secciones]);
+  const grupoDelActivo = secciones
+    .flatMap((s) => s.items)
+    .find((item) => item.hijos?.some((h) => h.id === activoId))?.id;
+
+  const estaExpandido = (id: string) =>
+    alternados.includes(id) ? id !== grupoDelActivo : id === grupoDelActivo;
 
   // Bloquea el scroll del fondo mientras el drawer esta abierto.
   useEffect(() => {
@@ -64,18 +61,28 @@ export default function DrawerNav({
     };
   }, [abierto]);
 
-  // Foco al abrir, ESC para cerrar, Tab atrapado dentro del panel, y al cerrar
-  // el foco vuelve a donde estaba (el burger).
+  // Foco al abrir y devolucion al cerrar. Depende solo de `abierto`: si
+  // dependiera tambien de `onCerrar`, que cambia de identidad en cada render
+  // del padre, el efecto se reejecutaria y recapturaria el origen equivocado.
   useEffect(() => {
     if (!abierto) return;
     const panel = panelRef.current;
     if (!panel) return;
 
     const origen = document.activeElement as HTMLElement | null;
+    panel.querySelector<HTMLElement>(SELECTOR_FOCUSABLE)?.focus();
+
+    return () => origen?.focus();
+  }, [abierto]);
+
+  // ESC cierra y Tab queda atrapado dentro del panel.
+  useEffect(() => {
+    if (!abierto) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+
     const focusables = () =>
       Array.from(panel.querySelectorAll<HTMLElement>(SELECTOR_FOCUSABLE));
-
-    focusables()[0]?.focus();
 
     const alPresionar = (evento: KeyboardEvent) => {
       if (evento.key === "Escape") {
@@ -100,16 +107,13 @@ export default function DrawerNav({
     };
 
     document.addEventListener("keydown", alPresionar);
-    return () => {
-      document.removeEventListener("keydown", alPresionar);
-      origen?.focus();
-    };
+    return () => document.removeEventListener("keydown", alPresionar);
   }, [abierto, onCerrar]);
 
   if (!abierto) return null;
 
   const alternarGrupo = (id: string) =>
-    setExpandidos((prev) =>
+    setAlternados((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
 
@@ -165,7 +169,7 @@ export default function DrawerNav({
                     <button
                       type="button"
                       onClick={() => alternarGrupo(item.id)}
-                      aria-expanded={expandidos.includes(item.id)}
+                      aria-expanded={estaExpandido(item.id)}
                       aria-controls={`grupo-${item.id}`}
                       className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[15px] text-gray-700 hover:bg-gray-100"
                     >
@@ -177,10 +181,10 @@ export default function DrawerNav({
                         aria-hidden="true"
                         className="ml-auto text-xs text-gray-400"
                       >
-                        {expandidos.includes(item.id) ? "▲" : "▼"}
+                        {estaExpandido(item.id) ? "▲" : "▼"}
                       </span>
                     </button>
-                    {expandidos.includes(item.id) && (
+                    {estaExpandido(item.id) && (
                       <div id={`grupo-${item.id}`}>
                         {item.hijos.map((hijo) => (
                           <ItemNav

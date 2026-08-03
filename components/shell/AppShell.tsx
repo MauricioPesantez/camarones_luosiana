@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useRouter } from "next/navigation";
 import type { Usuario } from "@/lib/auth";
 import {
@@ -27,6 +33,24 @@ interface Props {
 
 const SIN_BADGES: Record<string, number> = {};
 
+const CONSULTA_MOVIL = "(max-width: 767px)";
+
+// El drawer y la barra inferior se sacan del DOM en escritorio, no se ocultan
+// solo con CSS: si se ocultaran, redimensionar con el drawer abierto dejaria
+// el focus trap activo sobre un panel invisible. En el servidor devuelve false
+// y el primer render en cliente lo corrige.
+function useEsMovil(): boolean {
+  return useSyncExternalStore(
+    (alCambiar) => {
+      const consulta = window.matchMedia(CONSULTA_MOVIL);
+      consulta.addEventListener("change", alCambiar);
+      return () => consulta.removeEventListener("change", alCambiar);
+    },
+    () => window.matchMedia(CONSULTA_MOVIL).matches,
+    () => false,
+  );
+}
+
 export default function AppShell({
   usuario,
   onLogout,
@@ -39,29 +63,29 @@ export default function AppShell({
 }: Props) {
   const router = useRouter();
   const [drawerAbierto, setDrawerAbierto] = useState(false);
-  // Se resuelve en efecto y no en el primer render: `Notification` no existe
-  // en el servidor y leerlo directo produce mismatch de hidratacion.
+  // Se resuelve suscribiendose y no en el primer render: `Notification` no
+  // existe en el servidor y leerlo directo produce mismatch de hidratacion.
   const [permisoNotificaciones, setPermisoNotificaciones] =
     useState<ContextoNav["permisoNotificaciones"]>("no-soportado");
-  // El drawer y la barra inferior se sacan del DOM en escritorio, no se ocultan
-  // solo con CSS: si se ocultaran, redimensionar con el drawer abierto dejaria
-  // el focus trap activo sobre un panel invisible.
-  const [esMovil, setEsMovil] = useState(false);
+  const esMovil = useEsMovil();
 
   useEffect(() => {
     if (typeof Notification === "undefined") return;
-    setPermisoNotificaciones(Notification.permission);
+    const id = requestAnimationFrame(() =>
+      setPermisoNotificaciones(Notification.permission),
+    );
+    return () => cancelAnimationFrame(id);
   }, []);
 
+  // Al pasar a escritorio el drawer se desmonta; se limpia tambien el estado
+  // para que volver a movil no lo reabra solo.
   useEffect(() => {
-    const consulta = window.matchMedia("(max-width: 767px)");
-    const sincronizar = () => {
-      setEsMovil(consulta.matches);
+    const consulta = window.matchMedia(CONSULTA_MOVIL);
+    const alCambiar = () => {
       if (!consulta.matches) setDrawerAbierto(false);
     };
-    sincronizar();
-    consulta.addEventListener("change", sincronizar);
-    return () => consulta.removeEventListener("change", sincronizar);
+    consulta.addEventListener("change", alCambiar);
+    return () => consulta.removeEventListener("change", alCambiar);
   }, []);
 
   const secciones = useMemo(
@@ -71,21 +95,29 @@ export default function AppShell({
   const inferiores = useMemo(() => itemsBarraInferior(secciones), [secciones]);
   const acento = acentoDeRol(usuario.rol);
 
-  const navegar = (item: EntradaNav) => {
-    setDrawerAbierto(false);
-    if (item.id === "logout") {
-      onLogout();
-      return;
-    }
-    if (item.href.startsWith("#")) {
-      onAccion?.(item.id);
-      return;
-    }
-    router.push(item.href);
-  };
+  const cerrarDrawer = useCallback(() => setDrawerAbierto(false), []);
+  const abrirDrawer = useCallback(() => setDrawerAbierto(true), []);
+
+  const navegar = useCallback(
+    (item: EntradaNav) => {
+      setDrawerAbierto(false);
+      if (item.id === "logout") {
+        onLogout();
+        return;
+      }
+      if (item.href.startsWith("#")) {
+        onAccion?.(item.id);
+        return;
+      }
+      router.push(item.href);
+    },
+    [onLogout, onAccion, router],
+  );
 
   return (
-    <div className="min-h-screen">
+    // El lienzo lo fija el shell: `globals.css` declara un fondo oscuro bajo
+    // `prefers-color-scheme: dark` que ninguna pantalla contempla.
+    <div className="min-h-screen bg-gray-100">
       <TopBar
         titulo={titulo}
         secciones={secciones}
@@ -95,14 +127,14 @@ export default function AppShell({
         usuario={usuario}
         acciones={acciones}
         drawerAbierto={drawerAbierto}
-        onAbrirDrawer={() => setDrawerAbierto(true)}
+        onAbrirDrawer={abrirDrawer}
         onNavegar={navegar}
       />
 
       {esMovil && (
         <DrawerNav
           abierto={drawerAbierto}
-          onCerrar={() => setDrawerAbierto(false)}
+          onCerrar={cerrarDrawer}
           secciones={secciones}
           activoId={activoId}
           acento={acento}
