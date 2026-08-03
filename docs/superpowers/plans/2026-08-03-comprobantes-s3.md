@@ -1028,11 +1028,12 @@ git commit -m "feat(cobros): upload transfer receipt from the QR payment screen"
 
 **Files:**
 - Create: `app/api/admin/ordenes/[id]/comprobante/route.ts`
+- Create: `lib/comprobante-cliente.ts`
 - Modify: `components/admin/DetalleOrdenModal.tsx`
 
 **Interfaces:**
 - Consumes: `getSignedReadUrl` de Task 2; `parseComprobanteKey` de Task 1.
-- Produces: `GET /api/admin/ordenes/[id]/comprobante` responde `{ url: string; expiraEn: number }`.
+- Produces: `GET /api/admin/ordenes/[id]/comprobante` responde `{ url: string; expiraEn: number }`; `abrirComprobanteFirmado(ordenId: string): Promise<void>` en `lib/comprobante-cliente.ts`, que consumen tanto Task 6 como Task 7.
 
 - [ ] **Step 1: Escribir la ruta de lectura**
 
@@ -1091,7 +1092,32 @@ export async function GET(
 }
 ```
 
-- [ ] **Step 2: Declarar el campo en la interfaz del modal**
+- [ ] **Step 2: Escribir el helper compartido de apertura**
+
+Las dos pantallas que muestran comprobantes (el detalle de orden y el cuadre)
+piden la URL firmada exactamente igual. La lógica vive una sola vez.
+
+Crear `lib/comprobante-cliente.ts`:
+
+```ts
+// Corre solo en el navegador. La URL firmada se pide recien en el clic y no se
+// guarda en ningun lado: una lista de ordenes no debe disparar decenas de URLs
+// ni mostrar datos bancarios a quien solo revisa totales.
+export async function abrirComprobanteFirmado(ordenId: string): Promise<void> {
+  try {
+    const respuesta = await fetch(`/api/admin/ordenes/${ordenId}/comprobante`);
+    const datos = await respuesta.json();
+    if (!respuesta.ok) {
+      throw new Error(datos.error || 'No se pudo abrir el comprobante');
+    }
+    window.open(datos.url, '_blank', 'noopener,noreferrer');
+  } catch (error) {
+    alert(error instanceof Error ? error.message : 'No se pudo abrir el comprobante');
+  }
+}
+```
+
+- [ ] **Step 3: Declarar el campo en la interfaz del modal**
 
 En `components/admin/DetalleOrdenModal.tsx`, dentro de `interface Orden`, junto a `metodoPago?: string | null;`:
 
@@ -1099,9 +1125,15 @@ En `components/admin/DetalleOrdenModal.tsx`, dentro de `interface Orden`, junto 
   comprobanteTransferenciaKey?: string | null;
 ```
 
-- [ ] **Step 3: Agregar el bloque de comprobante al modal**
+- [ ] **Step 4: Agregar el bloque de comprobante al modal**
 
-En `components/admin/DetalleOrdenModal.tsx`, agregar el estado junto a los demás `useState` del componente:
+En `components/admin/DetalleOrdenModal.tsx`, agregar el import junto a los existentes:
+
+```tsx
+import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
+```
+
+Agregar el estado junto a los demás `useState` del componente:
 
 ```tsx
   const [abriendoComprobante, setAbriendoComprobante] = useState(false);
@@ -1110,18 +1142,10 @@ En `components/admin/DetalleOrdenModal.tsx`, agregar el estado junto a los demá
 Y la función, junto a las demás funciones del componente:
 
 ```tsx
-  // La URL firmada se pide recien en el clic y no se guarda en ningun lado: una
-  // lista de ordenes no debe disparar decenas de URLs ni mostrar datos bancarios
-  // a quien solo revisa totales.
   const abrirComprobante = async () => {
     setAbriendoComprobante(true);
     try {
-      const respuesta = await fetch(`/api/admin/ordenes/${orden.id}/comprobante`);
-      const datos = await respuesta.json();
-      if (!respuesta.ok) throw new Error(datos.error || "No se pudo abrir el comprobante");
-      window.open(datos.url, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "No se pudo abrir el comprobante");
+      await abrirComprobanteFirmado(orden.id);
     } finally {
       setAbriendoComprobante(false);
     }
@@ -1151,12 +1175,12 @@ Insertar el bloque en el JSX inmediatamente antes del comentario `{/* Observacio
               )}
 ```
 
-- [ ] **Step 4: Verificar tipos y lint**
+- [ ] **Step 5: Verificar tipos y lint**
 
 Run: `npx tsc --noEmit && npm run lint`
 Expected: sin errores.
 
-- [ ] **Step 5: Verificar en el navegador**
+- [ ] **Step 6: Verificar en el navegador**
 
 Como admin, abrir el detalle de la orden cobrada con comprobante en Task 5.
 
@@ -1170,10 +1194,10 @@ curl -i "http://localhost:3000/api/admin/ordenes/<ID_ORDEN>/comprobante" -H "Coo
 
 Expected: `403`.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add app/api/admin/ordenes/\[id\]/comprobante/route.ts components/admin/DetalleOrdenModal.tsx
+git add app/api/admin/ordenes/\[id\]/comprobante/route.ts lib/comprobante-cliente.ts components/admin/DetalleOrdenModal.tsx
 git commit -m "feat(admin): view transfer receipt from the order detail modal"
 ```
 
@@ -1187,7 +1211,7 @@ Es la contrapartida de permitir cobrar sin comprobante: al cerrar el día, cada 
 - Modify: `app/admin/page.tsx` (interfaz `Orden` y la celda de método de pago)
 
 **Interfaces:**
-- Consumes: `GET /api/admin/ordenes/[id]/comprobante` de Task 6.
+- Consumes: `abrirComprobanteFirmado(ordenId: string): Promise<void>` de `lib/comprobante-cliente.ts` (Task 6).
 - Produces: nada que consuman tareas posteriores.
 
 No hace falta tocar `app/api/admin/cuadre/route.ts`: su respuesta se arma con `...safeOrder`, que ya arrastra todos los escalares de `Orden`, incluido `comprobanteTransferenciaKey`.
@@ -1200,22 +1224,14 @@ En `app/admin/page.tsx`, dentro de `interface Orden`, junto a `metodoPago: strin
   comprobanteTransferenciaKey?: string | null;
 ```
 
-- [ ] **Step 2: Agregar la función que abre el comprobante**
+- [ ] **Step 2: Importar el helper compartido**
 
-En `app/admin/page.tsx`, junto a las demás funciones del componente (por ejemplo cerca de `cobrarOrden`):
+El cuadre reutiliza el mismo helper que el detalle de orden; no se vuelve a escribir la lógica de pedir la URL firmada.
+
+En `app/admin/page.tsx`, agregar junto a los imports existentes:
 
 ```tsx
-  // Igual que en el detalle: la URL firmada se pide en el clic, nunca antes.
-  const abrirComprobante = async (ordenId: string) => {
-    try {
-      const res = await fetch(`/api/admin/ordenes/${ordenId}/comprobante`);
-      const datos = await res.json();
-      if (!res.ok) throw new Error(datos.error || "No se pudo abrir el comprobante");
-      window.open(datos.url, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "No se pudo abrir el comprobante");
-    }
-  };
+import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 ```
 
 - [ ] **Step 3: Renderizar el indicador en la fila**
@@ -1235,7 +1251,7 @@ Insertar inmediatamente después de ese `</span>`:
                               {orden.metodoPago === "transferencia" &&
                                 (orden.comprobanteTransferenciaKey ? (
                                   <button
-                                    onClick={() => void abrirComprobante(orden.id)}
+                                    onClick={() => void abrirComprobanteFirmado(orden.id)}
                                     className="self-start text-xs font-bold text-blue-700 underline"
                                   >
                                     📎 Ver comprobante
