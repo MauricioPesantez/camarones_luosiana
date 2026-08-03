@@ -24,6 +24,7 @@ import { allocateDailyOrderNumber } from '@/lib/daily-order-number';
 import { createPaymentLink } from '@/lib/payment-link';
 import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
 import { calcularMovimientosCobro } from '@/types/cobro';
+import { obtenerFechaEcuador, obtenerRangoEcuador } from '@/lib/fecha-ecuador';
 
 const ORDEN_INCLUDE = {
   items: {
@@ -65,8 +66,18 @@ export async function GET(request: Request) {
             { creadorId: null, mesero: usuario.nombre },
           ],
         };
+
+    // Cocina y mesero solo ven órdenes del día actual (hora Ecuador).
+    // Admin tiene su propia vista con filtro de fecha independiente.
+    const hoyEcuador = obtenerFechaEcuador();
+    const rangoHoy = obtenerRangoEcuador(hoyEcuador)!;
+    const fechaFiltro =
+      usuario.rol === 'admin'
+        ? {}
+        : { createdAt: { gte: rangoHoy.inicio, lt: rangoHoy.fin } };
+
     const ordenes = await prisma.orden.findMany({
-      where: { ...ownerFilter, ...(estadoFiltro ?? {}) },
+      where: { ...ownerFilter, ...(estadoFiltro ?? {}), ...fechaFiltro },
       include: ORDEN_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
