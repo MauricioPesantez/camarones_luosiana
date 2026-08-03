@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
-import { resolverNav, itemsBarraInferior, ACENTO_POR_ROL } from "./navegacion";
+import {
+  resolverNav,
+  itemsBarraInferior,
+  esItemActivo,
+  ACENTO_POR_ROL,
+} from "./navegacion";
 
 const ctxSinPermiso = { permisoNotificaciones: "default" as const };
 const ctxConPermiso = { permisoNotificaciones: "granted" as const };
@@ -49,6 +54,18 @@ assert.equal(
   inferioresAdmin.find((i) => i.id === "reportes")?.href,
   "/admin/reportes?tab=modificaciones",
 );
+
+// Un padre queda activo cuando lo esta cualquiera de sus hijos: en
+// /admin/productos?tab=menu la barra inferior lista "productos", no "menu".
+const itemProductos = inferioresAdmin.find((i) => i.id === "productos")!;
+assert.equal(esItemActivo(itemProductos, "menu"), true);
+assert.equal(esItemActivo(itemProductos, "stock"), true);
+assert.equal(esItemActivo(itemProductos, "productos"), true);
+assert.equal(esItemActivo(itemProductos, "usuarios"), false);
+
+const itemUsuarios = inferioresAdmin.find((i) => i.id === "usuarios")!;
+assert.equal(esItemActivo(itemUsuarios, "usuarios"), true);
+assert.equal(esItemActivo(itemUsuarios, "menu"), false);
 
 // La barra inferior nunca pasa de cuatro, aunque el rol marque mas.
 const inflado = [

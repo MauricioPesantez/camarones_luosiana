@@ -268,6 +268,16 @@ export function resolverNav(rol: string, ctx: ContextoNav): SeccionNav[] {
     .filter((seccion) => seccion.items.length > 0);
 }
 
+// Un padre queda activo cuando lo esta cualquiera de sus hijos: en
+// /admin/productos?tab=menu el destino activo es "menu", pero la barra
+// inferior y el drawer listan "productos".
+export function esItemActivo(item: EntradaNav, activoId: string): boolean {
+  return (
+    item.id === activoId ||
+    (item.hijos?.some((hijo) => hijo.id === activoId) ?? false)
+  );
+}
+
 export function itemsBarraInferior(secciones: SeccionNav[]): EntradaNav[] {
   const items = secciones
     .flatMap((seccion) => seccion.items)

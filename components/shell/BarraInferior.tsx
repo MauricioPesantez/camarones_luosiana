@@ -1,6 +1,6 @@
 "use client";
 
-import type { Acento, EntradaNav } from "@/lib/navegacion";
+import { esItemActivo, type Acento, type EntradaNav } from "@/lib/navegacion";
 import ItemNav from "./ItemNav";
 
 interface Props {
@@ -32,7 +32,7 @@ export default function BarraInferior({
           key={item.id}
           item={item}
           variante="inferior"
-          activo={item.id === activoId}
+          activo={esItemActivo(item, activoId)}
           acento={acento}
           badge={badges[item.id]}
           onNavegar={onNavegar}

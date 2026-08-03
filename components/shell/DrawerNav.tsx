@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Acento, EntradaNav, SeccionNav } from "@/lib/navegacion";
+import {
+  esItemActivo,
+  type Acento,
+  type EntradaNav,
+  type SeccionNav,
+} from "@/lib/navegacion";
 import type { Usuario } from "@/lib/auth";
 import ItemNav from "./ItemNav";
 
@@ -171,7 +176,11 @@ export default function DrawerNav({
                       onClick={() => alternarGrupo(item.id)}
                       aria-expanded={estaExpandido(item.id)}
                       aria-controls={`grupo-${item.id}`}
-                      className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[15px] text-gray-700 hover:bg-gray-100"
+                      className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[15px] ${
+                        esItemActivo(item, activoId)
+                          ? `${acento.texto} font-semibold`
+                          : "text-gray-700 hover:bg-gray-100"
+                      }`}
                     >
                       <span aria-hidden="true" className="text-lg leading-none">
                         {item.emoji}
