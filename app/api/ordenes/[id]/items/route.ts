@@ -17,7 +17,7 @@ import {
   type NivelPicante,
   type TipoOrden,
 } from '@/types/orden';
-import { canUserCollectOrder } from '@/lib/order-payment';
+import { canUserModifyOrder } from '@/lib/order-payment';
 import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
 
 type ItemChange =
@@ -169,7 +169,7 @@ export async function PATCH(
           throw new ModificationRequestError('Orden no encontrada', 404);
         }
 
-        if (!canUserCollectOrder(usuarioSesion, order)) {
+        if (!canUserModifyOrder(usuarioSesion, order)) {
           throw new ModificationRequestError(
             'No puedes modificar una orden de otro usuario',
             403,

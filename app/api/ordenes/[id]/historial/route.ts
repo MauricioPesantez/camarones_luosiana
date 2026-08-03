@@ -12,16 +12,16 @@ export async function GET(
     if (!usuario) {
       return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
     }
+    if (!canUserCollectOrder(usuario)) {
+      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 });
+    }
     const { id } = await params;
     const orden = await prisma.orden.findUnique({
       where: { id },
-      select: { creadorId: true, mesero: true },
+      select: { id: true },
     });
     if (!orden) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
-    }
-    if (!canUserCollectOrder(usuario, orden)) {
-      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 });
     }
     const historial = await prisma.historialOrden.findMany({
       where: { ordenId: id },

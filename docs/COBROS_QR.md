@@ -7,7 +7,7 @@
 3. Un domicilio por transferencia exige confirmar explícitamente que el dinero ya fue recibido y se registra pagado dentro de la misma transacción de creación. Si requiere aprobación por falta de stock, el pago se difiere hasta aprobarlo.
 4. El QR abre `/ordenes/cobrar/[token]`. El token identifica la orden, pero no autoriza el cobro.
 5. La página exige una sesión de servidor en cookie `HttpOnly`, `SameSite=Lax`. Si falta, vuelve al login y después retorna al QR.
-6. Mesero y digital solo cobran órdenes propias; admin puede cobrar cualquiera. Cocina no tiene permiso.
+6. Admin, mesero y digital cobran cualquier orden, sin importar quién la creó. Cocina no tiene permiso. La restricción por creador solo sigue vigente para modificar los items de una orden.
 7. La confirmación crea un único registro `Cobro`, actualiza `Orden` mediante compare-and-set y escribe el historial en la misma transacción.
 
 ## Invariantes de caja
