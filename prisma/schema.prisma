@@ -39,45 +39,79 @@ model Producto {
 }
 
 model Orden {
-  id                 String           @id @default(cuid())
-  numeroDiario       Int?
-  fechaNumeroDiario  String?          @db.VarChar(10) // YYYY-MM-DD en America/Guayaquil
-  tipoOrden          String           @default("local") // "local" | "para_llevar" | "domicilio"
-  nivelPicante       String           @default("natural") // Campo legado; las órdenes nuevas guardan el nivel en Item
-  numeroMesa         Int? // Solo para tipo "local"
-  nombreCliente      String? // Obligatorio para "para_llevar", opcional para "domicilio"
-  telefonoCliente    String? // Solo para "domicilio"
-  recargo            Decimal?         @db.Decimal(10, 2) // $1.25 por cada combo para "para_llevar" y "domicilio"
-  costoEnvio         Decimal?         @db.Decimal(10, 2) // Solo para "domicilio"
-  metodoPago         String? // "efectivo" | "transferencia" — como se cobro realmente
-  metodoPagoPrevisto String? // "efectivo" | "transferencia" — acordado al crear la orden, solo "domicilio"
-  cobrada            Boolean          @default(false)
-  fechaCobro         DateTime?
-  cobradaPor         String? // Nombre del mesero/admin que cobró
-  mesero             String
-  creadorId          String?
-  creador            Usuario?         @relation("OrdenesCreadas", fields: [creadorId], references: [id], onDelete: SetNull)
-  creadorRol         String? // Snapshot del rol al crear la orden para reportes historicos
-  estado             String           @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cobrada", "cancelada"
-  observaciones      String?
-  total              Decimal          @default(0) @db.Decimal(10, 2)
-  tiempoEstimado     Int?             @default(0) // Tiempo estimado en minutos
-  modificada         Boolean          @default(false) // Indica si la orden fue modificada
-  sinStock           Boolean          @default(false) // Indica si fue aprobada sin stock suficiente
-  aprobadaPorId      String? // Admin que aprobó la orden sin stock
-  aprobadaPor        Usuario?         @relation("OrdenesAprobadas", fields: [aprobadaPorId], references: [id])
-  razonAprobacion    String? // Razón por la que se aprobó sin stock
-  itemsSinStock      Json? // Lista de items que no tenían stock: [{productoId, productoNombre, cantidadSolicitada, stockDisponible}]
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  items              Item[]
-  historial          HistorialOrden[]
-  impresa            Boolean          @default(false)
-  printRevision      Int              @default(0)
-  printJobs          PrintJob[]
+  id                             String           @id @default(cuid())
+  numeroDiario                   Int?
+  fechaNumeroDiario              String?          @db.VarChar(10) // YYYY-MM-DD en America/Guayaquil
+  tipoOrden                      String           @default("local") // "local" | "para_llevar" | "domicilio"
+  nivelPicante                   String           @default("natural") // Campo legado; las órdenes nuevas guardan el nivel en Item
+  numeroMesa                     Int? // Solo para tipo "local"
+  nombreCliente                  String? // Obligatorio para "para_llevar", opcional para "domicilio"
+  telefonoCliente                String? // Solo para "domicilio"
+  recargo                        Decimal?         @db.Decimal(10, 2) // $1.25 por cada combo para "para_llevar" y "domicilio"
+  costoEnvio                     Decimal?         @db.Decimal(10, 2) // Solo para "domicilio"
+  metodoPago                     String? // "efectivo" | "transferencia" — como se cobro realmente
+  metodoPagoPrevisto             String? // "efectivo" | "transferencia" — acordado al crear la orden, solo "domicilio"
+  transferenciaConfirmadaAlCrear Boolean          @default(false)
+  cobrada                        Boolean          @default(false)
+  fechaCobro                     DateTime?
+  cobradaPor                     String? // Nombre del mesero/admin que cobró
+  cobradaPorId                   String?
+  cobrador                       Usuario?         @relation("OrdenesCobradas", fields: [cobradaPorId], references: [id], onDelete: SetNull)
+  origenCobro                    String? // "qr" | "lista" | "creacion_domicilio_transferencia"
+  cobroTokenHash                 String?          @unique
+  cobroUrl                       String?          @unique
+  comprobanteTransferenciaKey    String?
+  mesero                         String
+  creadorId                      String?
+  creador                        Usuario?         @relation("OrdenesCreadas", fields: [creadorId], references: [id], onDelete: SetNull)
+  creadorRol                     String? // Snapshot del rol al crear la orden para reportes historicos
+  estado                         String           @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cobrada", "cancelada"
+  observaciones                  String?
+  total                          Decimal          @default(0) @db.Decimal(10, 2)
+  tiempoEstimado                 Int?             @default(0) // Tiempo estimado en minutos
+  modificada                     Boolean          @default(false) // Indica si la orden fue modificada
+  sinStock                       Boolean          @default(false) // Indica si fue aprobada sin stock suficiente
+  aprobadaPorId                  String? // Admin que aprobó la orden sin stock
+  aprobadaPor                    Usuario?         @relation("OrdenesAprobadas", fields: [aprobadaPorId], references: [id])
+  razonAprobacion                String? // Razón por la que se aprobó sin stock
+  itemsSinStock                  Json? // Lista de items que no tenían stock: [{productoId, productoNombre, cantidadSolicitada, stockDisponible}]
+  createdAt                      DateTime         @default(now())
+  updatedAt                      DateTime         @updatedAt
+  items                          Item[]
+  historial                      HistorialOrden[]
+  impresa                        Boolean          @default(false)
+  printRevision                  Int              @default(0)
+  printJobs                      PrintJob[]
+  cobro                          Cobro?
 
   @@unique([fechaNumeroDiario, numeroDiario])
   @@index([creadorId])
+  @@index([cobradaPorId])
+}
+
+model Cobro {
+  id                          String   @id @default(cuid())
+  ordenId                     String   @unique
+  orden                       Orden    @relation(fields: [ordenId], references: [id], onDelete: Restrict)
+  metodoPago                  String
+  estado                      String   @default("CONFIRMADO") // "CONFIRMADO" | "REEMBOLSO_PENDIENTE" | "REEMBOLSADO"
+  montoTotal                  Decimal  @db.Decimal(10, 2)
+  costoEnvio                  Decimal  @default(0) @db.Decimal(10, 2)
+  efectivoRecibido            Decimal  @default(0) @db.Decimal(10, 2)
+  efectivoEntregado           Decimal  @default(0) @db.Decimal(10, 2)
+  transferenciaRecibida       Decimal  @default(0) @db.Decimal(10, 2)
+  cobradoPorId                String?
+  cobradoPor                  Usuario? @relation("CobrosRegistrados", fields: [cobradoPorId], references: [id], onDelete: SetNull)
+  cobradoPorNombre            String
+  cobradoPorRol               String
+  origen                      String
+  idempotencyKey              String   @unique
+  comprobanteTransferenciaKey String?
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([cobradoPorId, createdAt])
 }
 
 model ContadorOrdenDiaria {
@@ -155,14 +189,71 @@ model Mesa {
 }
 
 model Usuario {
-  id               String   @id @default(cuid())
-  nombre           String
-  rol              String
-  password         String?
-  activo           Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  ordenesAprobadas Orden[]  @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
-  ordenesCreadas   Orden[]  @relation("OrdenesCreadas")
+  id                 String          @id @default(cuid())
+  nombre             String
+  rol                String
+  password           String?
+  activo             Boolean         @default(true)
+  createdAt          DateTime        @default(now())
+  ordenesAprobadas   Orden[]         @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
+  ordenesCreadas     Orden[]         @relation("OrdenesCreadas")
+  ordenesCobradas    Orden[]         @relation("OrdenesCobradas")
+  cobrosRegistrados  Cobro[]         @relation("CobrosRegistrados")
+  sesiones           SesionUsuario[]
+  retirosRegistrados RetiroCaja[]    @relation("RetirosRegistrados")
+  adelantosRecibidos RetiroCaja[]    @relation("AdelantosRecibidos")
+  retirosAnulados    RetiroCaja[]    @relation("RetirosAnulados")
+}
+
+model SesionUsuario {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  usuarioId  String
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  @@index([usuarioId])
+  @@index([expiresAt])
+}
+
+/// Salida de efectivo de la caja registrada por un empleado (compra de un
+/// implemento, adelanto, etc.). Es inmutable: no se edita ni se borra, solo un
+/// admin puede anularla con una razon, y la anulacion queda visible en el cuadre.
+model RetiroCaja {
+  id       String  @id @default(cuid())
+  monto    Decimal @db.Decimal(10, 2)
+  categoria String // Ver CATEGORIAS_RETIRO en types/retiro.ts
+  motivo   String
+
+  // Quien saca el dinero. El nombre y el rol se congelan igual que en
+  // `Orden.creadorRol`: si el usuario cambia de rol, el cuadre historico no se mueve.
+  usuarioId     String
+  usuario       Usuario @relation("RetirosRegistrados", fields: [usuarioId], references: [id])
+  usuarioNombre String
+  usuarioRol    String
+
+  // Solo para la categoria "adelanto": a quien se le entrega el dinero.
+  beneficiarioId     String?
+  beneficiario       Usuario? @relation("AdelantosRecibidos", fields: [beneficiarioId], references: [id], onDelete: SetNull)
+  beneficiarioNombre String?
+
+  estado           String    @default("registrado") // "registrado" | "anulado"
+  anuladoPorId     String?
+  anuladoPor       Usuario?  @relation("RetirosAnulados", fields: [anuladoPorId], references: [id])
+  anuladoPorNombre String?
+  razonAnulacion   String?
+  anuladoAt        DateTime?
+
+  /// Idempotencia: el mismo envio reintentado no duplica la salida de dinero.
+  clientRequestId String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([usuarioId, createdAt])
 }
 
 model HistorialOrden {

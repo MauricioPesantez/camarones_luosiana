@@ -68,3 +68,14 @@ body {
 .animate-pulse-strong {
   animation: pulse-strong 1s ease-in-out infinite;
 }
+
+/* Entrada del drawer de navegación */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}

@@ -34,6 +34,9 @@ function createOrder(): PrintOrderSource {
     observaciones: 'Sin picante',
     recargo: '2.50',
     costoEnvio: { toNumber: () => 2 },
+    metodoPagoPrevisto: 'efectivo',
+    cobrada: false,
+    cobroUrl: 'https://pos.example.com/ordenes/cobrar/token-seguro',
     total: '17.50',
     createdAt: new Date('2026-07-31T18:58:00.000Z'),
     items: [
@@ -66,6 +69,10 @@ async function run(): Promise<void> {
   assert.equal(payload.order.items[0].spiceLevel, 'picante_2');
   assert.equal(payload.order.surcharge, 2.5);
   assert.equal(payload.order.total, 17.5);
+  assert.equal(
+    payload.order.paymentUrl,
+    'https://pos.example.com/ordenes/cobrar/token-seguro',
+  );
   assert.equal(payload.order.items[0].unitPrice, 6.5);
   assert.equal(payload.generatedAt, FIXED_NOW.toISOString());
 
@@ -117,6 +124,15 @@ async function run(): Promise<void> {
 
   assert.equal(reprint.ticketLabel, 'REIMPRESION');
   assert.equal(reprint.requestedBy, 'Admin');
+
+  const transferenciaPagada = createOrder();
+  transferenciaPagada.metodoPagoPrevisto = 'transferencia';
+  transferenciaPagada.cobrada = true;
+  assert.equal(
+    buildOrderPrintPayload(transferenciaPagada).order.paymentUrl,
+    null,
+    'un domicilio pagado por transferencia no imprime QR',
+  );
 
   assert.equal(
     buildDedupeKey('cm-order-abcdef', PRINT_JOB_TYPES.AMENDMENT, 1),

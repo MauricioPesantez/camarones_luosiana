@@ -1,0 +1,1 @@
+{"nodes": [{"id": "_id__route_patch", "label": "PATCH /api/productos/[id] (colisiona con /api/usuarios/[id])", "file_type": "code", "source_file": "app/api/productos/[id]/route.ts", "source_location": "L5", "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}

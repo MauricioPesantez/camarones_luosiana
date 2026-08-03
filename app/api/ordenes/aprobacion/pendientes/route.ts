@@ -2,9 +2,17 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { OrdenPendienteAprobacion } from '@/types/orden';
 import { ItemSinStock } from '@/types/stock';
+import { getAuthenticatedUser } from '@/lib/session';
 
 export async function GET() {
   try {
+    const usuario = await getAuthenticatedUser();
+    if (!usuario) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+    if (usuario.rol !== 'admin') {
+      return NextResponse.json({ error: 'Solo administradores' }, { status: 403 });
+    }
     // Obtener todas las órdenes pendientes de aprobación por stock
     const ordenes = await prisma.orden.findMany({
       where: {

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import AppShell from "@/components/shell/AppShell";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
 import {
@@ -12,6 +14,7 @@ import {
 
 interface Orden {
   id: string;
+  cobroUrl: string | null;
   printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
@@ -48,9 +51,12 @@ interface Orden {
   }[];
 }
 
-export default function DigitalPage() {
+function DigitalContenido() {
   const { usuario, loading: authLoading, logout } = useAuth("digital");
-  const [vistaActiva, setVistaActiva] = useState<"crear" | "pedidos">("crear");
+  // La vista vive en la URL: el drawer y la barra inferior navegan ahi.
+  const searchParams = useSearchParams();
+  const vistaActiva: "crear" | "pedidos" =
+    searchParams.get("vista") === "pedidos" ? "pedidos" : "crear";
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [loadingOrdenes, setLoadingOrdenes] = useState(false);
@@ -62,7 +68,9 @@ export default function DigitalPage() {
   // Los pedidos digitales (para_llevar / domicilio) se pueden cobrar desde cualquier
   // estado activo — el pago se confirma al entregar o al recoger.
   const puedeOrdenCobrarse = (o: Orden): boolean =>
-    !o.cobrada && o.estado !== "cancelada";
+    !o.cobrada &&
+    o.estado !== "cancelada" &&
+    o.estado !== "pendiente_aprobacion_stock";
 
   const pedidosPorCobrar = ordenes.filter(puedeOrdenCobrarse);
 
@@ -96,6 +104,7 @@ export default function DigitalPage() {
           metodoPago: metodoPagoSeleccionado,
           cobradaPor: usuario?.nombre ?? "",
           expectedRevision: ordenACobrar.printRevision,
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
       if (res.ok) {
@@ -131,68 +140,27 @@ export default function DigitalPage() {
   if (!usuario) return null;
 
   return (
-    <div>
-      {/* Header con navegación */}
-      <div className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setVistaActiva("crear")}
-              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                vistaActiva === "crear"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              }`}
-            >
-              ➕ Nuevo Pedido
-            </button>
-            <button
-              onClick={() => setVistaActiva("pedidos")}
-              className={`relative px-4 py-2 rounded-lg font-semibold transition-colors ${
-                vistaActiva === "pedidos"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              }`}
-            >
-              📋 Mis Pedidos
-              {pedidosPorCobrar.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {pedidosPorCobrar.length}
-                </span>
-              )}
-            </button>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-white">
-              📱 <span className="font-bold">{usuario.nombre}</span>
-            </span>
-            <button
-              onClick={logout}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Contenido */}
+    <AppShell
+      usuario={usuario}
+      onLogout={logout}
+      titulo={vistaActiva === "crear" ? "Nuevo pedido" : "Mis pedidos"}
+      activoId={vistaActiva}
+      badges={{ pedidos: pedidosPorCobrar.length }}
+      acciones={
+        vistaActiva === "pedidos" ? (
+          <button
+            onClick={cargarOrdenes}
+            className="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700"
+          >
+            🔄 Actualizar
+          </button>
+        ) : undefined
+      }
+    >
       {vistaActiva === "crear" ? (
         <CrearOrden />
       ) : (
         <div className="p-6 max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">
-              Mis Pedidos Activos
-            </h1>
-            <button
-              onClick={cargarOrdenes}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-            >
-              🔄 Actualizar
-            </button>
-          </div>
-
           {loadingOrdenes ? (
             <div className="text-center py-12">Cargando pedidos...</div>
           ) : ordenes.length === 0 ? (
@@ -357,6 +325,14 @@ export default function DigitalPage() {
                         {puedeCobrarse && (
                           <button
                             onClick={() => {
+                              if (orden.cobroUrl) {
+                                const paymentUrl = new URL(
+                                  orden.cobroUrl,
+                                  window.location.origin,
+                                );
+                                window.location.assign(paymentUrl.pathname);
+                                return;
+                              }
                               setOrdenACobrar(orden);
                               // En domicilio ya se acordó la modalidad al crear;
                               // se puede cambiar, pero queda registrado el override.
@@ -395,7 +371,7 @@ export default function DigitalPage() {
 
       {/* Modal Cobrar */}
       {ordenACobrar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
             <h3 className="text-xl font-bold mb-2 text-gray-800">
               💵 Cobrar Pedido
@@ -493,6 +469,14 @@ export default function DigitalPage() {
           usuario={usuario}
         />
       )}
-    </div>
+    </AppShell>
+  );
+}
+
+export default function DigitalPage() {
+  return (
+    <Suspense fallback={null}>
+      <DigitalContenido />
+    </Suspense>
   );
 }

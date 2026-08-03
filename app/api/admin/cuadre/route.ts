@@ -1,29 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { normalizarNombre } from '@/lib/admin-validaciones';
-
-const FECHA_LOCAL = /^\d{4}-\d{2}-\d{2}$/;
-
-function obtenerRangoEcuador(fecha: string): { inicio: Date; fin: Date } | null {
-  if (!FECHA_LOCAL.test(fecha)) return null;
-
-  const [year, month, day] = fecha.split('-').map(Number);
-  const inicio = new Date(Date.UTC(year, month - 1, day, 5));
-
-  // Evita aceptar fechas que Date normalizaria silenciosamente (p. ej. 31/02).
-  const fechaValidada = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Guayaquil',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(inicio);
-  if (fechaValidada !== fecha) return null;
-
-  return { inicio, fin: new Date(inicio.getTime() + 24 * 60 * 60 * 1000) };
-}
+import { ZONA_HORARIA, obtenerRangoEcuador } from '@/lib/fecha-ecuador';
+import { RETIRO_SELECT, serializarRetiro } from '@/lib/retiros';
+import { getAuthenticatedUser } from '@/lib/session';
+import { isConfirmedPaymentInRange } from '@/lib/cuadre-date';
 
 export async function GET(request: Request) {
   try {
+    const usuario = await getAuthenticatedUser();
+    if (!usuario) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+    if (usuario.rol !== 'admin') {
+      return NextResponse.json({ error: 'Solo administradores' }, { status: 403 });
+    }
     const { searchParams } = new URL(request.url);
     const fecha = searchParams.get('fecha');
 
@@ -36,15 +27,40 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Fecha inválida' }, { status: 400 });
     }
 
-    const [ordenes, usuarios] = await Promise.all([
+    // Los retiros viajan con las ordenes y con el mismo rango: una sola vuelta
+    // y una sola definicion de "el dia" para las dos mitades de la caja.
+    const [ordenes, usuarios, retiros] = await Promise.all([
       prisma.orden.findMany({
         where: {
-          createdAt: {
-            gte: rango.inicio,
-            lt: rango.fin,
-          },
+          OR: [
+            {
+              createdAt: {
+                gte: rango.inicio,
+                lt: rango.fin,
+              },
+            },
+            {
+              fechaCobro: {
+                gte: rango.inicio,
+                lt: rango.fin,
+              },
+            },
+            {
+              cobro: {
+                is: {
+                  createdAt: {
+                    gte: rango.inicio,
+                    lt: rango.fin,
+                  },
+                },
+              },
+            },
+          ],
         },
         include: {
+          cobro: {
+            select: { createdAt: true, estado: true },
+          },
           creador: {
             select: { id: true, nombre: true, rol: true },
           },
@@ -59,6 +75,16 @@ export async function GET(request: Request) {
       prisma.usuario.findMany({
         select: { id: true, nombre: true, rol: true },
       }),
+      prisma.retiroCaja.findMany({
+        where: {
+          createdAt: {
+            gte: rango.inicio,
+            lt: rango.fin,
+          },
+        },
+        select: RETIRO_SELECT,
+        orderBy: { createdAt: 'desc' },
+      }),
     ]);
 
     // Las órdenes anteriores a `creadorId` se recuperan por el nombre legado.
@@ -69,8 +95,22 @@ export async function GET(request: Request) {
       const creadorInferido = usuariosPorNombre.get(
         normalizarNombre(orden.mesero),
       );
+      const cobradaEnFecha = isConfirmedPaymentInRange(orden, rango);
+      const {
+        cobroTokenHash: _privateTokenHash,
+        cobro: _privatePayment,
+        ...safeOrder
+      } = orden;
+      void _privateTokenHash;
+      void _privatePayment;
       return {
-        ...orden,
+        ...safeOrder,
+        // El cuadre es por fecha del movimiento, no por el estado actual. Asi una
+        // orden creada ayer y cobrada hoy no aparece cobrada en ambos cierres.
+        cobrada: cobradaEnFecha,
+        metodoPago: cobradaEnFecha ? orden.metodoPago : null,
+        fechaCobro: cobradaEnFecha ? orden.fechaCobro : null,
+        estadoCobro: orden.cobro?.estado ?? null,
         creadorNombre:
           orden.creador?.nombre ?? creadorInferido?.nombre ?? orden.mesero,
         creadorRol:
@@ -83,8 +123,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       fecha,
-      zonaHoraria: 'America/Guayaquil',
+      zonaHoraria: ZONA_HORARIA,
       ordenes: ordenesConCreador,
+      retiros: retiros.map(serializarRetiro),
     });
   } catch (error) {
     console.error('Error en cuadre:', error);

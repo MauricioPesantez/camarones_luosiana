@@ -47,6 +47,35 @@ export function obtenerEtiquetaNivelPicante(nivel: NivelPicante): string {
   return NIVELES_PICANTE.find((opcion) => opcion.value === nivel)?.label ?? nivel;
 }
 
+/**
+ * Costo de envio contenido en el total de una orden.
+ *
+ * Ese dinero NUNCA es ingreso del local: en efectivo el motorizado se lo queda
+ * al liquidar, y en transferencia entra al banco pero se le devuelve en
+ * efectivo. Fuera de domicilio siempre es 0, sin importar lo que traiga el
+ * campo. Unica fuente de esta regla: el cuadre y la interfaz la usan igual.
+ */
+export function obtenerCostoEnvio(orden: {
+  tipoOrden?: string | null;
+  costoEnvio?: number | string | null;
+}): number {
+  if (orden.tipoOrden !== 'domicilio') return 0;
+  const costo = Number(orden.costoEnvio ?? 0);
+  return Number.isFinite(costo) && costo > 0 ? costo : 0;
+}
+
+/** Parte del total que si le pertenece al local: todo menos el envio. */
+export function calcularVentaPropia(orden: {
+  tipoOrden?: string | null;
+  total: number | string;
+  costoEnvio?: number | string | null;
+}): number {
+  const centavos =
+    Math.round(Number(orden.total ?? 0) * 100) -
+    Math.round(obtenerCostoEnvio(orden) * 100);
+  return centavos / 100;
+}
+
 export type MetodoPago = 'efectivo' | 'transferencia';
 
 export const METODOS_PAGO: MetodoPago[] = ['efectivo', 'transferencia'];
@@ -136,6 +165,8 @@ export interface CrearOrdenRequest {
   telefonoCliente?: string;
   costoEnvio?: number;
   metodoPagoPrevisto?: MetodoPago;
+  /** Confirmación operativa de que el dinero ya ingresó al crear el domicilio. */
+  transferenciaConfirmada?: boolean;
   // Comunes
   mesero: string;
   /** Usuario autenticado que crea la orden. */
@@ -176,6 +207,8 @@ export interface OrdenConStock {
   cobrada: boolean;
   fechaCobro: Date | null;
   cobradaPor: string | null;
+  cobradaPorId?: string | null;
+  cobroUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
   impresa: boolean;
@@ -183,9 +216,12 @@ export interface OrdenConStock {
 
 export interface CobrarOrdenRequest {
   metodoPago: MetodoPago;
-  cobradaPor: string;
   /** Evita cobrar un total que cambió mientras el modal estaba abierto. */
   expectedRevision: number;
+  /** Permite reintentar la misma confirmación sin duplicar el movimiento. */
+  idempotencyKey: string;
+  /** Se llenará cuando la integración S3 confirme el objeto. */
+  comprobanteTransferenciaKey?: string;
 }
 
 export interface AprobarOrdenRequest {

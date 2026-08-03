@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { RechazarOrdenRequest } from '@/types/orden';
+import { getAuthenticatedUser } from '@/lib/session';
+
+class RejectionConflictError extends Error {}
 
 export async function POST(request: NextRequest) {
   try {
+    const admin = await getAuthenticatedUser();
+    if (!admin) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+    if (admin.rol !== 'admin') {
+      return NextResponse.json({ error: 'Solo los administradores pueden rechazar órdenes' }, { status: 403 });
+    }
     const body: RechazarOrdenRequest = await request.json();
-    const { ordenId, adminId, razon } = body;
+    const { ordenId, razon } = body;
 
-    if (!ordenId || !adminId) {
+    if (!ordenId) {
       return NextResponse.json(
-        { error: 'Se requieren ordenId y adminId' },
+        { error: 'Se requiere ordenId' },
         { status: 400 }
       );
     }
@@ -33,32 +43,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar que el admin existe y es admin
-    const admin = await prisma.usuario.findUnique({
-      where: { id: adminId },
-    });
-
-    if (!admin) {
-      return NextResponse.json(
-        { error: 'Administrador no encontrado' },
-        { status: 404 }
-      );
-    }
-
-    if (admin.rol !== 'admin') {
-      return NextResponse.json(
-        { error: 'Solo los administradores pueden rechazar órdenes' },
-        { status: 403 }
-      );
-    }
-
     // Cambiar el estado de la orden a cancelada
     const ordenRechazada = await prisma.$transaction(async (tx) => {
-      const ordenActualizada = await tx.orden.update({
-        where: { id: ordenId },
+      const transition = await tx.orden.updateMany({
+        where: {
+          id: ordenId,
+          estado: 'pendiente_aprobacion_stock',
+        },
         data: {
           estado: 'cancelada',
         },
+      });
+      if (transition.count !== 1) {
+        throw new RejectionConflictError(
+          'La orden ya fue aprobada o rechazada por otra solicitud.',
+        );
+      }
+      const ordenActualizada = await tx.orden.findUniqueOrThrow({
+        where: { id: ordenId },
       });
 
       // Registrar en el historial
@@ -75,6 +77,13 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      if (ordenActualizada.cobrada) {
+        await tx.cobro.updateMany({
+          where: { ordenId, estado: 'CONFIRMADO' },
+          data: { estado: 'REEMBOLSO_PENDIENTE' },
+        });
+      }
+
       return ordenActualizada;
     });
 
@@ -87,6 +96,9 @@ export async function POST(request: NextRequest) {
       mensaje: 'Orden rechazada exitosamente',
     });
   } catch (error) {
+    if (error instanceof RejectionConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     console.error('Error al rechazar orden:', error);
     return NextResponse.json(
       { error: 'Error al rechazar orden' },

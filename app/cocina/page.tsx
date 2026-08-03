@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import OrdenCard from "@/components/cocina/OrdenCard";
+import AppShell from "@/components/shell/AppShell";
 import { useAuth } from "@/lib/auth";
 import { NivelPicante } from "@/types/orden";
 
@@ -64,13 +65,6 @@ export default function CocinaPage() {
   const { usuario, loading: authLoading, logout } = useAuth("cocina");
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [notificacion, setNotificacion] = useState<Notificacion | null>(null);
-  const [permisoBrowser, setPermisoBrowser] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return (
-      typeof Notification !== "undefined" &&
-      Notification.permission === "default"
-    );
-  });
   const notificacionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Genera un doble pitido usando Web Audio API (sin archivos externos)
@@ -249,10 +243,20 @@ export default function CocinaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <AppShell
+      usuario={usuario}
+      onLogout={logout}
+      titulo="Monitor de cocina"
+      activoId="monitor"
+      // El item se retira solo del menú: AppShell observa el permiso.
+      onAccion={(id) => {
+        if (id === "notificaciones") void Notification.requestPermission();
+      }}
+    >
+      <div className="min-h-screen bg-gray-900">
       {/* Banner de notificación nueva orden (tiempo real via SSE) */}
       {notificacion && (
-        <div className="fixed top-0 left-0 right-0 z-50 shadow-2xl">
+        <div className="fixed top-0 left-0 right-0 z-40 shadow-2xl">
           <div className="bg-green-500 text-white px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <span className="text-3xl animate-bounce">🔔</span>
@@ -290,60 +294,24 @@ export default function CocinaPage() {
         </div>
       )}
 
-      {/* Header con usuario y controles */}
-      <div className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            {/* Botón para activar notificaciones nativas del navegador */}
-            {permisoBrowser && (
-              <button
-                onClick={() =>
-                  Notification.requestPermission().then((p) => {
-                    if (p !== "default") setPermisoBrowser(false);
-                  })
-                }
-                className="bg-yellow-500 text-white px-3 py-2 rounded-lg hover:bg-yellow-600 text-sm font-semibold"
-                title="Recibir notificaciones incluso con la pestaña en segundo plano"
-              >
-                🔔 Activar notificaciones
-              </button>
-            )}
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {ordenes.map((orden) => (
+              <OrdenCard
+                key={orden.id}
+                orden={orden}
+                onMarcarLista={(id) => cambiarEstado(id, "lista")}
+              />
+            ))}
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-white">
-              Usuario: <span className="font-bold">{usuario.nombre}</span>
-            </span>
-            <button
-              onClick={logout}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-            >
-              Cerrar Sesión
-            </button>
-          </div>
+
+          {ordenes.length === 0 && (
+            <div className="text-center text-white text-2xl mt-20">
+              No hay órdenes pendientes
+            </div>
+          )}
         </div>
       </div>
-
-      <div className="p-6">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white">Monitor de Cocina</h1>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {ordenes.map((orden) => (
-            <OrdenCard
-              key={orden.id}
-              orden={orden}
-              onMarcarLista={(id) => cambiarEstado(id, "lista")}
-            />
-          ))}
-        </div>
-
-        {ordenes.length === 0 && (
-          <div className="text-center text-white text-2xl mt-20">
-            No hay órdenes pendientes
-          </div>
-        )}
-      </div>
-    </div>
+    </AppShell>
   );
 }

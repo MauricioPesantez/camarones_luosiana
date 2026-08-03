@@ -499,6 +499,40 @@ def encode_ticket_lines(lines):
     return b"".join(chunks)
 
 
+def encode_esc_pos_qr(data):
+    value = str(data or "").encode("utf-8")
+    if not value or len(value) > 1024:
+        raise PrinterError("URL de cobro no valida", "INVALID_PAYMENT_URL")
+    store_length = len(value) + 3
+    return b"".join(
+        [
+            ALIGN_CENTER,
+            b"ESCANEA PARA COBRAR\n",
+            bytes(bytearray([GS, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00])),
+            bytes(bytearray([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x05])),
+            bytes(bytearray([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31])),
+            bytes(
+                bytearray(
+                    [
+                        GS,
+                        0x28,
+                        0x6B,
+                        store_length & 0xFF,
+                        (store_length >> 8) & 0xFF,
+                        0x31,
+                        0x50,
+                        0x30,
+                    ]
+                )
+            ),
+            value,
+            bytes(bytearray([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30])),
+            b"\nSe requiere iniciar sesion\n\n",
+            ALIGN_LEFT,
+        ]
+    )
+
+
 def encode_esc_pos_raster(width, height, rgba):
     if width <= 0 or width > 576:
         raise ValueError("El ancho del logo debe estar entre 1 y 576 pixeles")
@@ -571,7 +605,11 @@ def build_esc_pos_ticket(payload, logo_path=DEFAULT_LOGO_PATH, logo_raster=None)
     chunks = [bytes(bytearray([ESC, 0x40]))]
     if logo:
         chunks.extend([ALIGN_CENTER, logo, b"\n"])
-    chunks.extend([ALIGN_LEFT, text, bytes(bytearray([GS, 0x56, 0x00]))])
+    chunks.extend([ALIGN_LEFT, text])
+    payment_url = (payload.get("order") or {}).get("paymentUrl")
+    if payload.get("jobType") != "AMENDMENT" and payment_url:
+        chunks.append(encode_esc_pos_qr(payment_url))
+    chunks.append(bytes(bytearray([GS, 0x56, 0x00])))
     return b"".join(chunks)
 
 

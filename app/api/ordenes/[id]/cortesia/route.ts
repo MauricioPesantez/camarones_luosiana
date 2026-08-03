@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { notificarClientes } from '@/lib/sse';
+import { getAuthenticatedUser } from '@/lib/session';
 
 const ESTADOS_EDITABLES = ['pendiente', 'en_preparacion', 'lista', 'entregada'];
 
@@ -9,9 +10,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const admin = await getAuthenticatedUser();
+    if (!admin) {
+      return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    }
+    if (admin.rol !== 'admin') {
+      return NextResponse.json({ error: 'Solo los administradores pueden aplicar cortesías' }, { status: 403 });
+    }
     const { id } = await params;
     const body = await request.json();
-    const { productoId, cantidad, adminId, razon } = body;
+    const { productoId, cantidad, razon } = body;
 
     if (!productoId || !productoId.trim()) {
       return NextResponse.json({ error: 'El producto es requerido' }, { status: 400 });
@@ -19,19 +27,6 @@ export async function POST(
     if (!cantidad || cantidad < 1 || !Number.isInteger(cantidad)) {
       return NextResponse.json({ error: 'La cantidad debe ser un número entero mayor a 0' }, { status: 400 });
     }
-    if (!adminId || !adminId.trim()) {
-      return NextResponse.json({ error: 'El ID del administrador es requerido' }, { status: 400 });
-    }
-
-    // Verificar que el admin existe y tiene rol 'admin'
-    const admin = await prisma.usuario.findUnique({ where: { id: adminId } });
-    if (!admin) {
-      return NextResponse.json({ error: 'Administrador no encontrado' }, { status: 404 });
-    }
-    if (admin.rol !== 'admin') {
-      return NextResponse.json({ error: 'Solo los administradores pueden aplicar cortesías' }, { status: 403 });
-    }
-
     const orden = await prisma.orden.findUnique({
       where: { id },
       include: { items: true },

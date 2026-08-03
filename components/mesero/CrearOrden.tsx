@@ -48,6 +48,7 @@ export default function CrearOrden() {
   const [metodoPagoPrevisto, setMetodoPagoPrevisto] = useState<MetodoPago | "">(
     "",
   );
+  const [transferenciaConfirmada, setTransferenciaConfirmada] = useState(false);
   const [observaciones, setObservaciones] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("Todas");
   const [loading, setLoading] = useState(false);
@@ -262,6 +263,12 @@ export default function CrearOrden() {
       return "Ingresa el costo de envío";
     if (tipoOrden === "domicilio" && !metodoPagoPrevisto)
       return "Selecciona la modalidad de pago";
+    if (
+      tipoOrden === "domicilio" &&
+      metodoPagoPrevisto === "transferencia" &&
+      !transferenciaConfirmada
+    )
+      return "Confirma que la transferencia ya fue recibida";
     return null;
   };
 
@@ -302,6 +309,11 @@ export default function CrearOrden() {
             tipoOrden === "domicilio" ? parseFloat(costoEnvio) : undefined,
           metodoPagoPrevisto:
             tipoOrden === "domicilio" ? metodoPagoPrevisto : undefined,
+          transferenciaConfirmada:
+            tipoOrden === "domicilio" &&
+            metodoPagoPrevisto === "transferencia"
+              ? transferenciaConfirmada
+              : false,
           mesero: usuario?.nombre || "Desconocido",
           creadorId: usuario?.id,
           observaciones,
@@ -329,6 +341,7 @@ export default function CrearOrden() {
         setTelefonoCliente("");
         setCostoEnvio("");
         setMetodoPagoPrevisto("");
+        setTransferenciaConfirmada(false);
         setObservaciones("");
         setMostrarModalStock(false);
         setItemsSinStock([]);
@@ -391,6 +404,7 @@ export default function CrearOrden() {
                         setTelefonoCliente("");
                         setCostoEnvio("");
                         setMetodoPagoPrevisto("");
+                        setTransferenciaConfirmada(false);
                       }}
                       className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
                         tipoOrden === tipo
@@ -487,7 +501,12 @@ export default function CrearOrden() {
                       <button
                         key={metodo}
                         type="button"
-                        onClick={() => setMetodoPagoPrevisto(metodo)}
+                        onClick={() => {
+                          setMetodoPagoPrevisto(metodo);
+                          if (metodo !== "transferencia") {
+                            setTransferenciaConfirmada(false);
+                          }
+                        }}
                         className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
                           metodoPagoPrevisto === metodo
                             ? metodo === "efectivo"
@@ -511,11 +530,24 @@ export default function CrearOrden() {
                   </p>
                 )}
                 {metodoPagoPrevisto === "transferencia" && (
-                  <p className="text-xs text-gray-600 mt-2">
-                    El cliente transfiere ${calcularTotal().toFixed(2)} y el
-                    local le entrega ${calcularCostoEnvio().toFixed(2)} al
-                    motorizado.
-                  </p>
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-gray-600">
+                      El cliente transfiere ${calcularTotal().toFixed(2)} y el
+                      local le entrega ${calcularCostoEnvio().toFixed(2)} al
+                      motorizado.
+                    </p>
+                    <label className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-900">
+                      <input
+                        type="checkbox"
+                        checked={transferenciaConfirmada}
+                        onChange={(event) =>
+                          setTransferenciaConfirmada(event.target.checked)
+                        }
+                        className="mt-0.5 h-4 w-4"
+                      />
+                      Confirmo que la transferencia ya fue recibida por el local
+                    </label>
+                  </div>
                 )}
               </div>
             )}
@@ -792,7 +824,7 @@ export default function CrearOrden() {
               : carritoRef.current;
             destino?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
-          className="lg:hidden fixed right-5 bottom-5 z-40 rounded-full bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-xl transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+          className="lg:hidden fixed right-5 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 rounded-full bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-xl transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 md:bottom-5"
           aria-label={
             carritoAlcanzado
               ? "Volver al inicio de la creación de la orden"
@@ -804,7 +836,7 @@ export default function CrearOrden() {
 
         {/* Modal de Stock Insuficiente */}
         {mostrarModalStock && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h3 className="text-xl font-bold mb-4 text-red-600">
                 ⚠️ Stock Insuficiente

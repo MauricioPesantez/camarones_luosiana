@@ -2,19 +2,29 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import AppShell from "@/components/shell/AppShell";
 import DetalleOrdenModal from "@/components/admin/DetalleOrdenModal";
 import { ProductoStockBajo } from "@/types/stock";
 import {
   OrdenPendienteAprobacion,
   MetodoPago,
   type NivelPicante,
+  calcularVentaPropia,
+  obtenerCostoEnvio,
   obtenerEtiquetaNivelPicante,
 } from "@/types/orden";
 import { calcularResumenCuadre } from "@/types/cuadre";
+import { obtenerFechaEcuador } from "@/lib/fecha-ecuador";
 import { obtenerEtiquetaRol, ROLES } from "@/types/usuario";
+import {
+  ESTADO_RETIRO_ANULADO,
+  obtenerEtiquetaCategoriaRetiro,
+  type RetiroCaja,
+} from "@/types/retiro";
 
 interface Orden {
   id: string;
+  cobroUrl: string | null;
   printRevision: number;
   tipoOrden: string;
   numeroMesa: number | null;
@@ -48,15 +58,6 @@ interface Orden {
     observaciones?: string;
     nivelPicante?: NivelPicante | null;
   }[];
-}
-
-function obtenerFechaEcuador(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Guayaquil",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
 }
 
 function obtenerTituloOrden(orden: {
@@ -96,6 +97,10 @@ export default function AdminPage() {
   const [ordenParaAprobar, setOrdenParaAprobar] =
     useState<OrdenPendienteAprobacion | null>(null);
   const [razonAprobacion, setRazonAprobacion] = useState("");
+  const [retiros, setRetiros] = useState<RetiroCaja[]>([]);
+  const [retiroAAnular, setRetiroAAnular] = useState<RetiroCaja | null>(null);
+  const [razonAnulacion, setRazonAnulacion] = useState("");
+  const [loadingAnular, setLoadingAnular] = useState(false);
   const [ordenACobrar, setOrdenACobrar] = useState<Orden | null>(null);
   const [metodoPagoAdmin, setMetodoPagoAdmin] =
     useState<MetodoPago>("efectivo");
@@ -110,6 +115,7 @@ export default function AdminPage() {
         throw new Error(data.error || "Error al cargar el cuadre");
       }
       setOrdenes(data.ordenes || []);
+      setRetiros(data.retiros || []);
     } catch (error) {
       console.error("Error al cargar órdenes:", error);
     } finally {
@@ -207,6 +213,7 @@ export default function AdminPage() {
           metodoPago: metodoPagoAdmin,
           cobradaPor: usuario?.nombre ?? "",
           expectedRevision: ordenACobrar.printRevision,
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
       if (res.ok) {
@@ -279,6 +286,29 @@ export default function AdminPage() {
     };
   };
 
+  const anularRetiro = async () => {
+    if (!retiroAAnular || !usuario) return;
+    setLoadingAnular(true);
+    try {
+      const res = await fetch(`/api/retiros/${retiroAAnular.id}/anular`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ razon: razonAnulacion }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Error al anular el retiro");
+      }
+      setRetiroAAnular(null);
+      setRazonAnulacion("");
+      await cargarOrdenes();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Error al anular el retiro");
+    } finally {
+      setLoadingAnular(false);
+    }
+  };
+
   const creadoresDisponibles = Array.from(
     new Map(
       ordenes
@@ -305,7 +335,25 @@ export default function AdminPage() {
         (estadoCobroFiltro === "cobradas" && orden.cobrada) ||
         (estadoCobroFiltro === "sin_cobrar" && !orden.cobrada)),
   );
-  const resumenCuadre = calcularResumenCuadre(ordenesFiltradas);
+  // Un retiro no tiene tipo de orden ni estado de cobro. Si esos filtros estan
+  // activos, mezclar todos los retiros con un subconjunto de las ventas daria
+  // un efectivo en caja sin significado: mejor dejarlos fuera y avisarlo.
+  const filtrosDeOrdenActivos =
+    tipoOrdenFiltro !== "todos" || estadoCobroFiltro !== "todos";
+
+  // La tabla siempre muestra los retiros de quien se este filtrando; lo que
+  // cambia es si entran o no al calculo de la caja.
+  const retirosVisibles = retiros.filter(
+    (retiro) =>
+      (rolCreadorFiltro === "todos" || retiro.usuarioRol === rolCreadorFiltro) &&
+      (usuarioCreadorFiltro === "todos" ||
+        retiro.usuarioNombre === usuarioCreadorFiltro),
+  );
+
+  const resumenCuadre = calcularResumenCuadre(
+    ordenesFiltradas,
+    filtrosDeOrdenActivos ? [] : retirosVisibles,
+  );
 
   const ordenesPorEstado = {
     pendiente: ordenesFiltradas.filter(
@@ -321,45 +369,17 @@ export default function AdminPage() {
 
   // Calcular estadísticas de tiempo (usadas por fila)
 
-  return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800">
-            Panel de Administración
-          </h1>
-          <div className="flex items-center gap-4">
-            <a
-              href="/admin/reportes"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold"
-            >
-              📊 Reportes
-            </a>
-            <a
-              href="/admin/productos"
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold"
-            >
-              📦 Productos
-            </a>
-            <a
-              href="/admin/usuarios"
-              className="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-semibold"
-            >
-              👥 Usuarios
-            </a>
-            <span className="text-gray-600">
-              Admin: <span className="font-bold">{usuario?.nombre}</span>
-            </span>
-            <button
-              onClick={logout}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-        </div>
+  if (!usuario) return null;
 
+  return (
+    <AppShell
+      usuario={usuario}
+      onLogout={logout}
+      titulo="Cuadre de caja"
+      activoId="cuadre"
+    >
+      <div className="min-h-screen bg-gray-100 p-6">
+        <div className="max-w-7xl mx-auto">
         {/* Filtros del cuadre */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
@@ -577,7 +597,7 @@ export default function AdminPage() {
 
         {/* Modal de Aprobación */}
         {mostrarModalAprobacion && ordenParaAprobar && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h3 className="text-xl font-bold mb-4">
                 Aprobar Orden sin Stock
@@ -639,13 +659,13 @@ export default function AdminPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="rounded-lg bg-violet-500 p-4 text-white">
               <h3 className="text-sm font-semibold text-violet-50">
-                🧾 Monto total de órdenes
+                🧾 Venta del local
               </h3>
               <p className="mt-1 text-3xl font-black">
-                ${resumenCuadre.montoTotalOrdenes.toFixed(2)}
+                ${resumenCuadre.ventasTotales.toFixed(2)}
               </p>
               <p className="mt-2 text-xs text-violet-50">
-                Incluye órdenes cobradas y no cobradas según los filtros
+                Cobradas y no cobradas, sin el envío del motorizado
               </p>
             </div>
             <div className="rounded-lg bg-amber-500 p-4 text-white">
@@ -653,13 +673,17 @@ export default function AdminPage() {
                 ⏳ Pendiente por cobrar
               </h3>
               <p className="mt-1 text-3xl font-black">
-                ${resumenCuadre.montoSinCobrar.toFixed(2)}
+                ${resumenCuadre.ventasSinCobrar.toFixed(2)}
               </p>
               <p className="mt-2 text-xs text-amber-50">
-                Total de las órdenes que todavía no registran pago
+                Venta de las órdenes que todavía no registran pago
               </p>
             </div>
-            <div className="rounded-lg bg-emerald-500 p-4 text-white">
+            <div
+              className={`rounded-lg p-4 text-white ${
+                resumenCuadre.efectivoEnCaja < 0 ? "bg-red-600" : "bg-emerald-500"
+              }`}
+            >
               <h3 className="text-sm font-semibold text-emerald-50">
                 💰 Efectivo que debe haber en caja
               </h3>
@@ -667,29 +691,47 @@ export default function AdminPage() {
                 ${resumenCuadre.efectivoEnCaja.toFixed(2)}
               </p>
               <p className="mt-2 text-xs text-emerald-50">
-                Ventas + cobros a motorizados − entregas a motorizados
+                Ventas + cobros a motorizados − entregas a motorizados − retiros
               </p>
+              {filtrosDeOrdenActivos && (
+                <p className="mt-2 rounded bg-black/20 px-2 py-1 text-xs">
+                  ⚠️ Retiros excluidos por los filtros de orden aplicados
+                </p>
+              )}
             </div>
             <div className="rounded-lg bg-blue-500 p-4 text-white">
               <h3 className="text-sm font-semibold text-blue-50">
-                🏦 Transferencias del día
+                🏦 Ventas por transferencia
               </h3>
               <p className="mt-1 text-3xl font-black">
-                ${resumenCuadre.transferencias.toFixed(2)}
+                ${resumenCuadre.transferenciasVentas.toFixed(2)}
               </p>
               <p className="mt-2 text-xs text-blue-50">
-                Valor que debería constar en las cuentas bancarias
+                Ingreso propio depositado, sin el envío del motorizado
+              </p>
+            </div>
+            <div className="rounded-lg bg-sky-700 p-4 text-white">
+              <h3 className="text-sm font-semibold text-sky-100">
+                🧾 Recibido en el banco
+              </h3>
+              <p className="mt-1 text-3xl font-black">
+                ${resumenCuadre.depositosRecibidos.toFixed(2)}
+              </p>
+              <p className="mt-2 text-xs text-sky-100">
+                Lo que debe constar en el extracto: incluye $
+                {resumenCuadre.efectivoEntregadoMotorizados.toFixed(2)} de envío
+                que se devuelve en efectivo
               </p>
             </div>
             <div className="rounded-lg border border-slate-600 bg-slate-800 p-4 text-white">
               <h3 className="text-sm font-semibold text-slate-300">
-                Total cobrado a clientes
+                Venta cobrada
               </h3>
               <p className="mt-1 text-3xl font-black">
-                ${resumenCuadre.totalCobrado.toFixed(2)}
+                ${resumenCuadre.ventasCobradas.toFixed(2)}
               </p>
               <p className="mt-2 text-xs text-slate-400">
-                Incluye el envío que finalmente corresponde al motorizado
+                Órdenes con pago registrado, sin el envío
               </p>
             </div>
             <div className="rounded-lg border border-slate-600 bg-slate-800 p-4">
@@ -714,8 +756,210 @@ export default function AdminPage() {
                 -${resumenCuadre.efectivoEntregadoMotorizados.toFixed(2)}
               </p>
             </div>
+            <div className="rounded-lg border border-slate-600 bg-slate-800 p-4">
+              <h3 className="text-xs text-slate-300">💸 Retiros de caja</h3>
+              <p className="mt-1 text-xl font-bold text-amber-300">
+                -${resumenCuadre.retirosEfectivo.toFixed(2)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {resumenCuadre.cantidadRetiros} vigente
+                {resumenCuadre.cantidadRetiros === 1 ? "" : "s"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-dashed border-slate-600 bg-slate-800 p-4">
+              <h3 className="text-xs text-slate-300">
+                📦 Envíos que no son del local
+              </h3>
+              <p className="mt-1 text-xl font-bold text-slate-400">
+                ${resumenCuadre.enviosMotorizados.toFixed(2)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Dinero del motorizado. Fuera de toda cifra de venta
+              </p>
+            </div>
+            {resumenCuadre.montoReembolsoPendiente > 0 && (
+              <div className="rounded-lg border border-red-400 bg-red-950 p-4">
+                <h3 className="text-xs font-semibold text-red-200">
+                  ⚠️ Reembolsos pendientes
+                </h3>
+                <p className="mt-1 text-xl font-bold text-red-200">
+                  ${resumenCuadre.montoReembolsoPendiente.toFixed(2)}
+                </p>
+                <p className="mt-2 text-xs text-red-300">
+                  Dinero recibido que todavía debe devolverse al cliente
+                </p>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Retiros de caja */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="px-6 py-4 border-b flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">
+                💸 Retiros de caja
+              </h2>
+              <p className="text-sm text-gray-600">
+                Efectivo que los empleados sacaron para gastos del local
+              </p>
+            </div>
+            {filtrosDeOrdenActivos && retiros.length > 0 && (
+              <p className="text-sm text-amber-700">
+                ⚠️ Fuera del cuadre por los filtros de orden aplicados
+              </p>
+            )}
+          </div>
+
+          {retirosVisibles.length === 0 ? (
+            <p className="px-6 py-8 text-center text-gray-500">
+              No hay retiros registrados en esta fecha
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Hora
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Registró
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Categoría
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Motivo
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Monto
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Estado
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {retirosVisibles.map((retiro) => {
+                    const anulado = retiro.estado === ESTADO_RETIRO_ANULADO;
+                    return (
+                      <tr
+                        key={retiro.id}
+                        className={anulado ? "bg-gray-50 text-gray-400" : ""}
+                      >
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {new Date(retiro.createdAt).toLocaleTimeString(
+                            "es-EC",
+                            { hour: "2-digit", minute: "2-digit" },
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <span className="font-semibold text-gray-800">
+                            {retiro.usuarioNombre}
+                          </span>
+                          <span className="block text-xs text-gray-500">
+                            {obtenerEtiquetaRol(retiro.usuarioRol)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {obtenerEtiquetaCategoriaRetiro(retiro.categoria)}
+                          {retiro.beneficiarioNombre && (
+                            <span className="block text-xs text-gray-500">
+                              para {retiro.beneficiarioNombre}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700 max-w-xs">
+                          {retiro.motivo}
+                        </td>
+                        <td
+                          className={`px-6 py-4 text-sm font-bold ${
+                            anulado ? "line-through" : "text-amber-700"
+                          }`}
+                        >
+                          -${Number(retiro.monto).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          {anulado ? (
+                            <div>
+                              <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600">
+                                Anulado
+                              </span>
+                              <span className="block text-xs text-gray-500 mt-1">
+                                {retiro.anuladoPorNombre}
+                                {retiro.razonAnulacion
+                                  ? `: ${retiro.razonAnulacion}`
+                                  : ""}
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setRetiroAAnular(retiro);
+                                setRazonAnulacion("");
+                              }}
+                              className="bg-red-100 text-red-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-red-200"
+                            >
+                              Anular
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Modal de anulación de retiro */}
+        {retiroAAnular && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                Anular retiro
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {retiroAAnular.usuarioNombre} registró $
+                {Number(retiroAAnular.monto).toFixed(2)} por{" "}
+                {obtenerEtiquetaCategoriaRetiro(retiroAAnular.categoria)}. El
+                retiro no se borra: queda visible como anulado y deja de restar
+                de la caja.
+              </p>
+              <label className="block text-sm font-semibold text-gray-700 mb-4">
+                Razón de la anulación *
+                <textarea
+                  value={razonAnulacion}
+                  onChange={(e) => setRazonAnulacion(e.target.value)}
+                  rows={3}
+                  className="mt-1 block w-full border rounded-lg px-4 py-2 text-black"
+                  placeholder="Ej: Se registró dos veces el mismo gasto"
+                />
+              </label>
+              <div className="flex gap-3">
+                <button
+                  onClick={anularRetiro}
+                  disabled={loadingAnular || razonAnulacion.trim() === ""}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:bg-gray-400 font-semibold"
+                >
+                  {loadingAnular ? "Anulando..." : "Confirmar anulación"}
+                </button>
+                <button
+                  onClick={() => {
+                    setRetiroAAnular(null);
+                    setRazonAnulacion("");
+                  }}
+                  disabled={loadingAnular}
+                  className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Estadísticas operativas */}
         <div className="grid grid-cols-3 gap-4 mb-6">
@@ -778,7 +1022,7 @@ export default function AdminPage() {
                       Tiempo Entrega
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Total
+                      Venta
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Pago
@@ -885,7 +1129,13 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm font-bold text-gray-800">
-                          ${Number(orden.total).toFixed(2)}
+                          ${calcularVentaPropia(orden).toFixed(2)}
+                          {obtenerCostoEnvio(orden) > 0 && (
+                            <span className="block text-xs font-normal text-gray-500">
+                              +${obtenerCostoEnvio(orden).toFixed(2)} envío ·
+                              cliente paga ${Number(orden.total).toFixed(2)}
+                            </span>
+                          )}
                         </td>
                         <td
                           className="px-6 py-4 text-sm"
@@ -926,12 +1176,21 @@ export default function AdminPage() {
                                 </span>
                               )}
                             </div>
-                          ) : orden.estado !== "cancelada" ? (
+                          ) : orden.estado !== "cancelada" &&
+                            orden.estado !== "pendiente_aprobacion_stock" ? (
                             ((!orden.tipoOrden || orden.tipoOrden === "local")
                               ? ["lista", "entregada"].includes(orden.estado)
                               : true) ? (
                               <button
                                 onClick={() => {
+                                  if (orden.cobroUrl) {
+                                    const paymentUrl = new URL(
+                                      orden.cobroUrl,
+                                      window.location.origin,
+                                    );
+                                    window.location.assign(paymentUrl.pathname);
+                                    return;
+                                  }
                                   setOrdenACobrar(orden);
                                   setMetodoPagoAdmin("efectivo");
                                 }}
@@ -974,7 +1233,7 @@ export default function AdminPage() {
 
       {/* Modal Cobrar (Admin) */}
       {ordenACobrar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
             <h3 className="text-xl font-bold mb-2 text-gray-800">
               💵 Cobrar Orden
@@ -1035,6 +1294,7 @@ export default function AdminPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AppShell>
   );
 }
