@@ -30,7 +30,7 @@ function validateOrderCanBePaid(order: {
   estado: string;
   tipoOrden: string;
   printRevision: number;
-}, expectedRevision: number): void {
+}, expectedRevision: number, origen: 'qr' | 'lista'): void {
   if (order.cobrada) throw new PaymentConflictError('Esta orden ya fue cobrada');
   if (order.estado === 'cancelada') {
     throw new PaymentValidationError('No se puede cobrar una orden cancelada');
@@ -45,11 +45,16 @@ function validateOrderCanBePaid(order: {
       'La orden cambió. Recárgala y confirma el total actualizado.',
     );
   }
-  const esLocal = !order.tipoOrden || order.tipoOrden === 'local';
-  if (esLocal && !['lista', 'entregada', 'cobrada'].includes(order.estado)) {
-    throw new PaymentValidationError(
-      'Las órdenes de mesa solo se pueden cobrar cuando estén listas o entregadas',
-    );
+  // El cobro por enlace (QR) puede cerrar el pago en cualquier estado operativo:
+  // basta con que la orden exista, no esté cobrada, cancelada ni pendiente de stock.
+  // El cobro desde la lista interna mantiene la regla de mesa lista/entregada.
+  if (origen === 'lista') {
+    const esLocal = !order.tipoOrden || order.tipoOrden === 'local';
+    if (esLocal && !['lista', 'entregada', 'cobrada'].includes(order.estado)) {
+      throw new PaymentValidationError(
+        'Las órdenes de mesa solo se pueden cobrar cuando estén listas o entregadas',
+      );
+    }
   }
 }
 
@@ -91,15 +96,22 @@ export async function collectOrderPayment(input: {
   if (!canUserCollectOrder(input.user, existing)) {
     throw new PaymentForbiddenError('No puedes cobrar una orden de otro usuario');
   }
-  validateOrderCanBePaid(existing, input.expectedRevision);
+  validateOrderCanBePaid(existing, input.expectedRevision, input.origen);
 
-  const nuevoEstado = ['lista', 'entregada', 'cobrada'].includes(existing.estado)
-    ? 'cobrada'
-    : existing.estado;
+  // Al cobrar por enlace (QR) la orden se cierra como `cobrada` sin importar el
+  // tipo ni el estado operativo previo. Desde la lista interna se conserva el
+  // comportamiento previo (solo pasa a `cobrada` si ya estaba lista/entregada).
+  const nuevoEstado =
+    input.origen === 'qr' ||
+    ['lista', 'entregada', 'cobrada'].includes(existing.estado)
+      ? 'cobrada'
+      : existing.estado;
   const estadosCobrables =
-    !existing.tipoOrden || existing.tipoOrden === 'local'
-      ? ['lista', 'entregada']
-      : ['pendiente', 'en_preparacion', 'lista', 'entregada'];
+    input.origen === 'qr'
+      ? ['pendiente', 'en_preparacion', 'lista', 'entregada']
+      : !existing.tipoOrden || existing.tipoOrden === 'local'
+        ? ['lista', 'entregada']
+        : ['pendiente', 'en_preparacion', 'lista', 'entregada'];
   const movimientos = calcularMovimientosCobro({
     tipoOrden: existing.tipoOrden,
     total: existing.total.toString(),

@@ -71,12 +71,9 @@ export default async function CobrarOrdenPage({
   if (orden.estado === 'pendiente_aprobacion_stock') {
     redirect(roleOrdersHome(usuario.rol, 'pendiente_aprobacion'));
   }
-  if (
-    (!orden.tipoOrden || orden.tipoOrden === 'local') &&
-    !['lista', 'entregada'].includes(orden.estado)
-  ) {
-    redirect(roleOrdersHome(usuario.rol, 'aun_no_lista'));
-  }
+  // El cobro por enlace (QR) permite cerrar el pago en cualquier estado operativo,
+  // sin importar el tipo de orden. Basta con que exista, no esté cobrada, cancelada
+  // ni pendiente de aprobación por stock.
 
   const serializableOrder = {
     ...orden,

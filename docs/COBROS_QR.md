@@ -15,7 +15,7 @@
 - `total = productos + recipientes + envío`.
 - Domicilio en efectivo: el local recibe `total - envío`; el motorizado conserva el envío.
 - Domicilio por transferencia: el local recibe el total por transferencia y entrega el envío en efectivo al motorizado.
-- Un pedido pagado anticipadamente conserva su estado operativo de cocina. `cobrada` representa el cierre financiero; `estado` representa preparación/entrega.
+- El cobro por enlace (QR) puede realizarse en cualquier estado operativo, sin importar el tipo de orden, siempre que la orden exista y no esté cobrada, cancelada ni pendiente de aprobación por stock. Al confirmar el pago, la orden se cierra como `cobrada` (marcada como lista y cobrada). El cobro desde la lista interna mantiene la regla previa: las órdenes de mesa solo se cobran cuando están listas o entregadas.
 - `Cobro` guarda snapshots inmutables de total, envío, efectivo recibido, efectivo entregado y transferencia recibida.
 - Si una transferencia confirmada queda sin stock y el admin rechaza la orden, el cobro pasa a `REEMBOLSO_PENDIENTE`; el cuadre mantiene visible el dinero recibido y muestra la obligación de devolución.
 
