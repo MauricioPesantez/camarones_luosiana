@@ -824,7 +824,7 @@ export default function CrearOrden() {
               : carritoRef.current;
             destino?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
-          className="lg:hidden fixed right-5 bottom-5 z-40 rounded-full bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-xl transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+          className="lg:hidden fixed right-5 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 rounded-full bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-xl transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 md:bottom-5"
           aria-label={
             carritoAlcanzado
               ? "Volver al inicio de la creación de la orden"
@@ -836,7 +836,7 @@ export default function CrearOrden() {
 
         {/* Modal de Stock Insuficiente */}
         {mostrarModalStock && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h3 className="text-xl font-bold mb-4 text-red-600">
                 ⚠️ Stock Insuficiente

@@ -17,6 +17,7 @@
     "test:cuadre": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/cuadre.test.ts",
     "test:fecha-ecuador": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/fecha-ecuador.test.ts",
     "test:retiros-validaciones": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/retiros-validaciones.test.ts",
+    "test:navegacion": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/navegacion.test.ts",
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' prisma/seed.ts",
     "db:reset:preprod": "node scripts/reset-preproduction.mjs"
   },

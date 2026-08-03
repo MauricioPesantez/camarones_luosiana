@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import AppShell from "@/components/shell/AppShell";
 import DetalleOrdenModal from "@/components/admin/DetalleOrdenModal";
 import { ProductoStockBajo } from "@/types/stock";
 import {
@@ -368,45 +369,17 @@ export default function AdminPage() {
 
   // Calcular estadísticas de tiempo (usadas por fila)
 
-  return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800">
-            Panel de Administración
-          </h1>
-          <div className="flex items-center gap-4">
-            <a
-              href="/admin/reportes"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold"
-            >
-              📊 Reportes
-            </a>
-            <a
-              href="/admin/productos"
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold"
-            >
-              📦 Productos
-            </a>
-            <a
-              href="/admin/usuarios"
-              className="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 font-semibold"
-            >
-              👥 Usuarios
-            </a>
-            <span className="text-gray-600">
-              Admin: <span className="font-bold">{usuario?.nombre}</span>
-            </span>
-            <button
-              onClick={logout}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-        </div>
+  if (!usuario) return null;
 
+  return (
+    <AppShell
+      usuario={usuario}
+      onLogout={logout}
+      titulo="Cuadre de caja"
+      activoId="cuadre"
+    >
+      <div className="min-h-screen bg-gray-100 p-6">
+        <div className="max-w-7xl mx-auto">
         {/* Filtros del cuadre */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
@@ -624,7 +597,7 @@ export default function AdminPage() {
 
         {/* Modal de Aprobación */}
         {mostrarModalAprobacion && ordenParaAprobar && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h3 className="text-xl font-bold mb-4">
                 Aprobar Orden sin Stock
@@ -943,7 +916,7 @@ export default function AdminPage() {
 
         {/* Modal de anulación de retiro */}
         {retiroAAnular && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
             <div className="bg-white rounded-lg p-6 max-w-md w-full">
               <h3 className="text-xl font-bold text-gray-800 mb-2">
                 Anular retiro
@@ -1260,7 +1233,7 @@ export default function AdminPage() {
 
       {/* Modal Cobrar (Admin) */}
       {ordenACobrar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-2xl">
             <h3 className="text-xl font-bold mb-2 text-gray-800">
               💵 Cobrar Orden
@@ -1321,6 +1294,7 @@ export default function AdminPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AppShell>
   );
 }

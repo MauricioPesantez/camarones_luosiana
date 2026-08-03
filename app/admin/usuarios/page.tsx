@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import AppShell from "@/components/shell/AppShell";
 import { obtenerEtiquetaRol, UsuarioAdmin } from "@/types/usuario";
 import ModalFormulario from "@/components/admin/ModalFormulario";
 import FormularioUsuario from "@/components/admin/FormularioUsuario";
@@ -113,32 +114,13 @@ export default function UsuariosPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="sticky top-0 z-10 bg-white shadow-sm px-4 py-3">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold text-gray-800 leading-tight">Usuarios</h1>
-            <p className="text-xs text-gray-500 hidden sm:block">
-              Personal con acceso al sistema
-            </p>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={() => (window.location.href = "/admin")}
-              className="px-3 py-2 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 whitespace-nowrap"
-            >
-              ← Admin
-            </button>
-            <button
-              onClick={logout}
-              className="px-3 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 whitespace-nowrap"
-            >
-              Salir
-            </button>
-          </div>
-        </div>
-      </div>
-
+    <AppShell
+      usuario={usuario}
+      onLogout={logout}
+      titulo="Usuarios"
+      activoId="usuarios"
+    >
+      <div className="min-h-screen bg-gray-100">
       <div className="max-w-5xl mx-auto px-4 py-4">
         <div className="flex justify-between items-center mb-4">
           <span className="text-sm text-gray-500">
@@ -221,6 +203,7 @@ export default function UsuariosPage() {
           />
         </ModalFormulario>
       )}
-    </div>
+      </div>
+    </AppShell>
   );
 }
