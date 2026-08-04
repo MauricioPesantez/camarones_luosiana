@@ -100,6 +100,16 @@ assert.deepEqual(validarComprobante({ mime: "image/jpeg", size: 0, magicBytes: J
   codigo: "tamano",
 });
 
+// Non-finite sizes must be rejected.
+assert.deepEqual(validarComprobante({ mime: "image/jpeg", size: Number.NaN, magicBytes: JPEG }), {
+  ok: false,
+  codigo: "tamano",
+});
+assert.deepEqual(
+  validarComprobante({ mime: "image/jpeg", size: Number.POSITIVE_INFINITY, magicBytes: JPEG }),
+  { ok: false, codigo: "tamano" },
+);
+
 // Contenido que contradice el MIME declarado.
 assert.deepEqual(validarComprobante({ mime: "image/jpeg", size: 1000, magicBytes: PNG }), {
   ok: false,

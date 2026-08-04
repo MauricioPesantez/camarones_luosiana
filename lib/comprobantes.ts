@@ -65,7 +65,7 @@ export function validarComprobante(input: {
   // El navegador puede mandar `image/jpeg; charset=binary`.
   const mime = input.mime.split(';')[0].trim().toLowerCase();
   if (!esMimeComprobante(mime)) return { ok: false, codigo: 'mime' };
-  if (input.size <= 0 || input.size > MAX_COMPROBANTE_BYTES) {
+  if (!Number.isFinite(input.size) || input.size <= 0 || input.size > MAX_COMPROBANTE_BYTES) {
     return { ok: false, codigo: 'tamano' };
   }
   if (!firmaCoincide(mime, input.magicBytes)) {
