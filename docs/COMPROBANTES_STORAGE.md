@@ -64,6 +64,18 @@ leer un solo byte. No sirve como control real, porque está ausente cuando el cl
 usa chunked transfer-encoding y puede venir malformado. Por eso un 413 puede
 aparecer tanto antes de leer el cuerpo como a mitad de la lectura.
 
+## Techo de payload en Amplify
+
+El despliegue es AWS Amplify Hosting, donde el SSR de Next corre sobre Lambda:
+la invocación tiene un techo de payload de unos 6 MB, y es ese techo (no un
+límite propio del servidor) el que de verdad acota cuánto puede pesar la
+solicitud de subida. Los 5 MB de `validarComprobante` quedan cómodos por
+debajo. Hoy no es un problema porque la compresión en el navegador deja la
+imagen en unos 200 KB, pero el diseño asume ese margen: subir el objetivo de
+compresión, o mandar la foto original sin comprimir, chocaría con el techo de
+Lambda antes que con nuestra validación — y ahí ya no se ve nuestro mensaje de
+"La foto es muy pesada, repítela", sino un error genérico del gateway.
+
 ## Objetos huérfanos
 
 La subida ocurre antes de la transacción de cobro. Si el cobro falla después por

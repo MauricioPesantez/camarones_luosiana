@@ -7,10 +7,6 @@ export interface MovimientosCobro {
 }
 
 /**
- * Movimientos reales del local. En domicilio el envio pertenece al motorizado:
- * efectivo entra sin el envio; transferencia entra completa y el envio sale de caja.
- */
-/**
  * Lo que entra a la caja del local al cerrar el cobro, en el metodo elegido.
  *
  * Es el mismo numero que se asienta en `Cobro`, derivado de los movimientos para
@@ -27,6 +23,10 @@ export function montoACobrarEnCaja(input: {
   return movimientos.efectivoRecibido + movimientos.transferenciaRecibida;
 }
 
+/**
+ * Movimientos reales del local. En domicilio el envio pertenece al motorizado:
+ * efectivo entra sin el envio; transferencia entra completa y el envio sale de caja.
+ */
 export function calcularMovimientosCobro(input: {
   tipoOrden?: string | null;
   total: number | string;
