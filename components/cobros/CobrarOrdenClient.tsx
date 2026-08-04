@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { comprimirImagen } from "@/lib/imagen-cliente";
 import type { AuthenticatedUser } from "@/lib/session";
 import { montoACobrarEnCaja } from "@/types/cobro";
 import {
@@ -53,18 +54,22 @@ export default function CobrarOrdenClient({
   usuario,
   successUrl,
   cerrarAlFinalizar,
+  storageDisponible,
 }: {
   token: string;
   orden: CobroOrder;
   usuario: AuthenticatedUser;
   successUrl: string;
   cerrarAlFinalizar: boolean;
+  storageDisponible: boolean;
 }) {
   const router = useRouter();
   const idempotencyKey = useRef(crypto.randomUUID());
   const [confirmCash, setConfirmCash] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  const [falloSubida, setFalloSubida] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [cobrado, setCobrado] = useState<MetodoPago | null>(null);
@@ -89,7 +94,10 @@ export default function CobrarOrdenClient({
   });
   const esDomicilio = orden.tipoOrden === "domicilio";
 
-  const cobrar = async (metodoPago: MetodoPago) => {
+  const cobrar = async (
+    metodoPago: MetodoPago,
+    comprobanteTransferenciaKey?: string,
+  ) => {
     setLoading(true);
     setError("");
     try {
@@ -100,6 +108,7 @@ export default function CobrarOrdenClient({
           metodoPago,
           expectedRevision: orden.printRevision,
           idempotencyKey: idempotencyKey.current,
+          ...(comprobanteTransferenciaKey ? { comprobanteTransferenciaKey } : {}),
         }),
       });
       const data = await response.json();
@@ -123,6 +132,40 @@ export default function CobrarOrdenClient({
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Sube primero y cobra despues, con la key ya validada. Si el storage falla, el
+  // cobro no se bloquea: la pantalla ofrece reintentar o registrar sin
+  // comprobante, y el cuadre marca despues esa transferencia.
+  const subirYCobrar = async () => {
+    if (!photo) return;
+    setSubiendo(true);
+    setError("");
+    setFalloSubida(false);
+    try {
+      const comprimida = await comprimirImagen(photo);
+      const formData = new FormData();
+      formData.append(
+        "archivo",
+        new File([comprimida], "comprobante.jpg", { type: "image/jpeg" }),
+      );
+      const respuesta = await fetch(
+        `/api/cobros/${encodeURIComponent(token)}/comprobante`,
+        { method: "POST", body: formData },
+      );
+      const datos = await respuesta.json();
+      if (!respuesta.ok) throw new Error(datos.error || "No se pudo subir el comprobante");
+      setSubiendo(false);
+      await cobrar("transferencia", datos.objectKey);
+    } catch (subidaError) {
+      setSubiendo(false);
+      setFalloSubida(true);
+      setError(
+        subidaError instanceof Error
+          ? subidaError.message
+          : "No se pudo subir el comprobante",
+      );
     }
   };
 
@@ -271,17 +314,50 @@ export default function CobrarOrdenClient({
               />
             </label>
             {photo && (
-              <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                Foto seleccionada: <strong>{photo.name}</strong>. La carga persistente a S3 queda preparada para la siguiente fase; esta versión todavía no envía el archivo.
+              <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                Foto seleccionada: <strong>{photo.name}</strong>
               </div>
             )}
-            <button
-              onClick={() => void cobrar("transferencia")}
-              disabled={loading || !photo}
-              className="mt-4 w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
-            >
-              {loading ? "Registrando…" : "Confirmar transferencia"}
-            </button>
+            {!storageDisponible && (
+              <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                El almacenamiento de comprobantes no está configurado en este
+                entorno. Puedes registrar el cobro, pero la foto no se guardará.
+              </div>
+            )}
+            {falloSubida ? (
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={() => void subirYCobrar()}
+                  disabled={loading || subiendo}
+                  className="w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
+                >
+                  {subiendo ? "Subiendo…" : "Reintentar"}
+                </button>
+                <button
+                  onClick={() => void cobrar("transferencia")}
+                  disabled={loading || subiendo}
+                  className="w-full rounded-xl border border-amber-400 bg-amber-50 py-3 font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                >
+                  {loading ? "Registrando…" : "Registrar sin comprobante"}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() =>
+                  storageDisponible
+                    ? void subirYCobrar()
+                    : void cobrar("transferencia")
+                }
+                disabled={loading || subiendo || (storageDisponible && !photo)}
+                className="mt-4 w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
+              >
+                {subiendo
+                  ? "Subiendo comprobante…"
+                  : loading
+                    ? "Registrando…"
+                    : "Confirmar transferencia"}
+              </button>
+            )}
           </section>
         )}
       </div>
