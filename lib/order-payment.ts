@@ -108,15 +108,38 @@ export async function collectOrderPayment(input: {
   }
   validateOrderCanBePaid(existing, input.expectedRevision, input.origen);
 
-  // La key nunca se acepta como viene: tiene que tener la forma exacta que arma
-  // el servidor, apuntar a ESTA orden, y el objeto tiene que existir de verdad.
-  if (input.comprobanteTransferenciaKey) {
-    const parsed = parseComprobanteKey(input.comprobanteTransferenciaKey);
+  // La key nunca se acepta como viene: solo cuenta si es un string de verdad (no
+  // un array ni un objeto que coincidiera con el regex al coercionar), recortado.
+  // Vacío o de otro tipo se trata como ausente para no persistir "" en vez de null.
+  // Este es el valor resuelto que se usa en el resto de la función, nunca el input.
+  let comprobanteKey: string | null =
+    typeof input.comprobanteTransferenciaKey === 'string'
+      ? input.comprobanteTransferenciaKey.trim() || null
+      : null;
+
+  // Tiene que tener la forma exacta que arma el servidor, apuntar a ESTA orden,
+  // y el objeto tiene que existir de verdad.
+  if (comprobanteKey) {
+    const parsed = parseComprobanteKey(comprobanteKey);
     if (!parsed || parsed.ordenId !== input.orderId) {
       throw new PaymentValidationError('El comprobante no corresponde a esta orden');
     }
-    if (!(await objectExists(input.comprobanteTransferenciaKey))) {
-      throw new PaymentValidationError('El comprobante no se guardó, reintenta');
+    try {
+      if (!(await objectExists(comprobanteKey))) {
+        throw new PaymentValidationError('El comprobante no se guardó, reintenta');
+      }
+    } catch (error) {
+      if (error instanceof PaymentValidationError) throw error;
+      // El storage puede fallar por una causa que no es "el objeto no existe"
+      // (credenciales vencidas, endpoint caído, permiso de solo escritura). El pago
+      // nunca puede depender de esa disponibilidad: se deja constancia del error
+      // para poder diagnosticar la caída y se sigue como si no hubiera llegado
+      // ninguna key, igual que si el cliente nunca hubiera subido nada.
+      console.error(
+        'No se pudo verificar el comprobante en el storage, se cobra sin él:',
+        error,
+      );
+      comprobanteKey = null;
     }
   }
 
@@ -144,9 +167,10 @@ export async function collectOrderPayment(input: {
     esMetodoPago(existing.metodoPagoPrevisto) &&
     existing.metodoPagoPrevisto !== input.metodoPago;
   // Se permite cobrar una transferencia sin comprobante, pero queda asentado:
-  // el cuadre lo muestra al cerrar el dia.
+  // el cuadre lo muestra al cerrar el dia. Usa el valor ya resuelto arriba, asi
+  // que una caida del storage tambien cae en este camino.
   const sinComprobante =
-    input.metodoPago === 'transferencia' && !input.comprobanteTransferenciaKey;
+    input.metodoPago === 'transferencia' && !comprobanteKey;
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -164,8 +188,7 @@ export async function collectOrderPayment(input: {
           cobradaPor: input.user.nombre,
           cobradaPorId: input.user.id,
           origenCobro: input.origen,
-          comprobanteTransferenciaKey:
-            input.comprobanteTransferenciaKey ?? null,
+          comprobanteTransferenciaKey: comprobanteKey,
           estado: nuevoEstado,
         },
       });
@@ -187,8 +210,7 @@ export async function collectOrderPayment(input: {
           cobradoPorRol: input.user.rol,
           origen: input.origen,
           idempotencyKey: input.idempotencyKey,
-          comprobanteTransferenciaKey:
-            input.comprobanteTransferenciaKey ?? null,
+          comprobanteTransferenciaKey: comprobanteKey,
         },
       });
 
@@ -208,7 +230,7 @@ export async function collectOrderPayment(input: {
           datosDespues: {
             cobrada: true,
             metodoPago: input.metodoPago,
-            comprobanteTransferenciaKey: input.comprobanteTransferenciaKey ?? null,
+            comprobanteTransferenciaKey: comprobanteKey,
             total: Number(existing.total),
             costoEnvio: Number(existing.costoEnvio ?? 0),
             ...movimientos,
