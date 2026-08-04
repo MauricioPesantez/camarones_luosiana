@@ -25,14 +25,31 @@
 2. Ejecutar `npx prisma migrate deploy` en el entorno correspondiente.
 3. Desplegar la aplicación y después los agentes de impresión. El campo `paymentUrl` es opcional y mantiene compatibilidad progresiva con agentes anteriores.
 
-## Pendiente: comprobantes en S3
+## Comprobantes de transferencia
 
-El esquema ya reserva `comprobanteTransferenciaKey` tanto en `Orden` como en `Cobro`, y la pantalla móvil ya abre la cámara con `accept="image/*" capture="environment"`. En la siguiente fase se debe:
+El cobro por QR con transferencia sube la foto del comprobante antes de
+registrar el pago. El navegador la comprime (1600 px de lado mayor, JPEG 0.8) y
+la envía a `POST /api/cobros/[token]/comprobante`; el servidor valida el MIME,
+el tamaño y los bytes reales del archivo, arma la `objectKey` a partir de la
+orden resuelta por el token y la sube al bucket. El cobro viaja después con esa
+key, que `collectOrderPayment` vuelve a validar contra la orden y contra la
+existencia del objeto.
 
-- generar una carga prefirmada de corta duración;
-- validar MIME, tamaño máximo y prefijo por orden;
-- guardar únicamente el `objectKey`, nunca una URL firmada ni credenciales;
-- confirmar en servidor que el objeto existe antes de cerrar una transferencia;
-- definir retención y cifrado del bucket.
+La subida pasa por el servidor en lugar de usar una carga prefirmada: con
+`output: 'standalone'` no hay límite de body que esquivar, y proxyar deja el
+bucket privado, sin CORS, y permite validar el contenido real y no un
+`Content-Type` que el cliente declara.
 
-Hasta integrar S3, la pantalla avisa expresamente que la foto seleccionada no se persiste.
+Si el almacenamiento falla, el cobro no se bloquea: la pantalla ofrece
+reintentar o registrar sin comprobante. Esa transferencia queda marcada en el
+historial de la orden y aparece con un aviso "⚠️ Sin comprobante" en el cuadre
+de caja. Los comprobantes se consultan desde el detalle de orden y el cuadre,
+solo con rol admin, mediante una URL firmada de 120 segundos que nunca se
+persiste.
+
+Los detalles de configuración y del bucket están en
+`docs/COMPROBANTES_STORAGE.md`.
+
+Siguen sin capturar comprobante, por decisión de alcance: el cobro de
+transferencia desde la lista interna (mesero, admin y digital) y la
+confirmación de transferencia al crear un domicilio.
