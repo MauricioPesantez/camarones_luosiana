@@ -57,21 +57,32 @@ export async function putObject(
   );
 }
 
+// S3, R2 y MinIO no coinciden en como reportan un HEAD sobre una key inexistente:
+// unos traen el status 404 en `$metadata`, otros solo el nombre del error.
+function esObjetoAusente(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const { name, $metadata } = error as {
+    name?: unknown;
+    $metadata?: { httpStatusCode?: unknown };
+  };
+  return (
+    $metadata?.httpStatusCode === 404 ||
+    name === 'NotFound' ||
+    name === 'NoSuchKey'
+  );
+}
+
 export async function objectExists(key: string): Promise<boolean> {
   try {
     await getCliente().send(new HeadObjectCommand({ Bucket: BUCKET!, Key: key }));
     return true;
   } catch (error) {
-    // Distinguir "no existe" de fallo real (credenciales vencidas, endpoint caído).
-    // Un objeto ausente es operacional (retorna false sin registrar).
-    // Otros errores son anomalías que se deben escalar: se registran y relanza.
-    const is404 = (error as any)?.$metadata?.httpStatusCode === 404 ||
-                  (error as any)?.name === 'NotFound' ||
-                  (error as any)?.name === 'NoSuchKey';
-    if (is404) {
-      return false;
-    }
-    console.error('Error al verificar objeto en storage:', error);
+    // Un objeto ausente es operacion normal y devuelve false. Cualquier otro
+    // fallo (credenciales vencidas, endpoint caido, region equivocada) se relanza:
+    // si se devolviera false, una caida del bucket se leeria como "sin comprobante"
+    // y nadie se enteraria de que el problema era la infraestructura.
+    if (esObjetoAusente(error)) return false;
+    console.error('Error al verificar el objeto en el storage:', error);
     throw error;
   }
 }
