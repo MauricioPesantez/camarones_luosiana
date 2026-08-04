@@ -609,7 +609,7 @@ def build_esc_pos_ticket(payload, logo_path=DEFAULT_LOGO_PATH, logo_raster=None)
     payment_url = (payload.get("order") or {}).get("paymentUrl")
     if payload.get("jobType") != "AMENDMENT" and payment_url:
         chunks.append(encode_esc_pos_qr(payment_url))
-    chunks.append(bytes(bytearray([GS, 0x56, 0x00])))
+    chunks.append(bytes(bytearray([GS, 0x56, 0x42, 0x05])))
     return b"".join(chunks)
 
 
