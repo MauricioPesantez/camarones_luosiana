@@ -16,6 +16,7 @@ import {
 import { calcularResumenCuadre } from "@/types/cuadre";
 import { montoACobrarEnCaja } from "@/types/cobro";
 import { obtenerFechaEcuador } from "@/lib/fecha-ecuador";
+import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 import { obtenerEtiquetaRol, ROLES } from "@/types/usuario";
 import {
   ESTADO_RETIRO_ANULADO,
@@ -43,6 +44,7 @@ interface Orden {
   cobrada: boolean;
   metodoPago: string | null;
   metodoPagoPrevisto: string | null;
+  comprobanteTransferenciaKey?: string | null;
   fechaCobro: string | null;
   cobradaPor: string | null;
   createdAt: string;
@@ -1156,6 +1158,19 @@ export default function AdminPage() {
                                   ? "💵 Efectivo"
                                   : "🏦 Transferencia"}
                               </span>
+                              {orden.metodoPago === "transferencia" &&
+                                (orden.comprobanteTransferenciaKey ? (
+                                  <button
+                                    onClick={() => void abrirComprobanteFirmado(orden.id)}
+                                    className="self-start text-xs font-bold text-blue-700 underline"
+                                  >
+                                    📎 Ver comprobante
+                                  </button>
+                                ) : (
+                                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                    ⚠️ Sin comprobante
+                                  </span>
+                                ))}
                               {/* Badge cuando el pago llegó antes de que cocina termine */}
                               {orden.estado !== "cobrada" && (
                                 <span className="px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300">
