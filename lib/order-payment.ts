@@ -1,6 +1,8 @@
 import { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/db';
+import { parseComprobanteKey } from '@/lib/comprobantes';
+import { objectExists } from '@/lib/storage';
 import { canCollectPayments, type AuthenticatedUser } from '@/lib/session';
 import { calcularMovimientosCobro } from '@/types/cobro';
 import { esMetodoPago, type MetodoPago } from '@/types/orden';
@@ -106,6 +108,18 @@ export async function collectOrderPayment(input: {
   }
   validateOrderCanBePaid(existing, input.expectedRevision, input.origen);
 
+  // La key nunca se acepta como viene: tiene que tener la forma exacta que arma
+  // el servidor, apuntar a ESTA orden, y el objeto tiene que existir de verdad.
+  if (input.comprobanteTransferenciaKey) {
+    const parsed = parseComprobanteKey(input.comprobanteTransferenciaKey);
+    if (!parsed || parsed.ordenId !== input.orderId) {
+      throw new PaymentValidationError('El comprobante no corresponde a esta orden');
+    }
+    if (!(await objectExists(input.comprobanteTransferenciaKey))) {
+      throw new PaymentValidationError('El comprobante no se guardó, reintenta');
+    }
+  }
+
   // Al cobrar por enlace (QR) la orden se cierra como `cobrada` sin importar el
   // tipo ni el estado operativo previo. Desde la lista interna se conserva el
   // comportamiento previo (solo pasa a `cobrada` si ya estaba lista/entregada).
@@ -129,6 +143,10 @@ export async function collectOrderPayment(input: {
   const huboOverride =
     esMetodoPago(existing.metodoPagoPrevisto) &&
     existing.metodoPagoPrevisto !== input.metodoPago;
+  // Se permite cobrar una transferencia sin comprobante, pero queda asentado:
+  // el cuadre lo muestra al cerrar el dia.
+  const sinComprobante =
+    input.metodoPago === 'transferencia' && !input.comprobanteTransferenciaKey;
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -178,9 +196,11 @@ export async function collectOrderPayment(input: {
         data: {
           ordenId: input.orderId,
           tipoAccion: huboOverride ? 'metodo_pago_override' : 'orden_cobrada',
-          descripcion: huboOverride
-            ? `Cobro en ${input.metodoPago} sobre una orden acordada en ${existing.metodoPagoPrevisto}`
-            : `Orden cobrada en ${input.metodoPago} por ${input.user.nombre}`,
+          descripcion: `${
+            huboOverride
+              ? `Cobro en ${input.metodoPago} sobre una orden acordada en ${existing.metodoPagoPrevisto}`
+              : `Orden cobrada en ${input.metodoPago} por ${input.user.nombre}`
+          }${sinComprobante ? ' · sin comprobante de transferencia' : ''}`,
           datosAntes: {
             cobrada: false,
             metodoPagoPrevisto: existing.metodoPagoPrevisto,
@@ -188,6 +208,7 @@ export async function collectOrderPayment(input: {
           datosDespues: {
             cobrada: true,
             metodoPago: input.metodoPago,
+            comprobanteTransferenciaKey: input.comprobanteTransferenciaKey ?? null,
             total: Number(existing.total),
             costoEnvio: Number(existing.costoEnvio ?? 0),
             ...movimientos,
