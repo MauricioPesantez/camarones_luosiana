@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { AuthenticatedUser } from "@/lib/session";
+import { montoACobrarEnCaja } from "@/types/cobro";
 import {
   obtenerEtiquetaNivelPicante,
   type MetodoPago,
@@ -72,10 +73,21 @@ export default function CobrarOrdenClient({
     (total, item) => total + item.subtotal,
     0,
   );
-  const efectivoLocal =
-    orden.tipoOrden === "domicilio"
-      ? Math.max(0, orden.total - orden.costoEnvio)
-      : orden.total;
+  // Lo que entra a caja segun el metodo. Es el mismo calculo que asienta el cobro:
+  // en domicilio con efectivo el envio se queda con el motorizado y no se cobra.
+  const montoEfectivo = montoACobrarEnCaja({
+    tipoOrden: orden.tipoOrden,
+    total: orden.total,
+    costoEnvio: orden.costoEnvio,
+    metodoPago: "efectivo",
+  });
+  const montoTransferencia = montoACobrarEnCaja({
+    tipoOrden: orden.tipoOrden,
+    total: orden.total,
+    costoEnvio: orden.costoEnvio,
+    metodoPago: "transferencia",
+  });
+  const esDomicilio = orden.tipoOrden === "domicilio";
 
   const cobrar = async (metodoPago: MetodoPago) => {
     setLoading(true);
@@ -122,7 +134,10 @@ export default function CobrarOrdenClient({
           <h1 className="mt-3 text-2xl font-bold">Cobro registrado</h1>
           <p className="mt-1 text-slate-600">
             Orden #{orden.numeroDiario ?? orden.id.slice(-6)} ·{" "}
-            <strong>${orden.total.toFixed(2)}</strong> en {cobrado}.
+            <strong>
+              ${(cobrado === "efectivo" ? montoEfectivo : montoTransferencia).toFixed(2)}
+            </strong>{" "}
+            en {cobrado}.
           </p>
           <p className="mt-4 text-sm text-slate-500">
             Ya puedes cerrar esta pestaña.
@@ -193,13 +208,29 @@ export default function CobrarOrdenClient({
             <div className="flex justify-between"><span>Productos</span><span>${subtotalProductos.toFixed(2)}</span></div>
             {orden.recargo > 0 && <div className="flex justify-between"><span>Recipientes</span><span>${orden.recargo.toFixed(2)}</span></div>}
             {orden.costoEnvio > 0 && <div className="flex justify-between"><span>Envío del motorizado</span><span>${orden.costoEnvio.toFixed(2)}</span></div>}
-            <div className="flex justify-between border-t pt-2 text-2xl font-bold"><span>Total cliente</span><span className="text-emerald-700">${orden.total.toFixed(2)}</span></div>
+            <div className={`flex justify-between border-t pt-2 ${esDomicilio ? "font-semibold" : "text-2xl font-bold"}`}>
+              <span>{esDomicilio ? "Total que paga el cliente" : "Total cliente"}</span>
+              <span className={esDomicilio ? "" : "text-emerald-700"}>${orden.total.toFixed(2)}</span>
+            </div>
+            {esDomicilio && (
+              <div className="flex justify-between border-t pt-2 text-2xl font-bold">
+                <span>Recibes en caja</span>
+                <span className="text-emerald-700">
+                  ${montoEfectivo.toFixed(2)}
+                  {montoTransferencia !== montoEfectivo && (
+                    <span className="block text-right text-sm font-semibold text-slate-500">
+                      o ${montoTransferencia.toFixed(2)} por transferencia
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
           </div>
 
-          {orden.tipoOrden === "domicilio" && (
+          {esDomicilio && (
             <div className="mt-4 rounded-xl bg-purple-50 p-4 text-sm text-purple-900">
-              <p><strong>Si paga en efectivo:</strong> el local recibe ${efectivoLocal.toFixed(2)}; el motorizado conserva ${orden.costoEnvio.toFixed(2)}.</p>
-              <p className="mt-1"><strong>Si paga por transferencia:</strong> el local recibe ${orden.total.toFixed(2)} y entrega ${orden.costoEnvio.toFixed(2)} al motorizado.</p>
+              <p><strong>Si paga en efectivo:</strong> el motorizado te entrega ${montoEfectivo.toFixed(2)} y conserva ${orden.costoEnvio.toFixed(2)} del envío.</p>
+              <p className="mt-1"><strong>Si paga por transferencia:</strong> el local recibe ${montoTransferencia.toFixed(2)} y entrega ${orden.costoEnvio.toFixed(2)} en efectivo al motorizado.</p>
             </div>
           )}
         </section>
@@ -213,6 +244,7 @@ export default function CobrarOrdenClient({
             className="rounded-2xl bg-emerald-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-emerald-700 disabled:bg-slate-400"
           >
             💵 Efectivo
+            <span className="block text-2xl">${montoEfectivo.toFixed(2)}</span>
           </button>
           <button
             onClick={() => { setConfirmCash(false); setShowTransfer(true); }}
@@ -220,6 +252,7 @@ export default function CobrarOrdenClient({
             className="rounded-2xl bg-blue-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-blue-700 disabled:bg-slate-400"
           >
             🏦 Transferencia
+            <span className="block text-2xl">${montoTransferencia.toFixed(2)}</span>
           </button>
         </section>
 
@@ -257,7 +290,13 @@ export default function CobrarOrdenClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-xl font-bold">Confirmar cobro</h2>
-            <p className="mt-2 text-slate-600">¿Confirmas que recibiste <strong>${orden.total.toFixed(2)}</strong> en efectivo?</p>
+            <p className="mt-2 text-slate-600">¿Confirmas que recibiste <strong>${montoEfectivo.toFixed(2)}</strong> en efectivo?</p>
+            {esDomicilio && orden.costoEnvio > 0 && (
+              <p className="mt-2 text-sm text-slate-500">
+                El cliente pagó ${orden.total.toFixed(2)}; el motorizado conserva
+                ${orden.costoEnvio.toFixed(2)} del envío.
+              </p>
+            )}
             <div className="mt-6 flex gap-3">
               <button onClick={() => void cobrar("efectivo")} disabled={loading} className="flex-1 rounded-xl bg-emerald-600 py-3 font-bold text-white disabled:bg-slate-400">{loading ? "Procesando…" : "Aceptar"}</button>
               <button onClick={() => setConfirmCash(false)} disabled={loading} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold text-slate-800">Cancelar</button>

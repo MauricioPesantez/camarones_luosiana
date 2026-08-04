@@ -14,6 +14,7 @@ import {
   obtenerEtiquetaNivelPicante,
 } from "@/types/orden";
 import { calcularResumenCuadre } from "@/types/cuadre";
+import { montoACobrarEnCaja } from "@/types/cobro";
 import { obtenerFechaEcuador } from "@/lib/fecha-ecuador";
 import { obtenerEtiquetaRol, ROLES } from "@/types/usuario";
 import {
@@ -1246,11 +1247,25 @@ export default function AdminPage() {
               {obtenerTituloOrden(ordenACobrar)}{" "}
               — {ordenACobrar.mesero}
             </p>
-            <p className="text-2xl font-bold text-green-600 mb-5">
-              ${Number(ordenACobrar.total).toFixed(2)}
+            <p className="text-2xl font-bold text-green-600 mb-1">
+              $
+              {montoACobrarEnCaja({
+                tipoOrden: ordenACobrar.tipoOrden,
+                total: ordenACobrar.total,
+                costoEnvio: ordenACobrar.costoEnvio,
+                metodoPago: metodoPagoAdmin,
+              }).toFixed(2)}
             </p>
+            {ordenACobrar.tipoOrden === "domicilio" &&
+              Number(ordenACobrar.costoEnvio ?? 0) > 0 && (
+                <p className="text-sm text-gray-500 mb-5">
+                  {metodoPagoAdmin === "efectivo"
+                    ? `El cliente paga $${Number(ordenACobrar.total).toFixed(2)}; el motorizado conserva $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} del envío.`
+                    : `Entra el total; luego se entregan $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} en efectivo al motorizado.`}
+                </p>
+              )}
 
-            <p className="text-sm font-semibold text-gray-700 mb-3">
+            <p className="mt-4 text-sm font-semibold text-gray-700 mb-3">
               Método de pago:
             </p>
             <div className="flex gap-3 mb-6">
