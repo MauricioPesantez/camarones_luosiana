@@ -312,7 +312,7 @@ export function encodeEscPosQr(data: string): Buffer {
     ]),
     value,
     Buffer.from([GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30]),
-    Buffer.from('\nSe requiere iniciar sesion\n\n', 'ascii'),
+    Buffer.from('\nSe requiere iniciar sesion\nCamarones Louisiana 2026 v1.0\n\n\n', 'ascii'),
     ALIGN_LEFT,
   ]);
 }

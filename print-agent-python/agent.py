@@ -527,7 +527,7 @@ def encode_esc_pos_qr(data):
             ),
             value,
             bytes(bytearray([GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30])),
-            b"\nSe requiere iniciar sesion\n\n",
+            b"\nSe requiere iniciar sesion\nCamarones Louisiana 2026 v1.0\n\n\n",
             ALIGN_LEFT,
         ]
     )
