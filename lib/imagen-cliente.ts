@@ -6,17 +6,19 @@ export async function comprimirImagen(
   calidad = 0.8,
 ): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
-  const escala = Math.min(1, maxLado / Math.max(bitmap.width, bitmap.height));
-  const ancho = Math.round(bitmap.width * escala);
-  const alto = Math.round(bitmap.height * escala);
-
   const canvas = document.createElement('canvas');
-  canvas.width = ancho;
-  canvas.height = alto;
-  const contexto = canvas.getContext('2d');
-  if (!contexto) throw new Error('No se pudo procesar la imagen');
-  contexto.drawImage(bitmap, 0, 0, ancho, alto);
-  bitmap.close();
+  // El bitmap se cierra pase lo que pase: si `getContext` falla, salir por la
+  // excepcion sin liberarlo dejaria la imagen decodificada en memoria.
+  try {
+    const escala = Math.min(1, maxLado / Math.max(bitmap.width, bitmap.height));
+    canvas.width = Math.round(bitmap.width * escala);
+    canvas.height = Math.round(bitmap.height * escala);
+    const contexto = canvas.getContext('2d');
+    if (!contexto) throw new Error('No se pudo procesar la imagen');
+    contexto.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  } finally {
+    bitmap.close();
+  }
 
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/jpeg', calidad),

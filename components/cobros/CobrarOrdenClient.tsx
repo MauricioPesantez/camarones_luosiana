@@ -283,7 +283,7 @@ export default function CobrarOrdenClient({
         <section className="grid gap-3 sm:grid-cols-2">
           <button
             onClick={() => { setShowTransfer(false); setConfirmCash(true); }}
-            disabled={loading}
+            disabled={loading || subiendo}
             className="rounded-2xl bg-emerald-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-emerald-700 disabled:bg-slate-400"
           >
             💵 Efectivo
@@ -291,7 +291,7 @@ export default function CobrarOrdenClient({
           </button>
           <button
             onClick={() => { setConfirmCash(false); setShowTransfer(true); }}
-            disabled={loading}
+            disabled={loading || subiendo}
             className="rounded-2xl bg-blue-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-blue-700 disabled:bg-slate-400"
           >
             🏦 Transferencia
