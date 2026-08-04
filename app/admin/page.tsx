@@ -45,6 +45,7 @@ interface Orden {
   metodoPago: string | null;
   metodoPagoPrevisto: string | null;
   comprobanteTransferenciaKey?: string | null;
+  origenCobro?: string | null;
   fechaCobro: string | null;
   cobradaPor: string | null;
   createdAt: string;
@@ -1167,9 +1168,15 @@ export default function AdminPage() {
                                     📎 Ver comprobante
                                   </button>
                                 ) : (
-                                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                                    ⚠️ Sin comprobante
-                                  </span>
+                                  // La captura de comprobante solo existe en el flujo por QR: en
+                                  // el resto de orígenes (lista interna, creación o aprobación de
+                                  // domicilio con transferencia) nunca fue posible pedirla, así que
+                                  // la advertencia ahí sería ruido que el admin aprende a ignorar.
+                                  orden.origenCobro === "qr" && (
+                                    <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                      ⚠️ Sin comprobante
+                                    </span>
+                                  )
                                 ))}
                               {/* Badge cuando el pago llegó antes de que cocina termine */}
                               {orden.estado !== "cobrada" && (

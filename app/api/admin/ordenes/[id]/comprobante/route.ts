@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { parseComprobanteKey } from '@/lib/comprobantes';
 import { prisma } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/session';
-import { getSignedReadUrl, storageConfigurado } from '@/lib/storage';
+import { getSignedReadUrl, objectExists, storageConfigurado } from '@/lib/storage';
 
 const TTL_SEGUNDOS = 120;
 
@@ -39,6 +39,17 @@ export async function GET(
     const parsed = parseComprobanteKey(orden.comprobanteTransferenciaKey);
     if (!parsed || parsed.ordenId !== orden.id) {
       return NextResponse.json({ error: 'Comprobante inválido' }, { status: 404 });
+    }
+
+    // Presignar nunca contacta a S3, asi que siempre devolveria 200 aunque el
+    // objeto ya no exista. El lifecycle de 30 dias borra el objeto pero no la
+    // key en la base, asi que hay que verificar antes de firmar para no mandar
+    // al admin a una pestaña con el XML crudo de NoSuchKey.
+    if (!(await objectExists(orden.comprobanteTransferenciaKey))) {
+      return NextResponse.json(
+        { error: 'El comprobante ya expiró (retención de 30 días)' },
+        { status: 410 },
+      );
     }
 
     const url = await getSignedReadUrl(orden.comprobanteTransferenciaKey, TTL_SEGUNDOS);
