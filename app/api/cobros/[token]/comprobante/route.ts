@@ -23,7 +23,7 @@ const MENSAJE_POR_CODIGO = {
 const MARGEN_MULTIPART_BYTES = 64 * 1024;
 const LIMITE_CUERPO_BYTES = MAX_COMPROBANTE_BYTES + MARGEN_MULTIPART_BYTES;
 
-type LecturaCuerpo = { ok: true; buffer: Buffer } | { ok: false };
+type LecturaCuerpo = { ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false };
 
 // El content-length declarado no alcanza para hacer cumplir el limite: falta
 // con chunked transfer-encoding (queda en 0) y un valor mal formado da NaN.
@@ -35,7 +35,7 @@ async function leerCuerpoAcotado(
 ): Promise<LecturaCuerpo> {
   const reader = request.body?.getReader();
   if (!reader) {
-    return { ok: true, buffer: Buffer.alloc(0) };
+    return { ok: true, bytes: new Uint8Array(0) };
   }
   const partes: Uint8Array[] = [];
   let total = 0;
@@ -56,7 +56,16 @@ async function leerCuerpoAcotado(
   } finally {
     reader.releaseLock();
   }
-  return { ok: true, buffer: Buffer.concat(partes, total) };
+  // Se acumula en un Uint8Array propio en vez de Buffer.concat: el cuerpo llega a
+  // 5 MB y este es el unico arreglo que lo contiene entero, sin una copia extra
+  // para adaptarlo al `BodyInit` que espera Response.
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const parte of partes) {
+    bytes.set(parte, offset);
+    offset += parte.byteLength;
+  }
+  return { ok: true, bytes };
 }
 
 export async function POST(
@@ -117,7 +126,10 @@ export async function POST(
       // El stream original ya se consumio para acotar el tamano; se arma un
       // Response con esos mismos bytes y el content-type original para poder
       // parsear el multipart sin volver a leer de la red.
-      form = await new Response(new Uint8Array(cuerpo.buffer), {
+      //
+      // Sin content-type el parseo falla y cae en el 400 de abajo, que es la
+      // respuesta correcta para una solicitud sin envoltura multipart.
+      form = await new Response(cuerpo.bytes, {
         headers: { 'content-type': request.headers.get('content-type') ?? '' },
       }).formData();
     } catch (error) {
