@@ -68,8 +68,15 @@ export default function CobrarOrdenClient({
   const [confirmCash, setConfirmCash] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
-  const [subiendo, setSubiendo] = useState(false);
-  const [falloSubida, setFalloSubida] = useState(false);
+  // Un solo estado para toda la fila de transferencia (en vez de dos booleanos
+  // independientes) para que un fallo en CUALQUIER tramo -subida o cobro- lleve
+  // siempre al mismo "fallo" y muestre el botón de reintentar/registrar sin
+  // comprobante. Con dos booleanos separados, un cobro fallido después de una
+  // subida exitosa no marcaba nada: el botón de "Registrar sin comprobante"
+  // quedaba inalcanzable.
+  const [estadoTransferencia, setEstadoTransferencia] = useState<
+    "idle" | "subiendo" | "cobrando" | "fallo"
+  >("idle");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [cobrado, setCobrado] = useState<MetodoPago | null>(null);
@@ -94,10 +101,14 @@ export default function CobrarOrdenClient({
   });
   const esDomicilio = orden.tipoOrden === "domicilio";
 
+  // Devuelve si el cobro se registró o no: el llamador (subirYCobrar) necesita
+  // saberlo para decidir si mostrar el estado de fallo. El camino de efectivo
+  // llama a esta función directo y descarta el resultado, así que su
+  // comportamiento no cambia.
   const cobrar = async (
     metodoPago: MetodoPago,
     comprobanteTransferenciaKey?: string,
-  ) => {
+  ): Promise<boolean> => {
     setLoading(true);
     setError("");
     try {
@@ -116,7 +127,7 @@ export default function CobrarOrdenClient({
       if (!cerrarAlFinalizar) {
         router.replace(successUrl);
         router.refresh();
-        return;
+        return true;
       }
       // El cobro llegó desde el enlace/QR, en una pestaña dedicada. Se muestra la
       // confirmación y se pide cerrarla. El navegador solo permite `close()` si la
@@ -124,12 +135,14 @@ export default function CobrarOrdenClient({
       // login): cuando lo bloquea, esta misma pantalla queda como salida manual.
       setCobrado(metodoPago);
       window.close();
+      return true;
     } catch (paymentError) {
       setError(
         paymentError instanceof Error
           ? paymentError.message
           : "No se pudo registrar el cobro",
       );
+      return false;
     } finally {
       setLoading(false);
     }
@@ -137,12 +150,12 @@ export default function CobrarOrdenClient({
 
   // Sube primero y cobra despues, con la key ya validada. Si el storage falla, el
   // cobro no se bloquea: la pantalla ofrece reintentar o registrar sin
-  // comprobante, y el cuadre marca despues esa transferencia.
+  // comprobante, y el cuadre marca despues esa transferencia. El estado de fallo
+  // se activa tanto si falla la subida como si falla el cobro posterior.
   const subirYCobrar = async () => {
     if (!photo) return;
-    setSubiendo(true);
+    setEstadoTransferencia("subiendo");
     setError("");
-    setFalloSubida(false);
     try {
       const comprimida = await comprimirImagen(photo);
       const formData = new FormData();
@@ -154,13 +167,29 @@ export default function CobrarOrdenClient({
         `/api/cobros/${encodeURIComponent(token)}/comprobante`,
         { method: "POST", body: formData },
       );
-      const datos = await respuesta.json();
+      let datos: { error?: string; objectKey?: string };
+      try {
+        datos = await respuesta.json();
+      } catch {
+        // Un proxy o gateway puede responder con HTML (o nada) en vez de JSON,
+        // por ejemplo un 413 que corta la subida antes de que la app la vea: sin
+        // esto el error mostrado sería "Unexpected token '<'" en vez de un texto
+        // que la cajera pueda entender.
+        datos = {
+          error:
+            respuesta.status === 413
+              ? "La foto es muy pesada, repítela"
+              : "No se pudo subir el comprobante",
+        };
+      }
       if (!respuesta.ok) throw new Error(datos.error || "No se pudo subir el comprobante");
-      setSubiendo(false);
-      await cobrar("transferencia", datos.objectKey);
+      setEstadoTransferencia("cobrando");
+      const cobroOk = await cobrar("transferencia", datos.objectKey);
+      // Si el cobro falló, `cobrar` ya dejó el mensaje en `error`; solo hace
+      // falta reflejarlo en el estado para que aparezca el botón de fallback.
+      setEstadoTransferencia(cobroOk ? "idle" : "fallo");
     } catch (subidaError) {
-      setSubiendo(false);
-      setFalloSubida(true);
+      setEstadoTransferencia("fallo");
       setError(
         subidaError instanceof Error
           ? subidaError.message
@@ -283,7 +312,7 @@ export default function CobrarOrdenClient({
         <section className="grid gap-3 sm:grid-cols-2">
           <button
             onClick={() => { setShowTransfer(false); setConfirmCash(true); }}
-            disabled={loading || subiendo}
+            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
             className="rounded-2xl bg-emerald-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-emerald-700 disabled:bg-slate-400"
           >
             💵 Efectivo
@@ -291,7 +320,7 @@ export default function CobrarOrdenClient({
           </button>
           <button
             onClick={() => { setConfirmCash(false); setShowTransfer(true); }}
-            disabled={loading || subiendo}
+            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
             className="rounded-2xl bg-blue-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-blue-700 disabled:bg-slate-400"
           >
             🏦 Transferencia
@@ -324,18 +353,23 @@ export default function CobrarOrdenClient({
                 entorno. Puedes registrar el cobro, pero la foto no se guardará.
               </div>
             )}
-            {falloSubida ? (
+            {estadoTransferencia === "fallo" ? (
+              // Dentro de esta rama `estadoTransferencia` solo puede ser "fallo": el
+              // primer paso de un reintento (subirYCobrar) lo saca de "fallo" en el
+              // mismo tick en que entra a "subiendo", así que ese render ya cae en
+              // la rama de abajo (el botón "Confirmar transferencia" con su propio
+              // texto de carga). Por eso aquí solo hace falta cubrir `loading`.
               <div className="mt-4 space-y-2">
                 <button
                   onClick={() => void subirYCobrar()}
-                  disabled={loading || subiendo}
+                  disabled={loading}
                   className="w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
                 >
-                  {subiendo ? "Subiendo…" : "Reintentar"}
+                  Reintentar
                 </button>
                 <button
                   onClick={() => void cobrar("transferencia")}
-                  disabled={loading || subiendo}
+                  disabled={loading}
                   className="w-full rounded-xl border border-amber-400 bg-amber-50 py-3 font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
                 >
                   {loading ? "Registrando…" : "Registrar sin comprobante"}
@@ -348,10 +382,15 @@ export default function CobrarOrdenClient({
                     ? void subirYCobrar()
                     : void cobrar("transferencia")
                 }
-                disabled={loading || subiendo || (storageDisponible && !photo)}
+                disabled={
+                  loading ||
+                  estadoTransferencia === "subiendo" ||
+                  estadoTransferencia === "cobrando" ||
+                  (storageDisponible && !photo)
+                }
                 className="mt-4 w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
               >
-                {subiendo
+                {estadoTransferencia === "subiendo"
                   ? "Subiendo comprobante…"
                   : loading
                     ? "Registrando…"
