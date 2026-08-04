@@ -61,8 +61,18 @@ export async function objectExists(key: string): Promise<boolean> {
   try {
     await getCliente().send(new HeadObjectCommand({ Bucket: BUCKET!, Key: key }));
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    // Distinguir "no existe" de fallo real (credenciales vencidas, endpoint caído).
+    // Un objeto ausente es operacional (retorna false sin registrar).
+    // Otros errores son anomalías que se deben escalar: se registran y relanza.
+    const is404 = (error as any)?.$metadata?.httpStatusCode === 404 ||
+                  (error as any)?.name === 'NotFound' ||
+                  (error as any)?.name === 'NoSuchKey';
+    if (is404) {
+      return false;
+    }
+    console.error('Error al verificar objeto en storage:', error);
+    throw error;
   }
 }
 
