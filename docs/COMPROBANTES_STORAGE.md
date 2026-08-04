@@ -33,7 +33,7 @@ comprobante.
   días por objeto y Glacier 90, de modo que mover objetos antes de que expiren
   sale más caro. La `objectKey` permanece en la base aunque el objeto expire.
 
-Regla de lifecycle en AWS:
+Regla de lifecycle en AWS. Guardar este JSON como `lifecycle.json`:
 
 ```json
 {
@@ -52,17 +52,24 @@ Regla de lifecycle en AWS:
 aws s3api put-bucket-lifecycle-configuration --bucket "$S3_BUCKET" --lifecycle-configuration file://lifecycle.json
 ```
 
+## Límite de tamaño en la subida
+
+El máximo son 5 MB, y se hace cumplir contando los bytes que efectivamente llegan
+por el stream de la solicitud: la lectura se corta apenas se supera el límite, sin
+esperar a que el cuerpo termine de recibirse.
+
+El encabezado `Content-Length` se consulta antes, pero solo como camino rápido: si
+ya viene declarando un cuerpo demasiado grande, la solicitud se rechaza con 413 sin
+leer un solo byte. No sirve como control real, porque está ausente cuando el cliente
+usa chunked transfer-encoding y puede venir malformado. Por eso un 413 puede
+aparecer tanto antes de leer el cuerpo como a mitad de la lectura.
+
 ## Objetos huérfanos
 
 La subida ocurre antes de la transacción de cobro. Si el cobro falla después por
 conflicto, o si quien cobra reintenta con otra foto, el objeto ya escrito queda
 sin referencia en la base. El lifecycle de 30 días los elimina; no hay proceso
 de limpieza propio.
-
-El límite de tamaño en la subida se valida contra los bytes que efectivamente llegan
-en el stream de la solicitud, no contra el encabezado `Content-Length` (que está ausente
-en chunked transfer-encoding y puede estar malformado), permitiendo una validación
-robusta incluso en condiciones de red adversas.
 
 ## Desarrollo local
 
