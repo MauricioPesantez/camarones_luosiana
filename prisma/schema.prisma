@@ -75,6 +75,18 @@ model Orden {
   aprobadaPor                    Usuario?         @relation("OrdenesAprobadas", fields: [aprobadaPorId], references: [id])
   razonAprobacion                String? // Razón por la que se aprobó sin stock
   itemsSinStock                  Json? // Lista de items que no tenían stock: [{productoId, productoNombre, cantidadSolicitada, stockDisponible}]
+
+  /// Anulacion logica, igual que en `RetiroCaja`: la orden no se borra nunca.
+  /// Sigue visible en el cuadre con su razon y su autor, pero deja de contar en
+  /// cualquier cifra de dinero. `estado` no se toca: se conserva el estado
+  /// operativo que tenia al anularse para saber que paso realmente.
+  anulada                        Boolean          @default(false)
+  anuladaPorId                   String?
+  anuladaPor                     Usuario?         @relation("OrdenesAnuladas", fields: [anuladaPorId], references: [id])
+  anuladaPorNombre               String?
+  razonAnulacion                 String?
+  anuladaAt                      DateTime?
+
   createdAt                      DateTime         @default(now())
   updatedAt                      DateTime         @updatedAt
   items                          Item[]
@@ -198,6 +210,7 @@ model Usuario {
   ordenesAprobadas   Orden[]         @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
   ordenesCreadas     Orden[]         @relation("OrdenesCreadas")
   ordenesCobradas    Orden[]         @relation("OrdenesCobradas")
+  ordenesAnuladas    Orden[]         @relation("OrdenesAnuladas")
   cobrosRegistrados  Cobro[]         @relation("CobrosRegistrados")
   sesiones           SesionUsuario[]
   retirosRegistrados RetiroCaja[]    @relation("RetirosRegistrados")

@@ -176,6 +176,13 @@ export async function PATCH(
           );
         }
 
+        if (order.anulada) {
+          throw new ModificationRequestError(
+            'No se puede modificar una orden anulada',
+            409,
+          );
+        }
+
         if (order.cobrada) {
           throw new ModificationRequestError(
             'No se puede modificar una orden que ya fue cobrada',
@@ -530,6 +537,7 @@ export async function PATCH(
           where: {
             id,
             cobrada: false,
+            anulada: false,
             printRevision: body.expectedRevision,
           },
           data: {
@@ -543,7 +551,7 @@ export async function PATCH(
         });
         if (orderUpdate.count !== 1) {
           throw new ModificationRequestError(
-            'La orden fue cobrada o modificada al mismo tiempo. Recárgala e intenta nuevamente.',
+            'La orden fue cobrada, anulada o modificada al mismo tiempo. Recárgala e intenta nuevamente.',
             409,
           );
         }

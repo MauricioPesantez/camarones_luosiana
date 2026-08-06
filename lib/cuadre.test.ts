@@ -42,6 +42,8 @@ assert.deepEqual(resumen, {
   totalOrdenes: 5,
   ordenesCobradas: 4,
   ordenesSinCobrar: 1,
+  ordenesAnuladas: 0,
+  ventasAnuladas: 0,
   ventasTotales: 199,
   ventasSinCobrar: 100,
   ventasCobradas: 99,
@@ -226,6 +228,86 @@ const todosAnulados = calcularResumenCuadre(ventasDelDia, [
 assert.equal(todosAnulados.retirosEfectivo, 0);
 assert.equal(todosAnulados.cantidadRetiros, 0);
 assert.equal(todosAnulados.efectivoEnCaja, 80);
+
+// ---------------------------------------------------------------------------
+// Ordenes anuladas
+// ---------------------------------------------------------------------------
+
+// Una orden anulada se informa aparte y no toca ninguna cifra: ni la venta, ni
+// lo pendiente, ni la caja, ni el banco.
+const conAnuladas = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "local",
+    total: 20,
+    metodoPago: "efectivo",
+  },
+  {
+    cobrada: true,
+    tipoOrden: "local",
+    total: 50,
+    metodoPago: "efectivo",
+    anulada: true,
+  },
+  {
+    cobrada: false,
+    tipoOrden: "domicilio",
+    total: 33,
+    costoEnvio: 3,
+    metodoPago: null,
+    anulada: true,
+  },
+]);
+
+assert.equal(conAnuladas.totalOrdenes, 1, "la anulada no se cuenta");
+assert.equal(conAnuladas.ordenesAnuladas, 2);
+assert.equal(conAnuladas.ordenesCobradas, 1);
+assert.equal(conAnuladas.ordenesSinCobrar, 0);
+assert.equal(conAnuladas.ventasTotales, 20);
+assert.equal(conAnuladas.ventasCobradas, 20);
+assert.equal(conAnuladas.ventasSinCobrar, 0);
+assert.equal(conAnuladas.efectivoEnCaja, 20);
+assert.equal(conAnuladas.depositosRecibidos, 0);
+assert.equal(conAnuladas.enviosMotorizados, 0);
+// La venta anulada se informa sin el envio, igual que cualquier otra cifra.
+assert.equal(conAnuladas.ventasAnuladas, 80);
+
+// Anular una transferencia tampoco puede dejar rastro en el banco.
+const transferenciaAnulada = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "para_llevar",
+    total: 15,
+    metodoPago: "transferencia",
+    anulada: true,
+  },
+]);
+assert.equal(transferenciaAnulada.transferenciasVentas, 0);
+assert.equal(transferenciaAnulada.depositosRecibidos, 0);
+assert.equal(transferenciaAnulada.totalOrdenes, 0);
+
+// Anular es "esta orden nunca fue una venta": el cobro queda marcado como
+// reembolso en la base para auditoria, pero el cuadre ya no lo arrastra como
+// deuda, porque el dinero se devuelve junto con la anulacion.
+const anuladaConReembolso = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "local",
+    total: 18,
+    metodoPago: "efectivo",
+    estadoCobro: "REEMBOLSO_PENDIENTE",
+    anulada: true,
+  },
+]);
+assert.equal(anuladaConReembolso.montoReembolsoPendiente, 0);
+
+// `anulada: false` o ausente son lo mismo: la orden cuenta normal.
+assert.equal(
+  calcularResumenCuadre([
+    { cobrada: true, tipoOrden: "local", total: 10, metodoPago: "efectivo", anulada: false },
+  ]).ventasCobradas,
+  10,
+);
 
 // ---------------------------------------------------------------------------
 // Cobros: fecha del movimiento y reembolsos pendientes

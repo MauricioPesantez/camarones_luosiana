@@ -35,11 +35,16 @@ export function canUserModifyOrder(
 
 function validateOrderCanBePaid(order: {
   cobrada: boolean;
+  anulada: boolean;
   estado: string;
   tipoOrden: string;
   printRevision: number;
 }, expectedRevision: number, origen: 'qr' | 'lista'): void {
   if (order.cobrada) throw new PaymentConflictError('Esta orden ya fue cobrada');
+  // Una orden anulada salio del cuadre: cobrarla volveria a meterla.
+  if (order.anulada) {
+    throw new PaymentValidationError('No se puede cobrar una orden anulada');
+  }
   if (order.estado === 'cancelada') {
     throw new PaymentValidationError('No se puede cobrar una orden cancelada');
   }
@@ -136,6 +141,7 @@ export async function collectOrderPayment(input: {
         where: {
           id: input.orderId,
           cobrada: false,
+          anulada: false,
           printRevision: input.expectedRevision,
           estado: { in: estadosCobrables },
         },
@@ -153,7 +159,7 @@ export async function collectOrderPayment(input: {
       });
       if (updated.count !== 1) {
         throw new PaymentConflictError(
-          'La orden fue cobrada o modificada al mismo tiempo.',
+          'La orden fue cobrada, anulada o modificada al mismo tiempo.',
         );
       }
 

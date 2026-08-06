@@ -29,6 +29,10 @@ export async function GET(request: Request) {
 
     // Los retiros viajan con las ordenes y con el mismo rango: una sola vuelta
     // y una sola definicion de "el dia" para las dos mitades de la caja.
+    //
+    // Las ordenes anuladas se traen a proposito, igual que los retiros
+    // anulados: la pantalla las muestra tachadas con su razon y es
+    // `calcularResumenCuadre` quien las deja fuera de todas las cifras.
     const [ordenes, usuarios, retiros] = await Promise.all([
       prisma.orden.findMany({
         where: {

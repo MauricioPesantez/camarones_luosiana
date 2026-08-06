@@ -44,6 +44,10 @@ interface Orden {
   metodoPagoPrevisto: string | null;
   fechaCobro: string | null;
   cobradaPor: string | null;
+  anulada: boolean;
+  anuladaPorNombre: string | null;
+  razonAnulacion: string | null;
+  anuladaAt: string | null;
   createdAt: string;
   updatedAt: string;
   observaciones?: string;
@@ -105,6 +109,9 @@ export default function AdminPage() {
   const [metodoPagoAdmin, setMetodoPagoAdmin] =
     useState<MetodoPago>("efectivo");
   const [loadingCobrar, setLoadingCobrar] = useState(false);
+  const [ordenAAnular, setOrdenAAnular] = useState<Orden | null>(null);
+  const [razonAnulacionOrden, setRazonAnulacionOrden] = useState("");
+  const [loadingAnularOrden, setLoadingAnularOrden] = useState(false);
 
   const cargarOrdenes = async () => {
     setLoading(true);
@@ -286,6 +293,29 @@ export default function AdminPage() {
     };
   };
 
+  const anularOrden = async () => {
+    if (!ordenAAnular || !usuario) return;
+    setLoadingAnularOrden(true);
+    try {
+      const res = await fetch(`/api/ordenes/${ordenAAnular.id}/anular`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ razon: razonAnulacionOrden }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Error al anular la orden");
+      }
+      setOrdenAAnular(null);
+      setRazonAnulacionOrden("");
+      await cargarOrdenes();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Error al anular la orden");
+    } finally {
+      setLoadingAnularOrden(false);
+    }
+  };
+
   const anularRetiro = async () => {
     if (!retiroAAnular || !usuario) return;
     setLoadingAnular(true);
@@ -355,8 +385,12 @@ export default function AdminPage() {
     filtrosDeOrdenActivos ? [] : retirosVisibles,
   );
 
+  // Las anuladas siguen en la tabla (tachadas) pero no cuentan en ningun
+  // contador, igual que no cuentan en ninguna cifra de dinero.
+  const ordenesVigentes = ordenesFiltradas.filter((orden) => !orden.anulada);
+
   const ordenesPorEstado = {
-    pendiente: ordenesFiltradas.filter(
+    pendiente: ordenesVigentes.filter(
       (o) =>
         o.estado === "pendiente" ||
         o.estado === "en_preparacion" ||
@@ -364,7 +398,8 @@ export default function AdminPage() {
         o.estado === "entregada",
     ).length,
     cobrada: resumenCuadre.ordenesCobradas,
-    total: ordenesFiltradas.length,
+    total: resumenCuadre.totalOrdenes,
+    anulada: resumenCuadre.ordenesAnuladas,
   };
 
   // Calcular estadísticas de tiempo (usadas por fila)
@@ -654,6 +689,9 @@ export default function AdminPage() {
             <p className="text-sm text-slate-300">
               {resumenCuadre.ordenesCobradas} cobradas ·{" "}
               {resumenCuadre.ordenesSinCobrar} no cobradas
+              {resumenCuadre.ordenesAnuladas > 0 && (
+                <> · {resumenCuadre.ordenesAnuladas} anuladas (fuera del cuadre)</>
+              )}
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -777,6 +815,21 @@ export default function AdminPage() {
                 Dinero del motorizado. Fuera de toda cifra de venta
               </p>
             </div>
+            {resumenCuadre.ordenesAnuladas > 0 && (
+              <div className="rounded-lg border border-dashed border-slate-600 bg-slate-800 p-4">
+                <h3 className="text-xs text-slate-300">
+                  🚫 Órdenes anuladas
+                </h3>
+                <p className="mt-1 text-xl font-bold text-slate-400 line-through">
+                  ${resumenCuadre.ventasAnuladas.toFixed(2)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {resumenCuadre.ordenesAnuladas} orden
+                  {resumenCuadre.ordenesAnuladas === 1 ? "" : "es"} fuera de
+                  toda cifra del cuadre
+                </p>
+              </div>
+            )}
             {resumenCuadre.montoReembolsoPendiente > 0 && (
               <div className="rounded-lg border border-red-400 bg-red-950 p-4">
                 <h3 className="text-xs font-semibold text-red-200">
@@ -962,7 +1015,7 @@ export default function AdminPage() {
         )}
 
         {/* Estadísticas operativas */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <h3 className="text-xs text-gray-600 mb-1">Total Órdenes</h3>
             <p className="text-xl font-bold text-blue-600">
@@ -979,6 +1032,12 @@ export default function AdminPage() {
             <h3 className="text-xs text-gray-600 mb-1">Activas</h3>
             <p className="text-xl font-bold text-yellow-600">
               {ordenesPorEstado.pendiente}
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow p-4">
+            <h3 className="text-xs text-gray-600 mb-1">Anuladas 🚫</h3>
+            <p className="text-xl font-bold text-gray-400">
+              {ordenesPorEstado.anulada}
             </p>
           </div>
         </div>
@@ -1027,6 +1086,9 @@ export default function AdminPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Pago
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -1035,7 +1097,11 @@ export default function AdminPage() {
                     return (
                       <tr
                         key={orden.id}
-                        className="hover:bg-gray-50 cursor-pointer"
+                        className={`cursor-pointer ${
+                          orden.anulada
+                            ? "bg-gray-50 text-gray-400"
+                            : "hover:bg-gray-50"
+                        }`}
                         onClick={() => setOrdenSeleccionada(orden)}
                       >
                         <td className="px-6 py-4 text-sm text-blue-700">
@@ -1128,7 +1194,13 @@ export default function AdminPage() {
                             <span className="text-xs text-gray-400">N/A</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm font-bold text-gray-800">
+                        <td
+                          className={`px-6 py-4 text-sm font-bold ${
+                            orden.anulada
+                              ? "text-gray-400 line-through"
+                              : "text-gray-800"
+                          }`}
+                        >
                           ${calcularVentaPropia(orden).toFixed(2)}
                           {obtenerCostoEnvio(orden) > 0 && (
                             <span className="block text-xs font-normal text-gray-500">
@@ -1176,7 +1248,8 @@ export default function AdminPage() {
                                 </span>
                               )}
                             </div>
-                          ) : orden.estado !== "cancelada" &&
+                          ) : !orden.anulada &&
+                            orden.estado !== "cancelada" &&
                             orden.estado !== "pendiente_aprobacion_stock" ? (
                             ((!orden.tipoOrden || orden.tipoOrden === "local")
                               ? ["lista", "entregada"].includes(orden.estado)
@@ -1211,6 +1284,34 @@ export default function AdminPage() {
                             <span className="text-xs text-gray-400">—</span>
                           )}
                         </td>
+                        <td
+                          className="px-6 py-4 text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {orden.anulada ? (
+                            <div>
+                              <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600">
+                                Anulada
+                              </span>
+                              <span className="block text-xs text-gray-500 mt-1">
+                                {orden.anuladaPorNombre}
+                                {orden.razonAnulacion
+                                  ? `: ${orden.razonAnulacion}`
+                                  : ""}
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setOrdenAAnular(orden);
+                                setRazonAnulacionOrden("");
+                              }}
+                              className="bg-red-100 text-red-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-red-200"
+                            >
+                              🚫 Anular
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -1233,6 +1334,70 @@ export default function AdminPage() {
             cargarOrdenes();
           }}
         />
+      )}
+
+      {/* Modal de anulación de orden */}
+      {ordenAAnular && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold text-gray-800 mb-2">
+              Anular orden
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {obtenerTituloOrden(ordenAAnular)} — {ordenAAnular.mesero} · $
+              {Number(ordenAAnular.total).toFixed(2)}. La orden no se borra:
+              queda visible como anulada y deja de contar en el cuadre y en los
+              reportes.
+            </p>
+            {ordenAAnular.cobrada && (
+              <p className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                ⚠️ Esta orden ya fue cobrada
+                {ordenAAnular.metodoPago === "efectivo"
+                  ? " en efectivo"
+                  : ordenAAnular.metodoPago === "transferencia"
+                    ? " por transferencia"
+                    : ""}
+                . Al anularla el pago sale de la caja del día: devuelve el dinero
+                al cliente.
+              </p>
+            )}
+            <p className="mb-4 text-xs text-gray-500">
+              El stock no se devuelve automáticamente. Si el producto no se
+              preparó, ajústalo en la pantalla de productos.
+            </p>
+            <label className="block text-sm font-semibold text-gray-700 mb-4">
+              Razón de la anulación *
+              <textarea
+                value={razonAnulacionOrden}
+                onChange={(e) => setRazonAnulacionOrden(e.target.value)}
+                rows={3}
+                className="mt-1 block w-full border rounded-lg px-4 py-2 text-black"
+                placeholder="Ej: El cliente se retiró sin consumir"
+              />
+            </label>
+            <div className="flex gap-3">
+              <button
+                onClick={anularOrden}
+                disabled={
+                  loadingAnularOrden || razonAnulacionOrden.trim() === ""
+                }
+                className="flex-1 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:bg-gray-400 font-semibold"
+              >
+                {loadingAnularOrden ? "Anulando..." : "Confirmar anulación"}
+              </button>
+              <button
+                onClick={() => {
+                  setOrdenAAnular(null);
+                  setRazonAnulacionOrden("");
+                }}
+                disabled={loadingAnularOrden}
+                className="flex-1 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal Cobrar (Admin) */}

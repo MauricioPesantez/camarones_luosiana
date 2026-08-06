@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { ORDENES_VIGENTES } from '@/lib/ordenes-anulacion';
 import { Prisma } from '@prisma/client';
 
 interface ItemAfectadoJson {
@@ -21,7 +22,12 @@ export async function GET(request: Request) {
     const fechaInicio = searchParams.get('fechaInicio');
     const fechaFin = searchParams.get('fechaFin');
 
-    const whereCondition: Prisma.HistorialOrdenWhereInput = {};
+    // El reporte mide cómo se trabajaron las órdenes que valen. Si una orden se
+    // anuló, su historial completo sale del cálculo: contar sus modificaciones
+    // haría que el impacto financiero no cuadre con ninguna venta real.
+    const whereCondition: Prisma.HistorialOrdenWhereInput = {
+      orden: ORDENES_VIGENTES,
+    };
 
     if (fechaInicio && fechaFin) {
       whereCondition.createdAt = {

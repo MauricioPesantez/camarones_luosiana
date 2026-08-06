@@ -46,6 +46,10 @@ interface Orden {
   metodoPago?: string | null;
   fechaCobro?: string | null;
   cobradaPor?: string | null;
+  anulada?: boolean;
+  anuladaPorNombre?: string | null;
+  razonAnulacion?: string | null;
+  anuladaAt?: string | null;
   createdAt: string;
   updatedAt: string;
   observaciones?: string;
@@ -87,7 +91,7 @@ export default function DetalleOrdenModal({
   const [errorCortesia, setErrorCortesia] = useState("");
 
   const puedeAgregarCortesia =
-    adminId && ESTADOS_EDITABLES.includes(orden.estado);
+    adminId && !orden.anulada && ESTADOS_EDITABLES.includes(orden.estado);
 
   const itemsCortesia = orden.items.filter((i) => i.esCortesia);
 
@@ -519,6 +523,29 @@ export default function DetalleOrdenModal({
                 </div>
               </div>
 
+              {/* Orden anulada: sigue existiendo, pero fuera del cuadre */}
+              {orden.anulada && (
+                <div className="bg-gray-100 border-l-4 border-gray-400 p-4 rounded">
+                  <p className="text-sm font-bold text-gray-700">
+                    🚫 Orden anulada
+                    {orden.anuladaPorNombre
+                      ? ` por ${orden.anuladaPorNombre}`
+                      : ""}
+                    {orden.anuladaAt
+                      ? ` · ${new Date(orden.anuladaAt).toLocaleString("es-EC")}`
+                      : ""}
+                  </p>
+                  {orden.razonAnulacion && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Razón: {orden.razonAnulacion}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    No cuenta en el cuadre de caja ni en los reportes.
+                  </p>
+                </div>
+              )}
+
               {/* Badge de Modificación */}
               {orden.modificada && (
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
@@ -578,7 +605,7 @@ export default function DetalleOrdenModal({
                     )}
                   </div>
                 </div>
-              ) : orden.estado !== "cancelada" ? (
+              ) : !orden.anulada && orden.estado !== "cancelada" ? (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <p className="text-sm text-orange-700 font-semibold">
                     ⏳ Pendiente de cobro

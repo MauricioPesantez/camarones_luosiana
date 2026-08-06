@@ -69,6 +69,8 @@ export default function HistorialOrdenTimeline({ ordenId }: HistorialOrdenTimeli
         return '📝';
       case 'orden_completada':
         return '🎉';
+      case 'orden_anulada':
+        return '🚫';
       default:
         return '📌';
     }
@@ -86,6 +88,8 @@ export default function HistorialOrdenTimeline({ ordenId }: HistorialOrdenTimeli
         return 'bg-yellow-100 border-yellow-400 text-yellow-800';
       case 'orden_completada':
         return 'bg-purple-100 border-purple-400 text-purple-800';
+      case 'orden_anulada':
+        return 'bg-gray-200 border-gray-500 text-gray-800';
       default:
         return 'bg-gray-100 border-gray-400 text-gray-800';
     }
@@ -103,6 +107,8 @@ export default function HistorialOrdenTimeline({ ordenId }: HistorialOrdenTimeli
         return 'Item Modificado';
       case 'orden_completada':
         return 'Orden Completada';
+      case 'orden_anulada':
+        return 'Orden Anulada';
       default:
         return tipoAccion;
     }
@@ -194,23 +200,25 @@ export default function HistorialOrdenTimeline({ ordenId }: HistorialOrdenTimeli
               </div>
             )}
 
-            {/* Cambios (antes/después) */}
-            {item.datosAntes && item.datosDespues && (
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <div className="bg-white bg-opacity-50 rounded p-2">
-                  <p className="text-xs font-semibold mb-1">Antes:</p>
-                  <p className="text-xs">
-                    Cantidad: {item.datosAntes.cantidad || 'N/A'}
-                  </p>
+            {/* Cambios (antes/después). Solo los cambios de cantidad tienen
+                este formato: en el resto mostraría "Cantidad: N/A" y nada más. */}
+            {item.datosAntes?.cantidad !== undefined &&
+              item.datosDespues?.cantidad !== undefined && (
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="bg-white bg-opacity-50 rounded p-2">
+                    <p className="text-xs font-semibold mb-1">Antes:</p>
+                    <p className="text-xs">
+                      Cantidad: {item.datosAntes.cantidad}
+                    </p>
+                  </div>
+                  <div className="bg-white bg-opacity-50 rounded p-2">
+                    <p className="text-xs font-semibold mb-1">Después:</p>
+                    <p className="text-xs">
+                      Cantidad: {item.datosDespues.cantidad}
+                    </p>
+                  </div>
                 </div>
-                <div className="bg-white bg-opacity-50 rounded p-2">
-                  <p className="text-xs font-semibold mb-1">Después:</p>
-                  <p className="text-xs">
-                    Cantidad: {item.datosDespues.cantidad || 'N/A'}
-                  </p>
-                </div>
-              </div>
-            )}
+              )}
 
             {/* Impacto financiero */}
             {item.diferenciaTotal && item.diferenciaTotal !== 0 && (
