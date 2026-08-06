@@ -1195,7 +1195,7 @@ export default function AdminPage() {
                                   <ul className="space-y-1">
                                     {orden.pagos.map((pago) => (
                                       <li key={pago.id} className="flex items-center gap-2 text-xs">
-                                        <span className="font-semibold">
+                                        <span className="font-semibold text-black">
                                           {pago.metodoPago === "efectivo" ? "💵" : "🏦"} ${pago.monto.toFixed(2)}
                                         </span>
                                         {pago.metodoPago === "transferencia" &&
