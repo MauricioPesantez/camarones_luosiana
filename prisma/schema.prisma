@@ -68,6 +68,9 @@ model Orden {
   estado                         String           @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cobrada", "cancelada"
   observaciones                  String?
   total                          Decimal          @default(0) @db.Decimal(10, 2)
+  /// Suma de los pagos confirmados. Materializado: `cobrada` se deriva de
+  /// `montoPagado >= total` y los listados filtran por el sin agregar.
+  montoPagado                    Decimal          @default(0) @db.Decimal(10, 2)
   tiempoEstimado                 Int?             @default(0) // Tiempo estimado en minutos
   modificada                     Boolean          @default(false) // Indica si la orden fue modificada
   sinStock                       Boolean          @default(false) // Indica si fue aprobada sin stock suficiente
@@ -75,6 +78,18 @@ model Orden {
   aprobadaPor                    Usuario?         @relation("OrdenesAprobadas", fields: [aprobadaPorId], references: [id])
   razonAprobacion                String? // Razón por la que se aprobó sin stock
   itemsSinStock                  Json? // Lista de items que no tenían stock: [{productoId, productoNombre, cantidadSolicitada, stockDisponible}]
+
+  /// Anulacion logica, igual que en `RetiroCaja`: la orden no se borra nunca.
+  /// Sigue visible en el cuadre con su razon y su autor, pero deja de contar en
+  /// cualquier cifra de dinero. `estado` no se toca: se conserva el estado
+  /// operativo que tenia al anularse para saber que paso realmente.
+  anulada                        Boolean          @default(false)
+  anuladaPorId                   String?
+  anuladaPor                     Usuario?         @relation("OrdenesAnuladas", fields: [anuladaPorId], references: [id])
+  anuladaPorNombre               String?
+  razonAnulacion                 String?
+  anuladaAt                      DateTime?
+
   createdAt                      DateTime         @default(now())
   updatedAt                      DateTime         @updatedAt
   items                          Item[]
@@ -82,7 +97,7 @@ model Orden {
   impresa                        Boolean          @default(false)
   printRevision                  Int              @default(0)
   printJobs                      PrintJob[]
-  cobro                          Cobro?
+  pagos                          Cobro[]
 
   @@unique([fechaNumeroDiario, numeroDiario])
   @@index([creadorId])
@@ -91,14 +106,16 @@ model Orden {
 
 model Cobro {
   id                          String   @id @default(cuid())
-  ordenId                     String   @unique
+  ordenId                     String
   orden                       Orden    @relation(fields: [ordenId], references: [id], onDelete: Restrict)
   metodoPago                  String
+  /// Importe de ESTE pago. `montoTotal` es el total de la orden al momento
+  /// de pagarlo, que con varios pagos ya no coincide con el importe.
+  monto                       Decimal  @db.Decimal(10, 2)
   estado                      String   @default("CONFIRMADO") // "CONFIRMADO" | "REEMBOLSO_PENDIENTE" | "REEMBOLSADO"
   montoTotal                  Decimal  @db.Decimal(10, 2)
   costoEnvio                  Decimal  @default(0) @db.Decimal(10, 2)
   efectivoRecibido            Decimal  @default(0) @db.Decimal(10, 2)
-  efectivoEntregado           Decimal  @default(0) @db.Decimal(10, 2)
   transferenciaRecibida       Decimal  @default(0) @db.Decimal(10, 2)
   cobradoPorId                String?
   cobradoPor                  Usuario? @relation("CobrosRegistrados", fields: [cobradoPorId], references: [id], onDelete: SetNull)
@@ -112,6 +129,7 @@ model Cobro {
 
   @@index([createdAt])
   @@index([cobradoPorId, createdAt])
+  @@index([ordenId])
 }
 
 model ContadorOrdenDiaria {
@@ -198,6 +216,7 @@ model Usuario {
   ordenesAprobadas   Orden[]         @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
   ordenesCreadas     Orden[]         @relation("OrdenesCreadas")
   ordenesCobradas    Orden[]         @relation("OrdenesCobradas")
+  ordenesAnuladas    Orden[]         @relation("OrdenesAnuladas")
   cobrosRegistrados  Cobro[]         @relation("CobrosRegistrados")
   sesiones           SesionUsuario[]
   retirosRegistrados RetiroCaja[]    @relation("RetirosRegistrados")
