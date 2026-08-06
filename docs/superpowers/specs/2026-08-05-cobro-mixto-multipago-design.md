@@ -230,11 +230,25 @@ Se extienden los suites que ya existen, con el mismo estilo de `ts-node`:
 - Casos de la regla unica de liquidacion: los tres historicos mas el mixto, para que la
   reescritura no mueva ningun numero previo.
 
+## Nota de reconciliacion
+
+Este spec se escribio antes de notar que el plan de comprobantes por S3
+(`docs/superpowers/plans/2026-08-03-comprobantes-s3.md`) ya estaba
+implementado y en `develop`: subida real, compresion de imagen, verificacion
+`parseComprobanteKey`/`objectExists` con degradacion si el storage falla, y
+visor firmado para el admin. La decision "un comprobante por cada pago de
+transferencia, sin bloquear en S3" se mantiene, pero **implementar** ahora
+significa reutilizar ese flujo por cada parte de transferencia, no construirlo
+de cero. Ademas, se confirmo que **ningun** flujo de la app exige comprobante
+para cobrar una transferencia: ni el enlace/QR (tiene boton "Registrar sin
+comprobante"), ni las listas internas de mesero/admin/digital (nunca capturan
+foto). El comprobante es informativo — se marca su ausencia, nunca bloquea el
+cobro. La implementacion (Tasks 4, 5, 10 del plan) se corrigio para reflejar
+esto.
+
 ## Fuera de alcance
 
 - Reembolsos y devoluciones parciales. Quitar items de una orden pagada sigue
   prohibido.
-- Subida real del comprobante a S3. Se mantiene el plan
-  `docs/superpowers/plans/2026-08-03-comprobantes-s3.md` como trabajo aparte.
 - Metodos de pago adicionales (tarjeta). El modelo 1:N los admite sin cambio de forma.
 - Abonos y pagos parciales deliberados.
