@@ -11,6 +11,7 @@ import {
 import { notificarClientes } from '@/lib/sse';
 import {
   calcularRecargoEnvases,
+  calcularSaldo,
   esCategoriaCombo,
   esNivelPicante,
   RECARGO_RECIPIENTES,
@@ -176,11 +177,30 @@ export async function PATCH(
           );
         }
 
-        if (order.cobrada) {
-          throw new ModificationRequestError(
-            'No se puede modificar una orden que ya fue cobrada',
-            409,
-          );
+        const saldo = calcularSaldo({
+          total: order.total.toString(),
+          montoPagado: order.montoPagado.toString(),
+        });
+        const yaPagada = saldo <= 0;
+
+        // Una orden ya pagada puede CRECER: el cliente agrega algo y paga el
+        // saldo despues, con el metodo que quiera. Lo que no puede es
+        // encoger, porque eso obligaria a devolver dinero y el reembolso es
+        // un flujo que no existe.
+        if (yaPagada) {
+          const reduceElTotal = body.items.some((change) => {
+            if (change.accion === 'eliminar') return true;
+            if (change.accion !== 'modificar') return false;
+
+            const original = order.items.find((item) => item.id === change.itemId);
+            return original ? change.cantidad < original.cantidad : true;
+          });
+          if (reduceElTotal) {
+            throw new ModificationRequestError(
+              'No se puede quitar productos ni reducir cantidades de una orden ya pagada.',
+              400,
+            );
+          }
         }
 
         if (order.printRevision !== body.expectedRevision) {
@@ -190,7 +210,12 @@ export async function PATCH(
           );
         }
 
-        const editableStatuses = ['pendiente', 'en_preparacion', 'lista'];
+        const editableStatuses = [
+          'pendiente',
+          'en_preparacion',
+          'lista',
+          'cobrada',
+        ];
         if (!editableStatuses.includes(order.estado)) {
           throw new ModificationRequestError(
             'Solo se pueden modificar órdenes activas',
@@ -198,15 +223,16 @@ export async function PATCH(
           );
         }
 
-        const wasReady = order.estado === 'lista';
-        if (wasReady) {
+        // Una orden ya lista o ya cobrada regresa a preparacion si el cambio
+        // trae comida nueva.
+        const wasReady = order.estado === 'lista' || order.estado === 'cobrada';
+
+        if (order.estado === 'lista') {
           const invalidChange = body.items.some((change) => {
             if (change.accion === 'eliminar') return true;
             if (change.accion !== 'modificar') return false;
 
-            const original = order.items.find(
-              (item) => item.id === change.itemId,
-            );
+            const original = order.items.find((item) => item.id === change.itemId);
             return original ? change.cantidad < original.cantidad : true;
           });
 
@@ -526,10 +552,17 @@ export async function PATCH(
         );
         const newStatus = wasReady && hasNewPreparation ? 'en_preparacion' : undefined;
 
+        // `cobrada` es derivado: si el total subio por encima de lo pagado, la
+        // orden vuelve a tener saldo y reaparece en la lista de cobros.
+        const siguePagada =
+          calcularSaldo({
+            total: newTotal,
+            montoPagado: order.montoPagado.toString(),
+          }) <= 0;
+
         const orderUpdate = await tx.orden.updateMany({
           where: {
             id,
-            cobrada: false,
             printRevision: body.expectedRevision,
           },
           data: {
@@ -537,6 +570,7 @@ export async function PATCH(
             recargo: newSurcharge > 0 ? newSurcharge : null,
             tiempoEstimado: newEstimatedTime,
             modificada: true,
+            cobrada: siguePagada,
             printRevision: body.expectedRevision + 1,
             ...(newStatus ? { estado: newStatus } : {}),
           },
