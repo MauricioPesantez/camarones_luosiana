@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { ORDENES_VIGENTES } from '@/lib/ordenes-anulacion';
 import { Prisma } from '@prisma/client';
 
 interface DatosDespuesJson {
@@ -15,8 +16,11 @@ export async function GET(request: Request) {
     const fechaInicio = searchParams.get('fechaInicio');
     const fechaFin = searchParams.get('fechaFin');
 
+    // Las cortesías de una orden anulada no se regalaron: la orden entera dejó
+    // de existir para el negocio, así que no cuentan en el reporte.
     const whereCondition: Prisma.HistorialOrdenWhereInput = {
       tipoAccion: 'cortesia_aplicada',
+      orden: ORDENES_VIGENTES,
     };
 
     if (fechaInicio && fechaFin) {

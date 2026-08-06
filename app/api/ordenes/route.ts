@@ -21,6 +21,7 @@ import {
 } from '@/lib/print-jobs';
 import { isDirectPrintEnabled } from '@/lib/print-config';
 import { allocateDailyOrderNumber } from '@/lib/daily-order-number';
+import { ORDENES_VIGENTES } from '@/lib/ordenes-anulacion';
 import { createPaymentLink } from '@/lib/payment-link';
 import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
 import { calcularMovimientosCobro } from '@/types/cobro';
@@ -76,8 +77,15 @@ export async function GET(request: Request) {
         ? {}
         : { createdAt: { gte: rangoHoy.inicio, lt: rangoHoy.fin } };
 
+    // Una orden anulada desaparece de la operacion: cocina no la prepara y el
+    // mesero no la cobra. Solo el cuadre la sigue mostrando, tachada.
     const ordenes = await prisma.orden.findMany({
-      where: { ...ownerFilter, ...(estadoFiltro ?? {}), ...fechaFiltro },
+      where: {
+        ...ORDENES_VIGENTES,
+        ...ownerFilter,
+        ...(estadoFiltro ?? {}),
+        ...fechaFiltro,
+      },
       include: ORDEN_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });

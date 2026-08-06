@@ -36,6 +36,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (orden.anulada) {
+      return NextResponse.json(
+        { error: 'La orden ya fue anulada' },
+        { status: 409 }
+      );
+    }
+
     if (orden.estado !== 'pendiente_aprobacion_stock') {
       return NextResponse.json(
         { error: 'La orden no está pendiente de aprobación por stock' },
@@ -49,6 +56,7 @@ export async function POST(request: NextRequest) {
         where: {
           id: ordenId,
           estado: 'pendiente_aprobacion_stock',
+          anulada: false,
         },
         data: {
           estado: 'cancelada',
@@ -56,7 +64,7 @@ export async function POST(request: NextRequest) {
       });
       if (transition.count !== 1) {
         throw new RejectionConflictError(
-          'La orden ya fue aprobada o rechazada por otra solicitud.',
+          'La orden ya fue aprobada, rechazada o anulada por otra solicitud.',
         );
       }
       const ordenActualizada = await tx.orden.findUniqueOrThrow({

@@ -36,6 +36,13 @@ export async function POST(
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
 
+    if (orden.anulada) {
+      return NextResponse.json(
+        { error: 'No se puede agregar cortesía a una orden anulada' },
+        { status: 409 }
+      );
+    }
+
     if (!ESTADOS_EDITABLES.includes(orden.estado)) {
       return NextResponse.json(
         { error: `No se puede agregar cortesía a una orden en estado "${orden.estado}"` },

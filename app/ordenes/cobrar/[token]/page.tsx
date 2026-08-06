@@ -51,6 +51,7 @@ export default async function CobrarOrdenPage({
       total: true,
       metodoPagoPrevisto: true,
       cobrada: true,
+      anulada: true,
       createdAt: true,
       observaciones: true,
       items: {
@@ -72,6 +73,8 @@ export default async function CobrarOrdenPage({
   // El permiso de cobro ya se validó por rol arriba: quien tenga el enlace y pueda
   // cobrar cierra el pago aunque la orden la haya creado otro usuario.
   if (orden.cobrada) redirect(roleOrdersHome(usuario.rol, 'ya_cobrada'));
+  // El QR impreso sigue existiendo despues de anular: no debe abrir un cobro.
+  if (orden.anulada) redirect(roleOrdersHome(usuario.rol, 'anulada'));
   if (orden.estado === 'cancelada') {
     redirect(roleOrdersHome(usuario.rol, 'cancelada'));
   }

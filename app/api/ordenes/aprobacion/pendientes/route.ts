@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { OrdenPendienteAprobacion } from '@/types/orden';
 import { ItemSinStock } from '@/types/stock';
+import { ORDENES_VIGENTES } from '@/lib/ordenes-anulacion';
 import { getAuthenticatedUser } from '@/lib/session';
 
 export async function GET() {
@@ -13,9 +14,11 @@ export async function GET() {
     if (usuario.rol !== 'admin') {
       return NextResponse.json({ error: 'Solo administradores' }, { status: 403 });
     }
-    // Obtener todas las órdenes pendientes de aprobación por stock
+    // Obtener todas las órdenes pendientes de aprobación por stock.
+    // Una orden anulada ya no espera decisión de nadie.
     const ordenes = await prisma.orden.findMany({
       where: {
+        ...ORDENES_VIGENTES,
         estado: 'pendiente_aprobacion_stock',
       },
       include: {

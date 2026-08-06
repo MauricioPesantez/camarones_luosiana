@@ -49,6 +49,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (orden.anulada) {
+      return NextResponse.json(
+        { error: 'La orden fue anulada y ya no puede aprobarse' },
+        { status: 409 }
+      );
+    }
+
     if (orden.estado !== 'pendiente_aprobacion_stock') {
       return NextResponse.json(
         { error: 'La orden no está pendiente de aprobación por stock' },
@@ -69,6 +76,8 @@ export async function POST(request: NextRequest) {
         where: {
           id: ordenId,
           estado: 'pendiente_aprobacion_stock',
+          // Si la anularon mientras se decidia, no se descuenta stock ni se cobra.
+          anulada: false,
         },
         data: {
           estado: 'pendiente',
@@ -88,7 +97,7 @@ export async function POST(request: NextRequest) {
 
       if (transicion.count !== 1) {
         throw new ApprovalConflictError(
-          'La orden ya fue procesada por otra solicitud.',
+          'La orden ya fue procesada o anulada por otra solicitud.',
         );
       }
 

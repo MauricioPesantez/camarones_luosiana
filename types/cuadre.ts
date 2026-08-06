@@ -8,6 +8,8 @@ export interface OrdenParaCuadre {
   costoEnvio?: number | string | null;
   metodoPago?: string | null;
   estadoCobro?: string | null;
+  /** Anulada logicamente: se sigue viendo, pero no cuenta como venta. */
+  anulada?: boolean | null;
 }
 
 export interface RetiroParaCuadre {
@@ -16,9 +18,14 @@ export interface RetiroParaCuadre {
 }
 
 export interface ResumenCuadre {
+  /** Ordenes que cuentan: las anuladas quedan fuera de este total. */
   totalOrdenes: number;
   ordenesCobradas: number;
   ordenesSinCobrar: number;
+  /** Ordenes anuladas por un admin. Se informan, no se suman. */
+  ordenesAnuladas: number;
+  /** Venta que se perdio al anular, sin el envio. Solo informativa. */
+  ventasAnuladas: number;
   /** Venta del local: totales sin el envio, cobradas y no cobradas. */
   ventasTotales: number;
   ventasSinCobrar: number;
@@ -68,12 +75,25 @@ function aDolares(centavos: number): number {
  * Los retiros son la otra mitad de la caja: gastos que los empleados pagan con
  * el efectivo del dia. Solo tocan `efectivoEnCaja`; no son una venta ni una
  * venta negativa, asi que ninguna cifra de venta los mira.
+ *
+ * Una orden anulada se trata igual que un retiro anulado: se recibe, se informa
+ * aparte y no entra en ninguna cifra. Que el dato llegue y se descarte aqui (en
+ * vez de filtrarse en la consulta) es lo que permite mostrarla tachada en la
+ * pantalla sin arriesgar que alguna cifra la sume por descuido.
  */
 export function calcularResumenCuadre(
   ordenes: readonly OrdenParaCuadre[],
   retiros: readonly RetiroParaCuadre[] = [],
 ): ResumenCuadre {
-  const resumen = ordenes.reduce(
+  const ordenesAnuladas = ordenes.filter((orden) => orden.anulada === true);
+  const ordenesVigentes = ordenes.filter((orden) => orden.anulada !== true);
+  const ventasAnuladas = ordenesAnuladas.reduce(
+    (total, orden) =>
+      total + aCentavos(orden.total) - aCentavos(obtenerCostoEnvio(orden)),
+    0,
+  );
+
+  const resumen = ordenesVigentes.reduce(
     (acumulado, orden) => {
       const total = aCentavos(orden.total);
       const costoEnvio = aCentavos(obtenerCostoEnvio(orden));
@@ -148,9 +168,11 @@ export function calcularResumenCuadre(
   );
 
   return {
-    totalOrdenes: ordenes.length,
+    totalOrdenes: ordenesVigentes.length,
     ordenesCobradas: resumen.ordenesCobradas,
     ordenesSinCobrar: resumen.ordenesSinCobrar,
+    ordenesAnuladas: ordenesAnuladas.length,
+    ventasAnuladas: aDolares(ventasAnuladas),
     ventasTotales: aDolares(resumen.ventasTotales),
     ventasSinCobrar: aDolares(resumen.ventasSinCobrar),
     ventasCobradas: aDolares(resumen.ventasCobradas),
