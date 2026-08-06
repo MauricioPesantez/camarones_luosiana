@@ -7,7 +7,7 @@ import {
   shouldEnqueuePrintJob,
 } from '@/lib/print-jobs';
 import { getAuthenticatedUser } from '@/lib/session';
-import { calcularMovimientosCobro } from '@/types/cobro';
+import { calcularMovimientosPago } from '@/types/cobro';
 
 class ApprovalConflictError extends Error {}
 
@@ -49,6 +49,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (orden.anulada) {
+      return NextResponse.json(
+        { error: 'La orden fue anulada y ya no puede aprobarse' },
+        { status: 409 }
+      );
+    }
+
     if (orden.estado !== 'pendiente_aprobacion_stock') {
       return NextResponse.json(
         { error: 'La orden no está pendiente de aprobación por stock' },
@@ -69,6 +76,8 @@ export async function POST(request: NextRequest) {
         where: {
           id: ordenId,
           estado: 'pendiente_aprobacion_stock',
+          // Si la anularon mientras se decidia, no se descuenta stock ni se cobra.
+          anulada: false,
         },
         data: {
           estado: 'pendiente',
@@ -77,6 +86,7 @@ export async function POST(request: NextRequest) {
           razonAprobacion: razon || 'Aprobada por administrador',
           ...(pagarTransferencia && {
             cobrada: true,
+            montoPagado: orden.total,
             metodoPago: 'transferencia',
             fechaCobro: new Date(),
             cobradaPor: orden.mesero,
@@ -88,7 +98,7 @@ export async function POST(request: NextRequest) {
 
       if (transicion.count !== 1) {
         throw new ApprovalConflictError(
-          'La orden ya fue procesada por otra solicitud.',
+          'La orden ya fue procesada o anulada por otra solicitud.',
         );
       }
 
@@ -126,16 +136,15 @@ export async function POST(request: NextRequest) {
       });
 
       if (pagarTransferencia) {
-        const movimientos = calcularMovimientosCobro({
-          tipoOrden: orden.tipoOrden,
-          total: orden.total.toString(),
-          costoEnvio: orden.costoEnvio?.toString(),
+        const movimientos = calcularMovimientosPago({
           metodoPago: 'transferencia',
+          monto: orden.total.toString(),
         });
         await tx.cobro.create({
           data: {
             ordenId,
             metodoPago: 'transferencia',
+            monto: orden.total,
             montoTotal: orden.total,
             costoEnvio: orden.costoEnvio ?? 0,
             ...movimientos,

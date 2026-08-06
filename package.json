@@ -18,10 +18,18 @@
     "test:fecha-ecuador": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/fecha-ecuador.test.ts",
     "test:retiros-validaciones": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/retiros-validaciones.test.ts",
     "test:navegacion": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/navegacion.test.ts",
+    "test:comprobantes": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/comprobantes.test.ts",
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' prisma/seed.ts",
-    "db:reset:preprod": "node scripts/reset-preproduction.mjs"
+    "db:reset:preprod": "node scripts/reset-preproduction.mjs",
+    "test:cobro": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/cobro.test.ts",
+    "test:monto-caja": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' types/cobro.test.ts",
+    "test:liquidacion": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/liquidacion-domicilio.test.ts",
+    "test:cobro-validaciones": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/order-payment-validaciones.test.ts",
+    "test:payment-link": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/payment-link.test.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1102.0",
+    "@aws-sdk/s3-request-presigner": "^3.1102.0",
     "@prisma/adapter-pg": "^7.1.0",
     "@prisma/client": "5.22.0",
     "next": "16.0.6",

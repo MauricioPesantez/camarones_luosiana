@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import HistorialOrdenTimeline from "./HistorialOrdenTimeline";
+import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 import {
   type NivelPicante,
   obtenerEtiquetaNivelPicante,
@@ -44,8 +45,19 @@ interface Orden {
   modificada: boolean;
   cobrada?: boolean;
   metodoPago?: string | null;
+  comprobanteTransferenciaKey?: string | null;
+  pagos?: {
+    id: string;
+    metodoPago: string;
+    monto: number;
+    comprobanteTransferenciaKey: string | null;
+  }[];
   fechaCobro?: string | null;
   cobradaPor?: string | null;
+  anulada?: boolean;
+  anuladaPorNombre?: string | null;
+  razonAnulacion?: string | null;
+  anuladaAt?: string | null;
   createdAt: string;
   updatedAt: string;
   observaciones?: string;
@@ -73,6 +85,7 @@ export default function DetalleOrdenModal({
   const [pestanaActiva, setPestanaActiva] = useState<"resumen" | "historial">(
     "resumen",
   );
+  const [abriendoComprobante, setAbriendoComprobante] = useState(false);
 
   // Estado del modal de cortesía
   const [mostrarModalCortesia, setMostrarModalCortesia] = useState(false);
@@ -87,7 +100,7 @@ export default function DetalleOrdenModal({
   const [errorCortesia, setErrorCortesia] = useState("");
 
   const puedeAgregarCortesia =
-    adminId && ESTADOS_EDITABLES.includes(orden.estado);
+    adminId && !orden.anulada && ESTADOS_EDITABLES.includes(orden.estado);
 
   const itemsCortesia = orden.items.filter((i) => i.esCortesia);
 
@@ -155,6 +168,15 @@ export default function DetalleOrdenModal({
   const productosFiltrados = productos.filter((p) =>
     p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase()),
   );
+
+  const abrirComprobante = async (cobroId?: string) => {
+    setAbriendoComprobante(true);
+    try {
+      await abrirComprobanteFirmado(orden.id, cobroId);
+    } finally {
+      setAbriendoComprobante(false);
+    }
+  };
 
   // Sync if parent updates the orden
   useEffect(() => {
@@ -336,6 +358,53 @@ export default function DetalleOrdenModal({
                   </p>
                 </div>
               </div>
+
+              {orden.pagos && orden.pagos.length > 0 ? (
+                <div className="mt-4">
+                  <p className="text-sm font-bold text-gray-500">Pagos</p>
+                  <ul className="mt-1 space-y-1">
+                    {orden.pagos.map((pago) => (
+                      <li key={pago.id} className="flex items-center justify-between text-sm">
+                        <span className="capitalize">{pago.metodoPago}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="font-semibold">${pago.monto.toFixed(2)}</span>
+                          {pago.metodoPago === "transferencia" &&
+                            (pago.comprobanteTransferenciaKey ? (
+                              <button
+                                onClick={() => void abrirComprobante(pago.id)}
+                                disabled={abriendoComprobante}
+                                className="text-xs font-bold text-blue-700 underline disabled:opacity-50"
+                              >
+                                📎 Ver
+                              </button>
+                            ) : (
+                              <span className="text-xs text-amber-700">sin comprobante</span>
+                            ))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                orden.metodoPago === "transferencia" && (
+                  <div className="mt-4">
+                    <p className="text-sm font-bold text-gray-500">Comprobante</p>
+                    {orden.comprobanteTransferenciaKey ? (
+                      <button
+                        onClick={() => void abrirComprobante()}
+                        disabled={abriendoComprobante}
+                        className="mt-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-slate-400"
+                      >
+                        {abriendoComprobante ? "Abriendo…" : "📎 Ver comprobante"}
+                      </button>
+                    ) : (
+                      <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        Registrado sin comprobante
+                      </p>
+                    )}
+                  </div>
+                )
+              )}
 
               {/* Observaciones Generales */}
               {orden.observaciones && (
@@ -519,6 +588,29 @@ export default function DetalleOrdenModal({
                 </div>
               </div>
 
+              {/* Orden anulada: sigue existiendo, pero fuera del cuadre */}
+              {orden.anulada && (
+                <div className="bg-gray-100 border-l-4 border-gray-400 p-4 rounded">
+                  <p className="text-sm font-bold text-gray-700">
+                    🚫 Orden anulada
+                    {orden.anuladaPorNombre
+                      ? ` por ${orden.anuladaPorNombre}`
+                      : ""}
+                    {orden.anuladaAt
+                      ? ` · ${new Date(orden.anuladaAt).toLocaleString("es-EC")}`
+                      : ""}
+                  </p>
+                  {orden.razonAnulacion && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Razón: {orden.razonAnulacion}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    No cuenta en el cuadre de caja ni en los reportes.
+                  </p>
+                </div>
+              )}
+
               {/* Badge de Modificación */}
               {orden.modificada && (
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
@@ -578,7 +670,7 @@ export default function DetalleOrdenModal({
                     )}
                   </div>
                 </div>
-              ) : orden.estado !== "cancelada" ? (
+              ) : !orden.anulada && orden.estado !== "cancelada" ? (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <p className="text-sm text-orange-700 font-semibold">
                     ⏳ Pendiente de cobro

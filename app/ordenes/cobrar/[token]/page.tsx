@@ -9,15 +9,24 @@ import {
   roleHome,
   roleOrdersHome,
 } from '@/lib/session';
+import { storageConfigurado } from '@/lib/storage';
 
 export default async function CobrarOrdenPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ origen?: string }>;
 }) {
   const { token } = await params;
+  const { origen } = await searchParams;
+  // Desde la lista interna se navega en la misma pestaña: ahí no se debe cerrar
+  // nada al terminar. El enlace/QR sí abre una pestaña dedicada al cobro.
+  const abiertoDesdeLista = origen === 'lista';
   const usuario = await getAuthenticatedUser();
-  const currentPath = `/ordenes/cobrar/${encodeURIComponent(token)}`;
+  const currentPath = `/ordenes/cobrar/${encodeURIComponent(token)}${
+    abiertoDesdeLista ? '?origen=lista' : ''
+  }`;
   if (!usuario) {
     redirect(`/login?next=${encodeURIComponent(currentPath)}`);
   }
@@ -40,8 +49,10 @@ export default async function CobrarOrdenPage({
       recargo: true,
       costoEnvio: true,
       total: true,
+      montoPagado: true,
       metodoPagoPrevisto: true,
       cobrada: true,
+      anulada: true,
       createdAt: true,
       observaciones: true,
       items: {
@@ -63,6 +74,8 @@ export default async function CobrarOrdenPage({
   // El permiso de cobro ya se validó por rol arriba: quien tenga el enlace y pueda
   // cobrar cierra el pago aunque la orden la haya creado otro usuario.
   if (orden.cobrada) redirect(roleOrdersHome(usuario.rol, 'ya_cobrada'));
+  // El QR impreso sigue existiendo despues de anular: no debe abrir un cobro.
+  if (orden.anulada) redirect(roleOrdersHome(usuario.rol, 'anulada'));
   if (orden.estado === 'cancelada') {
     redirect(roleOrdersHome(usuario.rol, 'cancelada'));
   }
@@ -78,6 +91,7 @@ export default async function CobrarOrdenPage({
     recargo: Number(orden.recargo ?? 0),
     costoEnvio: Number(orden.costoEnvio ?? 0),
     total: Number(orden.total),
+    montoPagado: Number(orden.montoPagado),
     createdAt: orden.createdAt.toISOString(),
     items: orden.items.map((item) => ({
       ...item,
@@ -92,6 +106,8 @@ export default async function CobrarOrdenPage({
       orden={serializableOrder}
       usuario={usuario}
       successUrl={roleOrdersHome(usuario.rol, 'cobro_exitoso')}
+      cerrarAlFinalizar={!abiertoDesdeLista}
+      storageDisponible={storageConfigurado()}
     />
   );
 }
