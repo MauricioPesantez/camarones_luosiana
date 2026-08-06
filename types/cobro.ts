@@ -42,6 +42,33 @@ export function calcularMovimientosPago(input: {
 }
 
 /**
+ * Cuanto efectivo recibe la caja ahora mismo, por UN pago completo de la
+ * orden en este metodo. Es un helper de presentacion (UI), deliberadamente
+ * independiente de `calcularMovimientosPago`/`PartePago`: en domicilio pagado
+ * en efectivo, el motorizado cobra el total al cliente y entrega al local
+ * todo menos el envio (que es su ganancia), asi que la caja nunca recibe el
+ * envio en ese caso. En cualquier otra combinacion (cualquier metodo en
+ * local/para_llevar, o transferencia en domicilio) entra el total completo.
+ */
+export function montoACobrarEnCaja(input: {
+  tipoOrden?: string | null;
+  total: number | string;
+  costoEnvio?: number | string | null;
+  metodoPago: MetodoPago | string;
+}): number {
+  if (!esMetodoPago(input.metodoPago)) return 0;
+
+  const totalCentavos = aCentavos(input.total);
+
+  if (input.tipoOrden === 'domicilio' && input.metodoPago === 'efectivo') {
+    const envioCentavos = aCentavos(input.costoEnvio);
+    return aDolares(Math.max(0, totalCentavos - envioCentavos));
+  }
+
+  return aDolares(totalCentavos);
+}
+
+/**
  * Dato de presentacion que se materializa en `Orden.metodoPago`. El cuadre no
  * lo usa: el dinero se cuenta sumando las filas de `Cobro`.
  */
