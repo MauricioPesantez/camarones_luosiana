@@ -39,6 +39,7 @@ interface Orden {
   creadorRol: string;
   estado: string;
   total: number;
+  montoPagado: number;
   tiempoEstimado: number;
   modificada: boolean;
   cobrada: boolean;
@@ -51,6 +52,8 @@ interface Orden {
     monto: number;
     comprobanteTransferenciaKey: string | null;
     origen: string;
+    /** "CONFIRMADO" | "REEMBOLSO_PENDIENTE". La API ya excluye "REEMBOLSADO". */
+    estado?: string | null;
     /** La API la incluye para el calculo del cuadre (Task 9); la UI no la usa. */
     enRango: boolean;
   }[];
@@ -1170,11 +1173,25 @@ export default function AdminPage() {
                         >
                           {orden.cobrada ? (
                             <div className="flex flex-col gap-1">
-                              {orden.pagos && orden.pagos.length > 1 ? (
+                              {orden.pagos && orden.pagos.length > 0 ? (
                                 <>
-                                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                                    🔀 Mixto
-                                  </span>
+                                  {orden.metodoPago === "mixto" ? (
+                                    <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                      🔀 Mixto
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                        orden.metodoPago === "efectivo"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-blue-100 text-blue-800"
+                                      }`}
+                                    >
+                                      {orden.metodoPago === "efectivo"
+                                        ? "💵 Efectivo"
+                                        : "🏦 Transferencia"}
+                                    </span>
+                                  )}
                                   <ul className="space-y-1">
                                     {orden.pagos.map((pago) => (
                                       <li key={pago.id} className="flex items-center gap-2 text-xs">

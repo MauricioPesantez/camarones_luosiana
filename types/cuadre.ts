@@ -11,6 +11,8 @@ export interface PagoParaCuadre {
   monto: number | string;
   /** Si la fecha del pago cae dentro del rango del cierre. Lo decide la ruta. */
   enRango: boolean;
+  /** Estado del `Cobro`: "CONFIRMADO" | "REEMBOLSO_PENDIENTE" | "REEMBOLSADO". */
+  estado?: string | null;
 }
 
 export interface OrdenParaCuadre {
@@ -182,8 +184,17 @@ export function calcularResumenCuadre(
       acumulado.enviosMotorizados += costoEnvio;
 
       // El reembolso es lo que hay que devolverle al cliente: va en bruto,
-      // porque el cliente pago el envio junto con el pedido.
-      if (orden.estadoCobro === "REEMBOLSO_PENDIENTE") {
+      // porque el cliente pago el envio junto con el pedido. Con multipago
+      // solo una parte puede estar pendiente de reembolso, asi que se suma
+      // nada mas el monto de esa parte, no el total de la orden. El fallback
+      // al total completo queda solo para ordenes historicas sin filas de
+      // pago, donde no hay forma de saber cuanto de la orden esta pendiente.
+      if (pagos.length > 0) {
+        const reembolsoPendienteDeEstaOrden = pagos
+          .filter((pago) => pago.estado === "REEMBOLSO_PENDIENTE")
+          .reduce((suma, pago) => suma + aCentavos(pago.monto), 0);
+        acumulado.montoReembolsoPendiente += reembolsoPendienteDeEstaOrden;
+      } else if (orden.estadoCobro === "REEMBOLSO_PENDIENTE") {
         acumulado.montoReembolsoPendiente += total;
       }
 

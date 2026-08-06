@@ -472,4 +472,27 @@ const domicilioCerrandoEnEsteRango = calcularResumenCuadre([
 assert.equal(domicilioCerrandoEnEsteRango.efectivoCobradoMotorizados, 10);
 assert.equal(domicilioCerrandoEnEsteRango.efectivoEntregadoMotorizados, 0);
 
+// Reembolso parcial en una orden con multipago: solo una de las dos partes
+// esta pendiente de reembolso (los $5 en efectivo), asi que la deuda es
+// $5, no el total de la orden ($13). Sumar el total completo sobreestimaria
+// la deuda con el cliente cuando el resto del pago si quedo confirmado.
+const reembolsoParcialMultipago = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "local",
+    total: 13,
+    montoPagado: 13,
+    estadoCobro: "REEMBOLSO_PENDIENTE",
+    pagos: [
+      { metodoPago: "efectivo", monto: 5, enRango: true, estado: "REEMBOLSO_PENDIENTE" },
+      { metodoPago: "transferencia", monto: 8, enRango: true, estado: "CONFIRMADO" },
+    ],
+  },
+]);
+assert.equal(
+  reembolsoParcialMultipago.montoReembolsoPendiente,
+  5,
+  "solo la parte pendiente de reembolso debe contar como deuda, no el total de la orden",
+);
+
 console.log("cuadre.test.ts multipago OK");

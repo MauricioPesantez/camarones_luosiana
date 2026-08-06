@@ -144,6 +144,7 @@ export interface OrdenComanda {
   cobrada?: boolean;
   cobroUrl?: string | null;
   total: NumericValue;
+  montoPagado?: NumericValue | null;
   createdAt: string | Date;
   items: ItemComanda[];
 }

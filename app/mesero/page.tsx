@@ -348,7 +348,7 @@ function MeseroContenido() {
 
                       {/* Botones */}
                       <div className="flex flex-col gap-2">
-                        {orden.montoPagado > 0 && orden.total > orden.montoPagado && (
+                        {orden.montoPagado > 0 && Number(orden.total) > Number(orden.montoPagado) && (
                           <span className="mb-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-900">
                             SALDO ${(orden.total - orden.montoPagado).toFixed(2)}
                           </span>
@@ -437,7 +437,12 @@ function MeseroContenido() {
                 <p className="text-sm text-gray-500 mb-5">
                   {metodoPagoSeleccionado === "efectivo"
                     ? `El cliente paga $${Number(ordenACobrar.total).toFixed(2)}; el motorizado conserva $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} del envío.`
-                    : `Entra el total; luego se entregan $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} en efectivo al motorizado.`}
+                    : metodoPagoSeleccionado === "mixto"
+                      ? (efectivoMixtoCentavos >=
+                          Math.round(Number(ordenACobrar.costoEnvio ?? 0) * 100)
+                          ? `El motorizado te entrega $${((efectivoMixtoCentavos - Math.round(Number(ordenACobrar.costoEnvio ?? 0) * 100)) / 100).toFixed(2)}.`
+                          : `Le entregas $${((Math.round(Number(ordenACobrar.costoEnvio ?? 0) * 100) - efectivoMixtoCentavos) / 100).toFixed(2)} al motorizado.`)
+                      : `Entra el total; luego se entregan $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} en efectivo al motorizado.`}
                 </p>
               )}
             <p className="mt-4 text-sm font-semibold text-gray-700 mb-3">

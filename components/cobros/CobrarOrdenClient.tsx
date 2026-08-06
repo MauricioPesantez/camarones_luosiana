@@ -433,7 +433,7 @@ export default function CobrarOrdenClient({
                     El efectivo cubre todo el saldo. Usa el botón de Efectivo.
                   </p>
                 )}
-                {esDomicilio && efectivoMixtoCentavos > 0 && (
+                {esDomicilio && esPrimerPago && efectivoMixtoCentavos > 0 && (
                   <p className="mt-3 rounded-lg bg-purple-50 p-3 text-sm text-purple-900">
                     {efectivoMixtoCentavos >= Math.round(orden.costoEnvio * 100)
                       ? `El motorizado te entrega $${((efectivoMixtoCentavos - Math.round(orden.costoEnvio * 100)) / 100).toFixed(2)}.`

@@ -132,6 +132,7 @@ export async function GET(request: Request) {
             monto: Number(pago.monto),
             comprobanteTransferenciaKey: pago.comprobanteTransferenciaKey,
             origen: pago.origen,
+            estado: pago.estado,
             enRango:
               pago.createdAt >= rango.inicio && pago.createdAt < rango.fin,
           })),

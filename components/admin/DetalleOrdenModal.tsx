@@ -355,7 +355,7 @@ export default function DetalleOrdenModal({
                 </div>
               </div>
 
-              {orden.pagos && orden.pagos.length > 1 ? (
+              {orden.pagos && orden.pagos.length > 0 ? (
                 <div className="mt-4">
                   <p className="text-sm font-bold text-gray-500">Pagos</p>
                   <ul className="mt-1 space-y-1">
