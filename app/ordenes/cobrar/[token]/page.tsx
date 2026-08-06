@@ -9,6 +9,7 @@ import {
   roleHome,
   roleOrdersHome,
 } from '@/lib/session';
+import { storageConfigurado } from '@/lib/storage';
 
 export default async function CobrarOrdenPage({
   params,
@@ -101,6 +102,7 @@ export default async function CobrarOrdenPage({
       usuario={usuario}
       successUrl={roleOrdersHome(usuario.rol, 'cobro_exitoso')}
       cerrarAlFinalizar={!abiertoDesdeLista}
+      storageDisponible={storageConfigurado()}
     />
   );
 }

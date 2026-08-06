@@ -3,7 +3,9 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { comprimirImagen } from "@/lib/imagen-cliente";
 import type { AuthenticatedUser } from "@/lib/session";
+import { montoACobrarEnCaja } from "@/types/cobro";
 import {
   obtenerEtiquetaNivelPicante,
   type MetodoPago,
@@ -52,18 +54,29 @@ export default function CobrarOrdenClient({
   usuario,
   successUrl,
   cerrarAlFinalizar,
+  storageDisponible,
 }: {
   token: string;
   orden: CobroOrder;
   usuario: AuthenticatedUser;
   successUrl: string;
   cerrarAlFinalizar: boolean;
+  storageDisponible: boolean;
 }) {
   const router = useRouter();
   const idempotencyKey = useRef(crypto.randomUUID());
   const [confirmCash, setConfirmCash] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
+  // Un solo estado para toda la fila de transferencia (en vez de dos booleanos
+  // independientes) para que un fallo en CUALQUIER tramo -subida o cobro- lleve
+  // siempre al mismo "fallo" y muestre el botón de reintentar/registrar sin
+  // comprobante. Con dos booleanos separados, un cobro fallido después de una
+  // subida exitosa no marcaba nada: el botón de "Registrar sin comprobante"
+  // quedaba inalcanzable.
+  const [estadoTransferencia, setEstadoTransferencia] = useState<
+    "idle" | "subiendo" | "cobrando" | "fallo"
+  >("idle");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [cobrado, setCobrado] = useState<MetodoPago | null>(null);
@@ -72,12 +85,30 @@ export default function CobrarOrdenClient({
     (total, item) => total + item.subtotal,
     0,
   );
-  const efectivoLocal =
-    orden.tipoOrden === "domicilio"
-      ? Math.max(0, orden.total - orden.costoEnvio)
-      : orden.total;
+  // Lo que entra a caja segun el metodo. Es el mismo calculo que asienta el cobro:
+  // en domicilio con efectivo el envio se queda con el motorizado y no se cobra.
+  const montoEfectivo = montoACobrarEnCaja({
+    tipoOrden: orden.tipoOrden,
+    total: orden.total,
+    costoEnvio: orden.costoEnvio,
+    metodoPago: "efectivo",
+  });
+  const montoTransferencia = montoACobrarEnCaja({
+    tipoOrden: orden.tipoOrden,
+    total: orden.total,
+    costoEnvio: orden.costoEnvio,
+    metodoPago: "transferencia",
+  });
+  const esDomicilio = orden.tipoOrden === "domicilio";
 
-  const cobrar = async (metodoPago: MetodoPago) => {
+  // Devuelve si el cobro se registró o no: el llamador (subirYCobrar) necesita
+  // saberlo para decidir si mostrar el estado de fallo. El camino de efectivo
+  // llama a esta función directo y descarta el resultado, así que su
+  // comportamiento no cambia.
+  const cobrar = async (
+    metodoPago: MetodoPago,
+    comprobanteTransferenciaKey?: string,
+  ): Promise<boolean> => {
     setLoading(true);
     setError("");
     try {
@@ -88,6 +119,7 @@ export default function CobrarOrdenClient({
           metodoPago,
           expectedRevision: orden.printRevision,
           idempotencyKey: idempotencyKey.current,
+          ...(comprobanteTransferenciaKey ? { comprobanteTransferenciaKey } : {}),
         }),
       });
       const data = await response.json();
@@ -95,7 +127,7 @@ export default function CobrarOrdenClient({
       if (!cerrarAlFinalizar) {
         router.replace(successUrl);
         router.refresh();
-        return;
+        return true;
       }
       // El cobro llegó desde el enlace/QR, en una pestaña dedicada. Se muestra la
       // confirmación y se pide cerrarla. El navegador solo permite `close()` si la
@@ -103,14 +135,66 @@ export default function CobrarOrdenClient({
       // login): cuando lo bloquea, esta misma pantalla queda como salida manual.
       setCobrado(metodoPago);
       window.close();
+      return true;
     } catch (paymentError) {
       setError(
         paymentError instanceof Error
           ? paymentError.message
           : "No se pudo registrar el cobro",
       );
+      return false;
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Sube primero y cobra despues, con la key ya validada. Si el storage falla, el
+  // cobro no se bloquea: la pantalla ofrece reintentar o registrar sin
+  // comprobante, y el cuadre marca despues esa transferencia. El estado de fallo
+  // se activa tanto si falla la subida como si falla el cobro posterior.
+  const subirYCobrar = async () => {
+    if (!photo) return;
+    setEstadoTransferencia("subiendo");
+    setError("");
+    try {
+      const comprimida = await comprimirImagen(photo);
+      const formData = new FormData();
+      formData.append(
+        "archivo",
+        new File([comprimida], "comprobante.jpg", { type: "image/jpeg" }),
+      );
+      const respuesta = await fetch(
+        `/api/cobros/${encodeURIComponent(token)}/comprobante`,
+        { method: "POST", body: formData },
+      );
+      let datos: { error?: string; objectKey?: string };
+      try {
+        datos = await respuesta.json();
+      } catch {
+        // Un proxy o gateway puede responder con HTML (o nada) en vez de JSON,
+        // por ejemplo un 413 que corta la subida antes de que la app la vea: sin
+        // esto el error mostrado sería "Unexpected token '<'" en vez de un texto
+        // que la cajera pueda entender.
+        datos = {
+          error:
+            respuesta.status === 413
+              ? "La foto es muy pesada, repítela"
+              : "No se pudo subir el comprobante",
+        };
+      }
+      if (!respuesta.ok) throw new Error(datos.error || "No se pudo subir el comprobante");
+      setEstadoTransferencia("cobrando");
+      const cobroOk = await cobrar("transferencia", datos.objectKey);
+      // Si el cobro falló, `cobrar` ya dejó el mensaje en `error`; solo hace
+      // falta reflejarlo en el estado para que aparezca el botón de fallback.
+      setEstadoTransferencia(cobroOk ? "idle" : "fallo");
+    } catch (subidaError) {
+      setEstadoTransferencia("fallo");
+      setError(
+        subidaError instanceof Error
+          ? subidaError.message
+          : "No se pudo subir el comprobante",
+      );
     }
   };
 
@@ -122,7 +206,10 @@ export default function CobrarOrdenClient({
           <h1 className="mt-3 text-2xl font-bold">Cobro registrado</h1>
           <p className="mt-1 text-slate-600">
             Orden #{orden.numeroDiario ?? orden.id.slice(-6)} ·{" "}
-            <strong>${orden.total.toFixed(2)}</strong> en {cobrado}.
+            <strong>
+              ${(cobrado === "efectivo" ? montoEfectivo : montoTransferencia).toFixed(2)}
+            </strong>{" "}
+            en {cobrado}.
           </p>
           <p className="mt-4 text-sm text-slate-500">
             Ya puedes cerrar esta pestaña.
@@ -193,13 +280,29 @@ export default function CobrarOrdenClient({
             <div className="flex justify-between"><span>Productos</span><span>${subtotalProductos.toFixed(2)}</span></div>
             {orden.recargo > 0 && <div className="flex justify-between"><span>Recipientes</span><span>${orden.recargo.toFixed(2)}</span></div>}
             {orden.costoEnvio > 0 && <div className="flex justify-between"><span>Envío del motorizado</span><span>${orden.costoEnvio.toFixed(2)}</span></div>}
-            <div className="flex justify-between border-t pt-2 text-2xl font-bold"><span>Total cliente</span><span className="text-emerald-700">${orden.total.toFixed(2)}</span></div>
+            <div className={`flex justify-between border-t pt-2 ${esDomicilio ? "font-semibold" : "text-2xl font-bold"}`}>
+              <span>{esDomicilio ? "Total que paga el cliente" : "Total cliente"}</span>
+              <span className={esDomicilio ? "" : "text-emerald-700"}>${orden.total.toFixed(2)}</span>
+            </div>
+            {esDomicilio && (
+              <div className="flex justify-between border-t pt-2 text-2xl font-bold">
+                <span>Recibes en caja</span>
+                <span className="text-emerald-700">
+                  ${montoEfectivo.toFixed(2)}
+                  {montoTransferencia !== montoEfectivo && (
+                    <span className="block text-right text-sm font-semibold text-slate-500">
+                      o ${montoTransferencia.toFixed(2)} por transferencia
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
           </div>
 
-          {orden.tipoOrden === "domicilio" && (
+          {esDomicilio && (
             <div className="mt-4 rounded-xl bg-purple-50 p-4 text-sm text-purple-900">
-              <p><strong>Si paga en efectivo:</strong> el local recibe ${efectivoLocal.toFixed(2)}; el motorizado conserva ${orden.costoEnvio.toFixed(2)}.</p>
-              <p className="mt-1"><strong>Si paga por transferencia:</strong> el local recibe ${orden.total.toFixed(2)} y entrega ${orden.costoEnvio.toFixed(2)} al motorizado.</p>
+              <p><strong>Si paga en efectivo:</strong> el motorizado te entrega ${montoEfectivo.toFixed(2)} y conserva ${orden.costoEnvio.toFixed(2)} del envío.</p>
+              <p className="mt-1"><strong>Si paga por transferencia:</strong> el local recibe ${montoTransferencia.toFixed(2)} y entrega ${orden.costoEnvio.toFixed(2)} en efectivo al motorizado.</p>
             </div>
           )}
         </section>
@@ -209,17 +312,19 @@ export default function CobrarOrdenClient({
         <section className="grid gap-3 sm:grid-cols-2">
           <button
             onClick={() => { setShowTransfer(false); setConfirmCash(true); }}
-            disabled={loading}
+            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
             className="rounded-2xl bg-emerald-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-emerald-700 disabled:bg-slate-400"
           >
             💵 Efectivo
+            <span className="block text-2xl">${montoEfectivo.toFixed(2)}</span>
           </button>
           <button
             onClick={() => { setConfirmCash(false); setShowTransfer(true); }}
-            disabled={loading}
+            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
             className="rounded-2xl bg-blue-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-blue-700 disabled:bg-slate-400"
           >
             🏦 Transferencia
+            <span className="block text-2xl">${montoTransferencia.toFixed(2)}</span>
           </button>
         </section>
 
@@ -238,17 +343,60 @@ export default function CobrarOrdenClient({
               />
             </label>
             {photo && (
-              <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                Foto seleccionada: <strong>{photo.name}</strong>. La carga persistente a S3 queda preparada para la siguiente fase; esta versión todavía no envía el archivo.
+              <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                Foto seleccionada: <strong>{photo.name}</strong>
               </div>
             )}
-            <button
-              onClick={() => void cobrar("transferencia")}
-              disabled={loading || !photo}
-              className="mt-4 w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
-            >
-              {loading ? "Registrando…" : "Confirmar transferencia"}
-            </button>
+            {!storageDisponible && (
+              <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                El almacenamiento de comprobantes no está configurado en este
+                entorno. Puedes registrar el cobro, pero la foto no se guardará.
+              </div>
+            )}
+            {estadoTransferencia === "fallo" ? (
+              // Dentro de esta rama `estadoTransferencia` solo puede ser "fallo": el
+              // primer paso de un reintento (subirYCobrar) lo saca de "fallo" en el
+              // mismo tick en que entra a "subiendo", así que ese render ya cae en
+              // la rama de abajo (el botón "Confirmar transferencia" con su propio
+              // texto de carga). Por eso aquí solo hace falta cubrir `loading`.
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={() => void subirYCobrar()}
+                  disabled={loading}
+                  className="w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
+                >
+                  Reintentar
+                </button>
+                <button
+                  onClick={() => void cobrar("transferencia")}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-amber-400 bg-amber-50 py-3 font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                >
+                  {loading ? "Registrando…" : "Registrar sin comprobante"}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() =>
+                  storageDisponible
+                    ? void subirYCobrar()
+                    : void cobrar("transferencia")
+                }
+                disabled={
+                  loading ||
+                  estadoTransferencia === "subiendo" ||
+                  estadoTransferencia === "cobrando" ||
+                  (storageDisponible && !photo)
+                }
+                className="mt-4 w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
+              >
+                {estadoTransferencia === "subiendo"
+                  ? "Subiendo comprobante…"
+                  : loading
+                    ? "Registrando…"
+                    : "Confirmar transferencia"}
+              </button>
+            )}
           </section>
         )}
       </div>
@@ -257,7 +405,13 @@ export default function CobrarOrdenClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
             <h2 className="text-xl font-bold">Confirmar cobro</h2>
-            <p className="mt-2 text-slate-600">¿Confirmas que recibiste <strong>${orden.total.toFixed(2)}</strong> en efectivo?</p>
+            <p className="mt-2 text-slate-600">¿Confirmas que recibiste <strong>${montoEfectivo.toFixed(2)}</strong> en efectivo?</p>
+            {esDomicilio && orden.costoEnvio > 0 && (
+              <p className="mt-2 text-sm text-slate-500">
+                El cliente pagó ${orden.total.toFixed(2)}; el motorizado conserva
+                ${orden.costoEnvio.toFixed(2)} del envío.
+              </p>
+            )}
             <div className="mt-6 flex gap-3">
               <button onClick={() => void cobrar("efectivo")} disabled={loading} className="flex-1 rounded-xl bg-emerald-600 py-3 font-bold text-white disabled:bg-slate-400">{loading ? "Procesando…" : "Aceptar"}</button>
               <button onClick={() => setConfirmCash(false)} disabled={loading} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold text-slate-800">Cancelar</button>

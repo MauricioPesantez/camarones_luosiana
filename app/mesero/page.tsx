@@ -7,6 +7,7 @@ import AppShell from "@/components/shell/AppShell";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
 import RetiroCaja from "@/components/mesero/RetiroCaja";
+import { montoACobrarEnCaja } from "@/types/cobro";
 import {
   MetodoPago,
   type NivelPicante,
@@ -397,11 +398,24 @@ function MeseroContenido() {
                   ordenACobrar.telefonoCliente ??
                   "Cliente")}
             </p>
-            <p className="text-2xl font-bold text-green-600 mb-5">
-              ${Number(ordenACobrar.total).toFixed(2)}
+            <p className="text-2xl font-bold text-green-600 mb-1">
+              $
+              {montoACobrarEnCaja({
+                tipoOrden: ordenACobrar.tipoOrden,
+                total: ordenACobrar.total,
+                costoEnvio: ordenACobrar.costoEnvio,
+                metodoPago: metodoPagoSeleccionado,
+              }).toFixed(2)}
             </p>
-
-            <p className="text-sm font-semibold text-gray-700 mb-3">
+            {ordenACobrar.tipoOrden === "domicilio" &&
+              Number(ordenACobrar.costoEnvio ?? 0) > 0 && (
+                <p className="text-sm text-gray-500 mb-5">
+                  {metodoPagoSeleccionado === "efectivo"
+                    ? `El cliente paga $${Number(ordenACobrar.total).toFixed(2)}; el motorizado conserva $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} del envío.`
+                    : `Entra el total; luego se entregan $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} en efectivo al motorizado.`}
+                </p>
+              )}
+            <p className="mt-4 text-sm font-semibold text-gray-700 mb-3">
               Método de pago:
             </p>
             <div className="flex gap-3 mb-6">

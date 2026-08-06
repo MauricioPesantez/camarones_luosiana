@@ -14,7 +14,9 @@ import {
   obtenerEtiquetaNivelPicante,
 } from "@/types/orden";
 import { calcularResumenCuadre } from "@/types/cuadre";
+import { montoACobrarEnCaja } from "@/types/cobro";
 import { obtenerFechaEcuador } from "@/lib/fecha-ecuador";
+import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 import { obtenerEtiquetaRol, ROLES } from "@/types/usuario";
 import {
   ESTADO_RETIRO_ANULADO,
@@ -42,6 +44,8 @@ interface Orden {
   cobrada: boolean;
   metodoPago: string | null;
   metodoPagoPrevisto: string | null;
+  comprobanteTransferenciaKey?: string | null;
+  origenCobro?: string | null;
   fechaCobro: string | null;
   cobradaPor: string | null;
   createdAt: string;
@@ -1155,6 +1159,25 @@ export default function AdminPage() {
                                   ? "💵 Efectivo"
                                   : "🏦 Transferencia"}
                               </span>
+                              {orden.metodoPago === "transferencia" &&
+                                (orden.comprobanteTransferenciaKey ? (
+                                  <button
+                                    onClick={() => void abrirComprobanteFirmado(orden.id)}
+                                    className="self-start text-xs font-bold text-blue-700 underline"
+                                  >
+                                    📎 Ver comprobante
+                                  </button>
+                                ) : (
+                                  // La captura de comprobante solo existe en el flujo por QR: en
+                                  // el resto de orígenes (lista interna, creación o aprobación de
+                                  // domicilio con transferencia) nunca fue posible pedirla, así que
+                                  // la advertencia ahí sería ruido que el admin aprende a ignorar.
+                                  orden.origenCobro === "qr" && (
+                                    <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                      ⚠️ Sin comprobante
+                                    </span>
+                                  )
+                                ))}
                               {/* Badge cuando el pago llegó antes de que cocina termine */}
                               {orden.estado !== "cobrada" && (
                                 <span className="px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300">
@@ -1246,11 +1269,25 @@ export default function AdminPage() {
               {obtenerTituloOrden(ordenACobrar)}{" "}
               — {ordenACobrar.mesero}
             </p>
-            <p className="text-2xl font-bold text-green-600 mb-5">
-              ${Number(ordenACobrar.total).toFixed(2)}
+            <p className="text-2xl font-bold text-green-600 mb-1">
+              $
+              {montoACobrarEnCaja({
+                tipoOrden: ordenACobrar.tipoOrden,
+                total: ordenACobrar.total,
+                costoEnvio: ordenACobrar.costoEnvio,
+                metodoPago: metodoPagoAdmin,
+              }).toFixed(2)}
             </p>
+            {ordenACobrar.tipoOrden === "domicilio" &&
+              Number(ordenACobrar.costoEnvio ?? 0) > 0 && (
+                <p className="text-sm text-gray-500 mb-5">
+                  {metodoPagoAdmin === "efectivo"
+                    ? `El cliente paga $${Number(ordenACobrar.total).toFixed(2)}; el motorizado conserva $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} del envío.`
+                    : `Entra el total; luego se entregan $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} en efectivo al motorizado.`}
+                </p>
+              )}
 
-            <p className="text-sm font-semibold text-gray-700 mb-3">
+            <p className="mt-4 text-sm font-semibold text-gray-700 mb-3">
               Método de pago:
             </p>
             <div className="flex gap-3 mb-6">

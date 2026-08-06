@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import HistorialOrdenTimeline from "./HistorialOrdenTimeline";
+import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 import {
   type NivelPicante,
   obtenerEtiquetaNivelPicante,
@@ -44,6 +45,7 @@ interface Orden {
   modificada: boolean;
   cobrada?: boolean;
   metodoPago?: string | null;
+  comprobanteTransferenciaKey?: string | null;
   fechaCobro?: string | null;
   cobradaPor?: string | null;
   createdAt: string;
@@ -73,6 +75,7 @@ export default function DetalleOrdenModal({
   const [pestanaActiva, setPestanaActiva] = useState<"resumen" | "historial">(
     "resumen",
   );
+  const [abriendoComprobante, setAbriendoComprobante] = useState(false);
 
   // Estado del modal de cortesía
   const [mostrarModalCortesia, setMostrarModalCortesia] = useState(false);
@@ -155,6 +158,15 @@ export default function DetalleOrdenModal({
   const productosFiltrados = productos.filter((p) =>
     p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase()),
   );
+
+  const abrirComprobante = async () => {
+    setAbriendoComprobante(true);
+    try {
+      await abrirComprobanteFirmado(orden.id);
+    } finally {
+      setAbriendoComprobante(false);
+    }
+  };
 
   // Sync if parent updates the orden
   useEffect(() => {
@@ -336,6 +348,25 @@ export default function DetalleOrdenModal({
                   </p>
                 </div>
               </div>
+
+              {orden.metodoPago === "transferencia" && (
+                <div className="mt-4">
+                  <p className="text-sm font-bold text-gray-500">Comprobante</p>
+                  {orden.comprobanteTransferenciaKey ? (
+                    <button
+                      onClick={() => void abrirComprobante()}
+                      disabled={abriendoComprobante}
+                      className="mt-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-slate-400"
+                    >
+                      {abriendoComprobante ? "Abriendo…" : "📎 Ver comprobante"}
+                    </button>
+                  ) : (
+                    <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      Registrado sin comprobante
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Observaciones Generales */}
               {orden.observaciones && (
