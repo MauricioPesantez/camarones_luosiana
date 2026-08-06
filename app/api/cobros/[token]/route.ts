@@ -9,7 +9,6 @@ import {
 } from '@/lib/order-payment';
 import { hashPaymentToken } from '@/lib/payment-link';
 import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
-import { esMetodoPago } from '@/types/orden';
 
 export async function PATCH(
   request: Request,
@@ -35,17 +34,13 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    if (!esMetodoPago(body.metodoPago)) {
-      return NextResponse.json({ error: 'Método de pago inválido' }, { status: 400 });
-    }
     const actualizada = await collectOrderPayment({
       orderId: orden.id,
-      metodoPago: body.metodoPago,
+      partes: Array.isArray(body.partes) ? body.partes : [],
       expectedRevision: body.expectedRevision,
       idempotencyKey: body.idempotencyKey,
       origen: 'qr',
       user: usuario,
-      comprobanteTransferenciaKey: body.comprobanteTransferenciaKey,
     });
     return NextResponse.json(actualizada);
   } catch (error) {
