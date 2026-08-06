@@ -177,17 +177,17 @@ export async function PATCH(
           );
         }
 
-        const saldo = calcularSaldo({
-          total: order.total.toString(),
-          montoPagado: order.montoPagado.toString(),
-        });
-        const yaPagada = saldo <= 0;
-
-        // Una orden ya pagada puede CRECER: el cliente agrega algo y paga el
-        // saldo despues, con el metodo que quiera. Lo que no puede es
-        // encoger, porque eso obligaria a devolver dinero y el reembolso es
-        // un flujo que no existe.
-        if (yaPagada) {
+        // Una orden con algun pago encima puede CRECER: el cliente agrega
+        // algo y paga el saldo despues, con el metodo que quiera. Lo que no
+        // puede es encoger, sin importar si esta totalmente pagada o solo
+        // parcialmente (una orden reabierta que crecio y todavia no cubre el
+        // total sigue teniendo dinero real detras): bajar el total la
+        // arrastraria por debajo de lo que ya se cobro, y el reembolso es un
+        // flujo que no existe. `montoPagado > 0` es la condicion correcta,
+        // no `saldo <= 0`: esta ultima solo cubre el caso ya cubierto al
+        // 100%, dejando sin guardia el caso de la orden reabierta.
+        const huboPagoParcial = Number(order.montoPagado) > 0;
+        if (huboPagoParcial) {
           const reduceElTotal = body.items.some((change) => {
             if (change.accion === 'eliminar') return true;
             if (change.accion !== 'modificar') return false;
@@ -197,7 +197,7 @@ export async function PATCH(
           });
           if (reduceElTotal) {
             throw new ModificationRequestError(
-              'No se puede quitar productos ni reducir cantidades de una orden ya pagada.',
+              'No se puede quitar productos ni reducir cantidades de una orden que ya tiene un pago registrado.',
               400,
             );
           }
