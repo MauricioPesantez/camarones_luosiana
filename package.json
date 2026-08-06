@@ -22,6 +22,7 @@
     "seed": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' prisma/seed.ts",
     "db:reset:preprod": "node scripts/reset-preproduction.mjs",
     "test:cobro": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/cobro.test.ts",
+    "test:liquidacion": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/liquidacion-domicilio.test.ts",
     "test:payment-link": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/payment-link.test.ts"
   },
   "dependencies": {

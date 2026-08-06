@@ -84,58 +84,55 @@ export function esMetodoPago(valor: unknown): valor is MetodoPago {
   return typeof valor === 'string' && METODOS_PAGO.includes(valor as MetodoPago);
 }
 
+function aCentavosOrden(valor: number | string | null | undefined): number {
+  return Math.round(Number(valor ?? 0) * 100);
+}
+
+export interface LiquidacionDomicilio {
+  /** Efectivo que el local le entrega al motorizado. */
+  entregaElLocal: number;
+  /** Efectivo que el motorizado le entrega al local. */
+  entregaElMotorizado: number;
+}
+
 /**
- * Liquidación con el motorizado en órdenes a domicilio.
+ * Liquidacion con el motorizado, regla unica:
  *
- * - efectivo: el motorizado cobra el total al cliente y al retirar el pedido paga
- *   al local todo menos el envío, que es su ganancia. El local RECIBE `montoLocal`.
- * - transferencia: el cliente deposita el total al local, así que el local le
- *   ENTREGA el envío en efectivo al motorizado.
+ *   El envio se descuenta del efectivo que el motorizado cobro al cliente.
+ *   Si sobra, el motorizado entrega la diferencia al local.
+ *   Si falta, el local le completa.
  *
- * Devuelve `null` para cualquier orden que no sea domicilio con modalidad acordada
- * (incluidas las órdenes anteriores a esta funcionalidad).
+ * Reproduce los dos casos que existian antes del multipago (transferencia pura
+ * y efectivo puro) y ademas resuelve el mixto, donde el envio ya venia dentro
+ * de una transferencia y el efectivo llego despues.
+ *
+ * `efectivoCobrado` es la suma del efectivo de TODOS los pagos de la orden, no
+ * el de un pago suelto: el envio se liquida una sola vez.
+ *
+ * Devuelve `null` fuera de domicilio, donde no hay motorizado.
  */
-export function calcularLiquidacionDomicilio(orden: {
-  tipoOrden?: string | null;
-  total: number;
-  costoEnvio?: number | null;
-  /** Modalidad acordada al crear. Si es null la orden es anterior a esta lógica. */
-  metodoPagoPrevisto?: string | null;
-  /** Modalidad con la que se cobró realmente. Manda sobre la acordada. */
-  metodoPago?: string | null;
-}): {
-  metodo: MetodoPago;
-  /** Lo que el local recibe en efectivo de manos del motorizado. */
-  efectivoRecibido: number;
-  /** Lo que el local entrega en efectivo al motorizado. */
-  efectivoEntregado: number;
-  /** Lo que ingresa por transferencia. */
-  transferenciaRecibida: number;
-} | null {
+export function calcularLiquidacionDomicilio(
+  orden: { tipoOrden?: string | null; costoEnvio?: number | string | null },
+  efectivoCobrado: number | string,
+): LiquidacionDomicilio | null {
   if (orden.tipoOrden !== 'domicilio') return null;
-  // Las órdenes creadas antes de esta funcionalidad no tienen modalidad acordada:
-  // se liquidan como siempre para no alterar cuadres históricos.
-  if (!esMetodoPago(orden.metodoPagoPrevisto)) return null;
 
-  const metodo = esMetodoPago(orden.metodoPago)
-    ? orden.metodoPago
-    : orden.metodoPagoPrevisto;
-  const costoEnvio = Number(orden.costoEnvio ?? 0);
-  const total = Number(orden.total);
+  const envio = aCentavosOrden(obtenerCostoEnvio(orden));
+  const efectivo = aCentavosOrden(efectivoCobrado);
+  const diferencia = envio - efectivo;
 
-  return metodo === 'efectivo'
-    ? {
-        metodo,
-        efectivoRecibido: total - costoEnvio,
-        efectivoEntregado: 0,
-        transferenciaRecibida: 0,
-      }
-    : {
-        metodo,
-        efectivoRecibido: 0,
-        efectivoEntregado: costoEnvio,
-        transferenciaRecibida: total,
-      };
+  const entregaLocal = Math.max(0, diferencia);
+  const entregaMotorizado = Math.max(0, -diferencia);
+  return { entregaElLocal: entregaLocal / 100, entregaElMotorizado: entregaMotorizado / 100 };
+}
+
+/** Lo que falta por cobrar. Nunca negativo. */
+export function calcularSaldo(orden: {
+  total: number | string;
+  montoPagado?: number | string | null;
+}): number {
+  const pendiente = aCentavosOrden(orden.total) - aCentavosOrden(orden.montoPagado);
+  return pendiente > 0 ? pendiente / 100 : 0;
 }
 
 export type EstadoOrden =
