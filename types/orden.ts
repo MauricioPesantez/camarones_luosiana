@@ -201,6 +201,7 @@ export interface OrdenConStock {
   itemsSinStock: ItemSinStock[] | null;
   metodoPago: MetodoPago | null;
   metodoPagoPrevisto: MetodoPago | null;
+  montoPagado: number;
   cobrada: boolean;
   fechaCobro: Date | null;
   cobradaPor: string | null;
@@ -212,13 +213,19 @@ export interface OrdenConStock {
 }
 
 export interface CobrarOrdenRequest {
-  metodoPago: MetodoPago;
+  /**
+   * Formas de pago del acto. Una sola parte es un cobro simple; dos, un cobro
+   * mixto. Deben sumar exactamente el saldo de la orden.
+   */
+  partes: {
+    metodoPago: MetodoPago;
+    monto: number;
+    comprobanteTransferenciaKey?: string;
+  }[];
   /** Evita cobrar un total que cambió mientras el modal estaba abierto. */
   expectedRevision: number;
   /** Permite reintentar la misma confirmación sin duplicar el movimiento. */
   idempotencyKey: string;
-  /** Se llenará cuando la integración S3 confirme el objeto. */
-  comprobanteTransferenciaKey?: string;
 }
 
 export interface AprobarOrdenRequest {
