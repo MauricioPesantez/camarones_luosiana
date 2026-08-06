@@ -39,24 +39,12 @@ interface Orden {
   creadorRol: string;
   estado: string;
   total: number;
-  montoPagado: number;
   tiempoEstimado: number;
   modificada: boolean;
   cobrada: boolean;
   metodoPago: string | null;
   metodoPagoPrevisto: string | null;
   comprobanteTransferenciaKey?: string | null;
-  pagos?: {
-    id: string;
-    metodoPago: string;
-    monto: number;
-    comprobanteTransferenciaKey: string | null;
-    origen: string;
-    /** "CONFIRMADO" | "REEMBOLSO_PENDIENTE". La API ya excluye "REEMBOLSADO". */
-    estado?: string | null;
-    /** La API la incluye para el calculo del cuadre (Task 9); la UI no la usa. */
-    enRango: boolean;
-  }[];
   origenCobro?: string | null;
   fechaCobro: string | null;
   cobradaPor: string | null;
@@ -807,20 +795,6 @@ export default function AdminPage() {
               </div>
             )}
           </div>
-          {resumenCuadre.ordenesConSaldoPendiente > 0 && (
-            <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4">
-              <p className="font-bold text-amber-900">
-                {resumenCuadre.ordenesConSaldoPendiente}{" "}
-                {resumenCuadre.ordenesConSaldoPendiente === 1
-                  ? "orden con saldo pendiente"
-                  : "órdenes con saldo pendiente"}
-              </p>
-              <p className="text-sm text-amber-800">
-                Suman ${resumenCuadre.montoSaldoPendiente.toFixed(2)}. Cóbralas
-                antes de cerrar el día.
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Retiros de caja */}
@@ -1173,87 +1147,37 @@ export default function AdminPage() {
                         >
                           {orden.cobrada ? (
                             <div className="flex flex-col gap-1">
-                              {orden.pagos && orden.pagos.length > 0 ? (
-                                <>
-                                  {orden.metodoPago === "mixto" ? (
-                                    <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                                      🔀 Mixto
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                        orden.metodoPago === "efectivo"
-                                          ? "bg-green-100 text-green-800"
-                                          : "bg-blue-100 text-blue-800"
-                                      }`}
-                                    >
-                                      {orden.metodoPago === "efectivo"
-                                        ? "💵 Efectivo"
-                                        : "🏦 Transferencia"}
-                                    </span>
-                                  )}
-                                  <ul className="space-y-1">
-                                    {orden.pagos.map((pago) => (
-                                      <li key={pago.id} className="flex items-center gap-2 text-xs">
-                                        <span className="font-semibold text-black">
-                                          {pago.metodoPago === "efectivo" ? "💵" : "🏦"} ${pago.monto.toFixed(2)}
-                                        </span>
-                                        {pago.metodoPago === "transferencia" &&
-                                          (pago.comprobanteTransferenciaKey ? (
-                                            <button
-                                              onClick={() => void abrirComprobanteFirmado(orden.id, pago.id)}
-                                              className="font-bold text-blue-700 underline"
-                                            >
-                                              📎 Ver
-                                            </button>
-                                          ) : (
-                                            // La captura de comprobante solo existe en el flujo por QR: en
-                                            // el resto de orígenes (lista interna, creación o aprobación de
-                                            // domicilio con transferencia) nunca fue posible pedirla, así que
-                                            // la advertencia ahí sería ruido que el admin aprende a ignorar.
-                                            pago.origen === "qr" && (
-                                              <span className="font-bold text-amber-800">⚠️ sin comprobante</span>
-                                            )
-                                          ))}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </>
-                              ) : (
-                                <>
-                                   {/* Badge método de pago */}
-                                  <span
-                                    className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                      orden.metodoPago === "efectivo"
-                                        ? "bg-green-100 text-green-800"
-                                        : "bg-blue-100 text-blue-800"
-                                    }`}
+                               {/* Badge método de pago */}
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                  orden.metodoPago === "efectivo"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-blue-100 text-blue-800"
+                                }`}
+                              >
+                                {orden.metodoPago === "efectivo"
+                                  ? "💵 Efectivo"
+                                  : "🏦 Transferencia"}
+                              </span>
+                              {orden.metodoPago === "transferencia" &&
+                                (orden.comprobanteTransferenciaKey ? (
+                                  <button
+                                    onClick={() => void abrirComprobanteFirmado(orden.id)}
+                                    className="self-start text-xs font-bold text-blue-700 underline"
                                   >
-                                    {orden.metodoPago === "efectivo"
-                                      ? "💵 Efectivo"
-                                      : "🏦 Transferencia"}
-                                  </span>
-                                  {orden.metodoPago === "transferencia" &&
-                                    (orden.comprobanteTransferenciaKey ? (
-                                      <button
-                                        onClick={() => void abrirComprobanteFirmado(orden.id)}
-                                        className="self-start text-xs font-bold text-blue-700 underline"
-                                      >
-                                        📎 Ver comprobante
-                                      </button>
-                                    ) : (
-                                      // La captura de comprobante solo existe en el flujo por QR: en
-                                      // el resto de orígenes (lista interna, creación o aprobación de
-                                      // domicilio con transferencia) nunca fue posible pedirla, así que
-                                      // la advertencia ahí sería ruido que el admin aprende a ignorar.
-                                      orden.origenCobro === "qr" && (
-                                        <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                                          ⚠️ Sin comprobante
-                                        </span>
-                                      )
-                                    ))}
-                                </>
-                              )}
+                                    📎 Ver comprobante
+                                  </button>
+                                ) : (
+                                  // La captura de comprobante solo existe en el flujo por QR: en
+                                  // el resto de orígenes (lista interna, creación o aprobación de
+                                  // domicilio con transferencia) nunca fue posible pedirla, así que
+                                  // la advertencia ahí sería ruido que el admin aprende a ignorar.
+                                  orden.origenCobro === "qr" && (
+                                    <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                      ⚠️ Sin comprobante
+                                    </span>
+                                  )
+                                ))}
                               {/* Badge cuando el pago llegó antes de que cocina termine */}
                               {orden.estado !== "cobrada" && (
                                 <span className="px-2 py-1 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-300">

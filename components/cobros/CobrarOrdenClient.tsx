@@ -12,12 +12,6 @@ import {
   type NivelPicante,
 } from "@/types/orden";
 
-interface ParteDePago {
-  metodoPago: MetodoPago;
-  monto: number;
-  comprobanteTransferenciaKey?: string;
-}
-
 interface CobroOrder {
   id: string;
   numeroDiario: number | null;
@@ -32,7 +26,6 @@ interface CobroOrder {
   recargo: number;
   costoEnvio: number;
   total: number;
-  montoPagado: number;
   metodoPagoPrevisto: string | null;
   createdAt: string;
   observaciones: string | null;
@@ -73,6 +66,7 @@ export default function CobrarOrdenClient({
   const router = useRouter();
   const idempotencyKey = useRef(crypto.randomUUID());
   const [confirmCash, setConfirmCash] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   // Un solo estado para toda la fila de transferencia (en vez de dos booleanos
   // independientes) para que un fallo en CUALQUIER tramo -subida o cobro- lleve
@@ -83,72 +77,37 @@ export default function CobrarOrdenClient({
   const [estadoTransferencia, setEstadoTransferencia] = useState<
     "idle" | "subiendo" | "cobrando" | "fallo"
   >("idle");
-  const [modoActivo, setModoActivo] = useState<"transferencia" | "mixto" | null>(null);
-  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [cobrado, setCobrado] = useState<string | null>(null);
+  const [cobrado, setCobrado] = useState<MetodoPago | null>(null);
 
   const subtotalProductos = orden.items.reduce(
     (total, item) => total + item.subtotal,
     0,
   );
-  // El saldo es lo que falta por cobrar, no el total: una orden reabierta
-  // (crecio despues de pagada) solo debe el resto.
-  const saldoCentavos = Math.max(
-    0,
-    Math.round(orden.total * 100) - Math.round(orden.montoPagado * 100),
-  );
-  const saldo = saldoCentavos / 100;
-  // El envio solo se neta la PRIMERA vez que se cobra la orden: para una
-  // orden reabierta ya se liquido con el motorizado en el pago anterior, asi
-  // que el saldo se muestra tal cual, sin volver a restarlo.
-  const esPrimerPago = orden.montoPagado <= 0;
-  const montoEfectivo = esPrimerPago
-    ? montoACobrarEnCaja({
-        tipoOrden: orden.tipoOrden,
-        total: saldo,
-        costoEnvio: orden.costoEnvio,
-        metodoPago: "efectivo",
-      })
-    : saldo;
-  const montoTransferencia = esPrimerPago
-    ? montoACobrarEnCaja({
-        tipoOrden: orden.tipoOrden,
-        total: saldo,
-        costoEnvio: orden.costoEnvio,
-        metodoPago: "transferencia",
-      })
-    : saldo;
+  // Lo que entra a caja segun el metodo. Es el mismo calculo que asienta el cobro:
+  // en domicilio con efectivo el envio se queda con el motorizado y no se cobra.
+  const montoEfectivo = montoACobrarEnCaja({
+    tipoOrden: orden.tipoOrden,
+    total: orden.total,
+    costoEnvio: orden.costoEnvio,
+    metodoPago: "efectivo",
+  });
+  const montoTransferencia = montoACobrarEnCaja({
+    tipoOrden: orden.tipoOrden,
+    total: orden.total,
+    costoEnvio: orden.costoEnvio,
+    metodoPago: "transferencia",
+  });
   const esDomicilio = orden.tipoOrden === "domicilio";
 
-  const efectivoMixtoCentavos = Math.round(Number(montoEfectivoMixto || 0) * 100);
-  const transferenciaMixtoCentavos = saldoCentavos - efectivoMixtoCentavos;
-  const mixtoValido = efectivoMixtoCentavos > 0 && transferenciaMixtoCentavos > 0;
-
-  // Que partes arma este acto de cobro segun el modo activo. `objectKey` es
-  // el resultado (posiblemente null) de la subida a S3.
-  const partesDelModo = (objectKey: string | null): ParteDePago[] =>
-    modoActivo === "mixto"
-      ? [
-          { metodoPago: "efectivo", monto: efectivoMixtoCentavos / 100 },
-          {
-            metodoPago: "transferencia",
-            monto: transferenciaMixtoCentavos / 100,
-            ...(objectKey ? { comprobanteTransferenciaKey: objectKey } : {}),
-          },
-        ]
-      : [
-          {
-            metodoPago: "transferencia",
-            monto: saldo,
-            ...(objectKey ? { comprobanteTransferenciaKey: objectKey } : {}),
-          },
-        ];
-
+  // Devuelve si el cobro se registró o no: el llamador (subirYCobrar) necesita
+  // saberlo para decidir si mostrar el estado de fallo. El camino de efectivo
+  // llama a esta función directo y descarta el resultado, así que su
+  // comportamiento no cambia.
   const cobrar = async (
-    partes: ParteDePago[],
-    etiqueta: string,
+    metodoPago: MetodoPago,
+    comprobanteTransferenciaKey?: string,
   ): Promise<boolean> => {
     setLoading(true);
     setError("");
@@ -157,9 +116,10 @@ export default function CobrarOrdenClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          partes,
+          metodoPago,
           expectedRevision: orden.printRevision,
           idempotencyKey: idempotencyKey.current,
+          ...(comprobanteTransferenciaKey ? { comprobanteTransferenciaKey } : {}),
         }),
       });
       const data = await response.json();
@@ -173,7 +133,7 @@ export default function CobrarOrdenClient({
       // confirmación y se pide cerrarla. El navegador solo permite `close()` si la
       // pestaña la abrió un script o si no acumuló historial (p. ej. no pasó por el
       // login): cuando lo bloquea, esta misma pantalla queda como salida manual.
-      setCobrado(etiqueta);
+      setCobrado(metodoPago);
       window.close();
       return true;
     } catch (paymentError) {
@@ -188,50 +148,46 @@ export default function CobrarOrdenClient({
     }
   };
 
-  const subirComprobante = async (): Promise<string | null> => {
-    const comprimida = await comprimirImagen(photo!);
-    const formData = new FormData();
-    formData.append(
-      "archivo",
-      new File([comprimida], "comprobante.jpg", { type: "image/jpeg" }),
-    );
-    const respuesta = await fetch(
-      `/api/cobros/${encodeURIComponent(token)}/comprobante`,
-      { method: "POST", body: formData },
-    );
-    let datos: { error?: string; objectKey?: string };
-    try {
-      datos = await respuesta.json();
-    } catch {
-      // Un proxy o gateway puede responder con HTML (o nada) en vez de JSON, por
-      // ejemplo un 413 que corta la subida antes de que la app la vea: sin esto el
-      // error mostrado sería "Unexpected token '<'" en vez de un texto legible.
-      datos = {
-        error:
-          respuesta.status === 413
-            ? "La foto es muy pesada, repítela"
-            : "No se pudo subir el comprobante",
-      };
-    }
-    if (!respuesta.ok) throw new Error(datos.error || "No se pudo subir el comprobante");
-    return datos.objectKey ?? null;
-  };
-
   // Sube primero y cobra despues, con la key ya validada. Si el storage falla, el
   // cobro no se bloquea: la pantalla ofrece reintentar o registrar sin
   // comprobante, y el cuadre marca despues esa transferencia. El estado de fallo
-  // se activa tanto si falla la subida como si falla el cobro posterior. Sirve
-  // tanto para transferencia pura como para la parte de transferencia de un
-  // mixto: la diferencia esta en `partesDelModo`.
+  // se activa tanto si falla la subida como si falla el cobro posterior.
   const subirYCobrar = async () => {
     if (!photo) return;
     setEstadoTransferencia("subiendo");
     setError("");
     try {
-      const objectKey = await subirComprobante();
+      const comprimida = await comprimirImagen(photo);
+      const formData = new FormData();
+      formData.append(
+        "archivo",
+        new File([comprimida], "comprobante.jpg", { type: "image/jpeg" }),
+      );
+      const respuesta = await fetch(
+        `/api/cobros/${encodeURIComponent(token)}/comprobante`,
+        { method: "POST", body: formData },
+      );
+      let datos: { error?: string; objectKey?: string };
+      try {
+        datos = await respuesta.json();
+      } catch {
+        // Un proxy o gateway puede responder con HTML (o nada) en vez de JSON,
+        // por ejemplo un 413 que corta la subida antes de que la app la vea: sin
+        // esto el error mostrado sería "Unexpected token '<'" en vez de un texto
+        // que la cajera pueda entender.
+        datos = {
+          error:
+            respuesta.status === 413
+              ? "La foto es muy pesada, repítela"
+              : "No se pudo subir el comprobante",
+        };
+      }
+      if (!respuesta.ok) throw new Error(datos.error || "No se pudo subir el comprobante");
       setEstadoTransferencia("cobrando");
-      const ok = await cobrar(partesDelModo(objectKey), modoActivo ?? "transferencia");
-      setEstadoTransferencia(ok ? "idle" : "fallo");
+      const cobroOk = await cobrar("transferencia", datos.objectKey);
+      // Si el cobro falló, `cobrar` ya dejó el mensaje en `error`; solo hace
+      // falta reflejarlo en el estado para que aparezca el botón de fallback.
+      setEstadoTransferencia(cobroOk ? "idle" : "fallo");
     } catch (subidaError) {
       setEstadoTransferencia("fallo");
       setError(
@@ -251,13 +207,7 @@ export default function CobrarOrdenClient({
           <p className="mt-1 text-slate-600">
             Orden #{orden.numeroDiario ?? orden.id.slice(-6)} ·{" "}
             <strong>
-              $
-              {(cobrado === "mixto"
-                ? saldo
-                : cobrado === "efectivo"
-                  ? montoEfectivo
-                  : montoTransferencia
-              ).toFixed(2)}
+              ${(cobrado === "efectivo" ? montoEfectivo : montoTransferencia).toFixed(2)}
             </strong>{" "}
             en {cobrado}.
           </p>
@@ -334,15 +284,9 @@ export default function CobrarOrdenClient({
               <span>{esDomicilio ? "Total que paga el cliente" : "Total cliente"}</span>
               <span className={esDomicilio ? "" : "text-emerald-700"}>${orden.total.toFixed(2)}</span>
             </div>
-            {orden.montoPagado > 0 && (
-              <div className="flex justify-between text-slate-600">
-                <span>Ya pagado</span>
-                <span>-${orden.montoPagado.toFixed(2)}</span>
-              </div>
-            )}
             {esDomicilio && (
               <div className="flex justify-between border-t pt-2 text-2xl font-bold">
-                <span>{orden.montoPagado > 0 ? "Saldo a cobrar" : "Recibes en caja"}</span>
+                <span>Recibes en caja</span>
                 <span className="text-emerald-700">
                   ${montoEfectivo.toFixed(2)}
                   {montoTransferencia !== montoEfectivo && (
@@ -351,12 +295,6 @@ export default function CobrarOrdenClient({
                     </span>
                   )}
                 </span>
-              </div>
-            )}
-            {!esDomicilio && orden.montoPagado > 0 && (
-              <div className="flex justify-between border-t pt-2 text-2xl font-bold">
-                <span>Saldo a cobrar</span>
-                <span className="text-emerald-700">${saldo.toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -371,9 +309,9 @@ export default function CobrarOrdenClient({
 
         {error && <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-800">{error}</div>}
 
-        <section className="grid gap-3 sm:grid-cols-3">
+        <section className="grid gap-3 sm:grid-cols-2">
           <button
-            onClick={() => { setModoActivo(null); setConfirmCash(true); }}
+            onClick={() => { setShowTransfer(false); setConfirmCash(true); }}
             disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
             className="rounded-2xl bg-emerald-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-emerald-700 disabled:bg-slate-400"
           >
@@ -381,69 +319,19 @@ export default function CobrarOrdenClient({
             <span className="block text-2xl">${montoEfectivo.toFixed(2)}</span>
           </button>
           <button
-            onClick={() => { setConfirmCash(false); setModoActivo("transferencia"); }}
+            onClick={() => { setConfirmCash(false); setShowTransfer(true); }}
             disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
             className="rounded-2xl bg-blue-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-blue-700 disabled:bg-slate-400"
           >
             🏦 Transferencia
             <span className="block text-2xl">${montoTransferencia.toFixed(2)}</span>
           </button>
-          <button
-            onClick={() => { setConfirmCash(false); setModoActivo("mixto"); }}
-            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
-            className="rounded-2xl bg-amber-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-amber-700 disabled:bg-slate-400"
-          >
-            🔀 Mixto
-            <span className="block text-2xl">${saldo.toFixed(2)}</span>
-          </button>
         </section>
 
-        {modoActivo && (
+        {showTransfer && (
           <section className="rounded-2xl border border-blue-200 bg-white p-5 shadow">
-            <h2 className="text-lg font-bold">
-              {modoActivo === "mixto" ? "Cobro mixto" : "Comprobante de transferencia"}
-            </h2>
-
-            {modoActivo === "mixto" && (
-              <>
-                <p className="mt-1 text-sm text-slate-600">
-                  Escribe cuánto paga en efectivo. El resto se cobra por transferencia.
-                </p>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">
-                  Monto en efectivo
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.01"
-                    min="0"
-                    max={saldo}
-                    value={montoEfectivoMixto}
-                    onChange={(event) => setMontoEfectivoMixto(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-2xl font-bold"
-                    placeholder="0.00"
-                  />
-                </label>
-                <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-4 text-sm">
-                  <div className="flex justify-between"><span>Efectivo</span><span className="font-semibold">${(efectivoMixtoCentavos / 100).toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span>Transferencia</span><span className="font-semibold">${(transferenciaMixtoCentavos / 100).toFixed(2)}</span></div>
-                  <div className="flex justify-between border-t pt-1 font-bold"><span>Saldo</span><span>${saldo.toFixed(2)}</span></div>
-                </div>
-                {transferenciaMixtoCentavos <= 0 && efectivoMixtoCentavos > 0 && (
-                  <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">
-                    El efectivo cubre todo el saldo. Usa el botón de Efectivo.
-                  </p>
-                )}
-                {esDomicilio && esPrimerPago && efectivoMixtoCentavos > 0 && (
-                  <p className="mt-3 rounded-lg bg-purple-50 p-3 text-sm text-purple-900">
-                    {efectivoMixtoCentavos >= Math.round(orden.costoEnvio * 100)
-                      ? `El motorizado te entrega $${((efectivoMixtoCentavos - Math.round(orden.costoEnvio * 100)) / 100).toFixed(2)}.`
-                      : `Le entregas $${((Math.round(orden.costoEnvio * 100) - efectivoMixtoCentavos) / 100).toFixed(2)} al motorizado.`}
-                  </p>
-                )}
-              </>
-            )}
-
-            <p className="mt-4 text-sm text-slate-600">Toma una foto clara del comprobante mostrado por el cliente.</p>
+            <h2 className="text-lg font-bold">Comprobante de transferencia</h2>
+            <p className="mt-1 text-sm text-slate-600">Toma una foto clara del comprobante mostrado por el cliente.</p>
             <label className="mt-4 block cursor-pointer rounded-xl border-2 border-dashed border-blue-400 p-5 text-center font-bold text-blue-700 hover:bg-blue-50">
               📷 Tomar foto
               <input
@@ -466,6 +354,11 @@ export default function CobrarOrdenClient({
               </div>
             )}
             {estadoTransferencia === "fallo" ? (
+              // Dentro de esta rama `estadoTransferencia` solo puede ser "fallo": el
+              // primer paso de un reintento (subirYCobrar) lo saca de "fallo" en el
+              // mismo tick en que entra a "subiendo", así que ese render ya cae en
+              // la rama de abajo (el botón "Confirmar transferencia" con su propio
+              // texto de carga). Por eso aquí solo hace falta cubrir `loading`.
               <div className="mt-4 space-y-2">
                 <button
                   onClick={() => void subirYCobrar()}
@@ -475,7 +368,7 @@ export default function CobrarOrdenClient({
                   Reintentar
                 </button>
                 <button
-                  onClick={() => void cobrar(partesDelModo(null), modoActivo)}
+                  onClick={() => void cobrar("transferencia")}
                   disabled={loading}
                   className="w-full rounded-xl border border-amber-400 bg-amber-50 py-3 font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
                 >
@@ -487,14 +380,13 @@ export default function CobrarOrdenClient({
                 onClick={() =>
                   storageDisponible
                     ? void subirYCobrar()
-                    : void cobrar(partesDelModo(null), modoActivo)
+                    : void cobrar("transferencia")
                 }
                 disabled={
                   loading ||
                   estadoTransferencia === "subiendo" ||
                   estadoTransferencia === "cobrando" ||
-                  (storageDisponible && !photo) ||
-                  (modoActivo === "mixto" && !mixtoValido)
+                  (storageDisponible && !photo)
                 }
                 className="mt-4 w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
               >
@@ -502,9 +394,7 @@ export default function CobrarOrdenClient({
                   ? "Subiendo comprobante…"
                   : loading
                     ? "Registrando…"
-                    : modoActivo === "mixto"
-                      ? `Confirmar $${saldo.toFixed(2)} mixto`
-                      : "Confirmar transferencia"}
+                    : "Confirmar transferencia"}
               </button>
             )}
           </section>
@@ -518,12 +408,12 @@ export default function CobrarOrdenClient({
             <p className="mt-2 text-slate-600">¿Confirmas que recibiste <strong>${montoEfectivo.toFixed(2)}</strong> en efectivo?</p>
             {esDomicilio && orden.costoEnvio > 0 && (
               <p className="mt-2 text-sm text-slate-500">
-                El cliente pagó ${saldo.toFixed(2)}; el motorizado conserva
+                El cliente pagó ${orden.total.toFixed(2)}; el motorizado conserva
                 ${orden.costoEnvio.toFixed(2)} del envío.
               </p>
             )}
             <div className="mt-6 flex gap-3">
-              <button onClick={() => void cobrar([{ metodoPago: "efectivo", monto: saldo }], "efectivo")} disabled={loading} className="flex-1 rounded-xl bg-emerald-600 py-3 font-bold text-white disabled:bg-slate-400">{loading ? "Procesando…" : "Aceptar"}</button>
+              <button onClick={() => void cobrar("efectivo")} disabled={loading} className="flex-1 rounded-xl bg-emerald-600 py-3 font-bold text-white disabled:bg-slate-400">{loading ? "Procesando…" : "Aceptar"}</button>
               <button onClick={() => setConfirmCash(false)} disabled={loading} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold text-slate-800">Cancelar</button>
             </div>
           </div>

@@ -11,7 +11,6 @@ import {
 import { notificarClientes } from '@/lib/sse';
 import {
   calcularRecargoEnvases,
-  calcularSaldo,
   esCategoriaCombo,
   esNivelPicante,
   RECARGO_RECIPIENTES,
@@ -177,30 +176,11 @@ export async function PATCH(
           );
         }
 
-        // Una orden con algun pago encima puede CRECER: el cliente agrega
-        // algo y paga el saldo despues, con el metodo que quiera. Lo que no
-        // puede es encoger, sin importar si esta totalmente pagada o solo
-        // parcialmente (una orden reabierta que crecio y todavia no cubre el
-        // total sigue teniendo dinero real detras): bajar el total la
-        // arrastraria por debajo de lo que ya se cobro, y el reembolso es un
-        // flujo que no existe. `montoPagado > 0` es la condicion correcta,
-        // no `saldo <= 0`: esta ultima solo cubre el caso ya cubierto al
-        // 100%, dejando sin guardia el caso de la orden reabierta.
-        const huboPagoParcial = Number(order.montoPagado) > 0;
-        if (huboPagoParcial) {
-          const reduceElTotal = body.items.some((change) => {
-            if (change.accion === 'eliminar') return true;
-            if (change.accion !== 'modificar') return false;
-
-            const original = order.items.find((item) => item.id === change.itemId);
-            return original ? change.cantidad < original.cantidad : true;
-          });
-          if (reduceElTotal) {
-            throw new ModificationRequestError(
-              'No se puede quitar productos ni reducir cantidades de una orden que ya tiene un pago registrado.',
-              400,
-            );
-          }
+        if (order.cobrada) {
+          throw new ModificationRequestError(
+            'No se puede modificar una orden que ya fue cobrada',
+            409,
+          );
         }
 
         if (order.printRevision !== body.expectedRevision) {
@@ -210,12 +190,7 @@ export async function PATCH(
           );
         }
 
-        const editableStatuses = [
-          'pendiente',
-          'en_preparacion',
-          'lista',
-          'cobrada',
-        ];
+        const editableStatuses = ['pendiente', 'en_preparacion', 'lista'];
         if (!editableStatuses.includes(order.estado)) {
           throw new ModificationRequestError(
             'Solo se pueden modificar órdenes activas',
@@ -223,16 +198,15 @@ export async function PATCH(
           );
         }
 
-        // Una orden ya lista o ya cobrada regresa a preparacion si el cambio
-        // trae comida nueva.
-        const wasReady = order.estado === 'lista' || order.estado === 'cobrada';
-
-        if (order.estado === 'lista') {
+        const wasReady = order.estado === 'lista';
+        if (wasReady) {
           const invalidChange = body.items.some((change) => {
             if (change.accion === 'eliminar') return true;
             if (change.accion !== 'modificar') return false;
 
-            const original = order.items.find((item) => item.id === change.itemId);
+            const original = order.items.find(
+              (item) => item.id === change.itemId,
+            );
             return original ? change.cantidad < original.cantidad : true;
           });
 
@@ -552,17 +526,10 @@ export async function PATCH(
         );
         const newStatus = wasReady && hasNewPreparation ? 'en_preparacion' : undefined;
 
-        // `cobrada` es derivado: si el total subio por encima de lo pagado, la
-        // orden vuelve a tener saldo y reaparece en la lista de cobros.
-        const siguePagada =
-          calcularSaldo({
-            total: newTotal,
-            montoPagado: order.montoPagado.toString(),
-          }) <= 0;
-
         const orderUpdate = await tx.orden.updateMany({
           where: {
             id,
+            cobrada: false,
             printRevision: body.expectedRevision,
           },
           data: {
@@ -570,7 +537,6 @@ export async function PATCH(
             recargo: newSurcharge > 0 ? newSurcharge : null,
             tiempoEstimado: newEstimatedTime,
             modificada: true,
-            cobrada: siguePagada,
             printRevision: body.expectedRevision + 1,
             ...(newStatus ? { estado: newStatus } : {}),
           },

@@ -1,13 +1,9 @@
 // Corre solo en el navegador. La URL firmada se pide recien en el clic y no se
 // guarda en ningun lado: una lista de ordenes no debe disparar decenas de URLs
 // ni mostrar datos bancarios a quien solo revisa totales.
-export async function abrirComprobanteFirmado(
-  ordenId: string,
-  cobroId?: string,
-): Promise<void> {
+export async function abrirComprobanteFirmado(ordenId: string): Promise<void> {
   try {
-    const query = cobroId ? `?cobroId=${encodeURIComponent(cobroId)}` : '';
-    const respuesta = await fetch(`/api/admin/ordenes/${ordenId}/comprobante${query}`);
+    const respuesta = await fetch(`/api/admin/ordenes/${ordenId}/comprobante`);
     let datos: { error?: string; url?: string };
     try {
       datos = await respuesta.json();
