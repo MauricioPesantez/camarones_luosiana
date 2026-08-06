@@ -126,24 +126,44 @@ export function calcularResumenCuadre(
 
       if (pagos.length > 0) {
         if (orden.tipoOrden === "domicilio") {
-          // El envio se liquida una sola vez, sobre TODO el efectivo de la
-          // orden, no sobre el de un pago suelto.
-          const efectivoTotal = pagos
-            .filter((pago) => pago.metodoPago === "efectivo")
-            .reduce((suma, pago) => suma + aCentavos(pago.monto), 0);
-          const liquidacion = calcularLiquidacionDomicilio(
-            orden,
-            aDolares(efectivoTotal),
-          );
-          const entregaElLocal = aCentavos(liquidacion?.entregaElLocal ?? 0);
-          const entregaElMotorizado = aCentavos(
-            liquidacion?.entregaElMotorizado ?? 0,
-          );
-
-          acumulado.efectivoCobradoMotorizados += entregaElMotorizado;
-          acumulado.efectivoEntregadoMotorizados += entregaElLocal;
+          // El deposito bancario se reconoce apenas llega, sin esperar a
+          // que la orden cierre: es un hecho objetivo del dia (el banco
+          // recibio ese dinero hoy), independiente de la liquidacion.
           acumulado.depositosRecibidos += transferenciaEnRango;
-          acumulado.transferenciasVentas += transferenciaEnRango - entregaElLocal;
+
+          // La liquidacion con el motorizado, en cambio, solo se reconoce
+          // el dia en que el pago que CERRO la orden cae en este rango.
+          // `orden.cobrada` ya llega resuelto a "el pago que cerro esta
+          // orden cayo en este rango" (la ruta lo sobreescribe con
+          // `cobradaEnFecha` antes de llamar aqui). Reconocerla antes -con
+          // cualquier pago presente, sin importar la fecha- duplica el
+          // credito: la misma orden puede aparecer en el reporte de dos
+          // dias distintos (por `createdAt` un dia, por `pagos.some` otro),
+          // y sin esta guardia cada aparicion volveria a sumar la
+          // liquidacion completa.
+          if (orden.cobrada) {
+            // Sobre TODO el efectivo de la orden, no solo el de este
+            // rango: el envio se liquida una sola vez, con la imagen
+            // completa de cuanto efectivo entro en total.
+            const efectivoTotal = pagos
+              .filter((pago) => pago.metodoPago === "efectivo")
+              .reduce((suma, pago) => suma + aCentavos(pago.monto), 0);
+            const liquidacion = calcularLiquidacionDomicilio(
+              orden,
+              aDolares(efectivoTotal),
+            );
+            const entregaElLocal = aCentavos(liquidacion?.entregaElLocal ?? 0);
+            const entregaElMotorizado = aCentavos(
+              liquidacion?.entregaElMotorizado ?? 0,
+            );
+
+            acumulado.efectivoCobradoMotorizados += entregaElMotorizado;
+            acumulado.efectivoEntregadoMotorizados += entregaElLocal;
+            acumulado.transferenciasVentas += transferenciaEnRango - entregaElLocal;
+          }
+          // Si todavia no cierra, la venta propia por transferencia de
+          // este pago se difiere: no hay forma de saber cuanto de esta
+          // transferencia es venta propia sin la liquidacion completa.
         } else {
           acumulado.efectivoVentasDirectas += efectivoEnRango;
           acumulado.transferenciasVentas += transferenciaEnRango;

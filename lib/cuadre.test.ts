@@ -434,4 +434,42 @@ assert.equal(conSaldo.montoSaldoPendiente, 5);
 // El efectivo ya recibido si cuenta, aunque la orden no este cerrada.
 assert.equal(conSaldo.efectivoVentasDirectas, 35);
 
+// El caso del reviewer: domicilio de 13 con envio de 3, un solo pago en
+// efectivo. La orden entra a este reporte por otra fecha (p. ej. `createdAt`
+// de un dia, el pago del dia siguiente), asi que el pago no cae en el rango
+// (`enRango: false`) y la ruta todavia no marca la orden como cerrada en
+// este rango (`cobrada: false`). La liquidacion con el motorizado NO debe
+// reconocerse aqui, o la misma orden se acreditaria de nuevo cuando aparezca
+// en el reporte del dia en que si cierra: doble conteo.
+const domicilioSinCerrarEnEsteRango = calcularResumenCuadre([
+  {
+    cobrada: false,
+    tipoOrden: "domicilio",
+    total: 13,
+    costoEnvio: 3,
+    montoPagado: 13,
+    pagos: [{ metodoPago: "efectivo", monto: 13, enRango: false }],
+  },
+]);
+assert.equal(domicilioSinCerrarEnEsteRango.efectivoCobradoMotorizados, 0);
+assert.equal(domicilioSinCerrarEnEsteRango.efectivoEntregadoMotorizados, 0);
+assert.equal(domicilioSinCerrarEnEsteRango.depositosRecibidos, 0);
+
+// La companera: el mismo historial de efectivo, pero en el reporte del dia
+// en que el pago que cierra la orden si cae en el rango (`cobrada: true`,
+// ya resuelto por la ruta con `cobradaEnFecha`). Ahi si se reconoce, una
+// sola vez, el $10 completo de liquidacion.
+const domicilioCerrandoEnEsteRango = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "domicilio",
+    total: 13,
+    costoEnvio: 3,
+    montoPagado: 13,
+    pagos: [{ metodoPago: "efectivo", monto: 13, enRango: true }],
+  },
+]);
+assert.equal(domicilioCerrandoEnEsteRango.efectivoCobradoMotorizados, 10);
+assert.equal(domicilioCerrandoEnEsteRango.efectivoEntregadoMotorizados, 0);
+
 console.log("cuadre.test.ts multipago OK");
