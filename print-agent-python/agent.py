@@ -130,7 +130,7 @@ def load_config():
     config.dry_run = boolean("DRY_RUN", True)
     config.poll_interval = integer("POLL_INTERVAL_MS", 5000, 500, 60000) / 1000.0
     config.poll_active_start_hour = integer("POLL_ACTIVE_START_HOUR", 12, 0, 23)
-    config.poll_active_end_hour = integer("POLL_ACTIVE_END_HOUR", 21, 0, 23)
+    config.poll_active_end_hour = integer("POLL_ACTIVE_END_HOUR", 22, 0, 23)
     config.poll_time_zone = os.environ.get(
         "POLL_TIME_ZONE", "America/Guayaquil"
     ).strip()
@@ -609,7 +609,8 @@ def build_esc_pos_ticket(payload, logo_path=DEFAULT_LOGO_PATH, logo_raster=None)
     payment_url = (payload.get("order") or {}).get("paymentUrl")
     if payload.get("jobType") != "AMENDMENT" and payment_url:
         chunks.append(encode_esc_pos_qr(payment_url))
-    chunks.append(bytes(bytearray([GS, 0x56, 0x00])))
+    chunks.append(bytes(bytearray([ESC, 0x64, 0x05])))
+    chunks.append(bytes(bytearray([GS, 0x56, 0x42, 0x10])))
     return b"".join(chunks)
 
 

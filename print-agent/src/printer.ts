@@ -340,7 +340,7 @@ export function buildEscPosTicket(payload: PrintJobPayload): Buffer {
     ALIGN_LEFT,
     text,
     paymentQr,
-    Buffer.from([GS, 0x56, 0x00]),
+    Buffer.from([GS, 0x56, 0x42, 0x05]),
   ]);
 }
 
