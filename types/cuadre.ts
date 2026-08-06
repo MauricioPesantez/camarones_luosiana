@@ -1,13 +1,28 @@
-import { esMetodoPago, obtenerCostoEnvio } from "./orden";
+import {
+  calcularLiquidacionDomicilio,
+  calcularSaldo,
+  esMetodoPago,
+  obtenerCostoEnvio,
+} from "./orden";
 import { ESTADO_RETIRO_ANULADO } from "./retiro";
+
+export interface PagoParaCuadre {
+  metodoPago: string;
+  monto: number | string;
+  /** Si la fecha del pago cae dentro del rango del cierre. Lo decide la ruta. */
+  enRango: boolean;
+}
 
 export interface OrdenParaCuadre {
   cobrada: boolean;
   tipoOrden?: string | null;
   total: number | string;
   costoEnvio?: number | string | null;
+  montoPagado?: number | string | null;
+  /** Metodo resumido. Solo se usa como fallback de ordenes sin filas de pago. */
   metodoPago?: string | null;
   estadoCobro?: string | null;
+  pagos?: readonly PagoParaCuadre[];
 }
 
 export interface RetiroParaCuadre {
@@ -41,6 +56,13 @@ export interface ResumenCuadre {
    * que devolverle, asi que va en bruto e incluye el envio.
    */
   montoReembolsoPendiente: number;
+  /**
+   * Ordenes que recibieron algun pago pero todavia deben. Aparecen cuando una
+   * orden ya pagada crece. No se puede cerrar el dia con ninguna: es la red
+   * que evita que un cobro cruce a la caja del dia siguiente.
+   */
+  ordenesConSaldoPendiente: number;
+  montoSaldoPendiente: number;
 }
 
 function aCentavos(valor: number | string | null | undefined): number {
@@ -78,8 +100,56 @@ export function calcularResumenCuadre(
       const total = aCentavos(orden.total);
       const costoEnvio = aCentavos(obtenerCostoEnvio(orden));
       const ventaPropia = total - costoEnvio;
+      const pagos = orden.pagos ?? [];
 
       acumulado.ventasTotales += ventaPropia;
+
+      // Una orden con algun pago pero todavia con deuda es una orden que
+      // crecio despues de cobrada. Se cuenta aparte, aunque no este cerrada.
+      const saldo = aCentavos(
+        calcularSaldo({ total: orden.total, montoPagado: orden.montoPagado }),
+      );
+      if (saldo > 0 && aCentavos(orden.montoPagado) > 0) {
+        acumulado.ordenesConSaldoPendiente += 1;
+        acumulado.montoSaldoPendiente += saldo;
+      }
+
+      // El dinero que entro se cuenta pago a pago, este la orden cerrada o no:
+      // el efectivo de una orden a medio pagar ya esta en la caja.
+      const pagosEnRango = pagos.filter((pago) => pago.enRango);
+      const efectivoEnRango = pagosEnRango
+        .filter((pago) => pago.metodoPago === "efectivo")
+        .reduce((suma, pago) => suma + aCentavos(pago.monto), 0);
+      const transferenciaEnRango = pagosEnRango
+        .filter((pago) => pago.metodoPago === "transferencia")
+        .reduce((suma, pago) => suma + aCentavos(pago.monto), 0);
+
+      if (pagos.length > 0) {
+        if (orden.tipoOrden === "domicilio") {
+          // El envio se liquida una sola vez, sobre TODO el efectivo de la
+          // orden, no sobre el de un pago suelto.
+          const efectivoTotal = pagos
+            .filter((pago) => pago.metodoPago === "efectivo")
+            .reduce((suma, pago) => suma + aCentavos(pago.monto), 0);
+          const liquidacion = calcularLiquidacionDomicilio(
+            orden,
+            aDolares(efectivoTotal),
+          );
+          const entregaElLocal = aCentavos(liquidacion?.entregaElLocal ?? 0);
+          const entregaElMotorizado = aCentavos(
+            liquidacion?.entregaElMotorizado ?? 0,
+          );
+
+          acumulado.efectivoCobradoMotorizados += entregaElMotorizado;
+          acumulado.efectivoEntregadoMotorizados += entregaElLocal;
+          acumulado.depositosRecibidos += transferenciaEnRango;
+          acumulado.transferenciasVentas += transferenciaEnRango - entregaElLocal;
+        } else {
+          acumulado.efectivoVentasDirectas += efectivoEnRango;
+          acumulado.transferenciasVentas += transferenciaEnRango;
+          acumulado.depositosRecibidos += transferenciaEnRango;
+        }
+      }
 
       if (!orden.cobrada) {
         acumulado.ordenesSinCobrar += 1;
@@ -97,9 +167,9 @@ export function calcularResumenCuadre(
         acumulado.montoReembolsoPendiente += total;
       }
 
-      // Ordenes viejas cobradas sin metodo registrado: cuentan como venta,
-      // pero no se puede decir donde quedo la plata.
-      if (!esMetodoPago(orden.metodoPago)) {
+      // Fallback historico: ordenes cobradas antes de que existieran las filas
+      // de pago. Se leen por `metodoPago` con la logica de siempre.
+      if (pagos.length > 0 || !esMetodoPago(orden.metodoPago)) {
         return acumulado;
       }
 
@@ -136,6 +206,8 @@ export function calcularResumenCuadre(
       depositosRecibidos: 0,
       enviosMotorizados: 0,
       montoReembolsoPendiente: 0,
+      ordenesConSaldoPendiente: 0,
+      montoSaldoPendiente: 0,
     },
   );
 
@@ -173,5 +245,7 @@ export function calcularResumenCuadre(
     retirosEfectivo: aDolares(retirosEfectivo),
     cantidadRetiros: retirosRegistrados.length,
     montoReembolsoPendiente: aDolares(resumen.montoReembolsoPendiente),
+    ordenesConSaldoPendiente: resumen.ordenesConSaldoPendiente,
+    montoSaldoPendiente: aDolares(resumen.montoSaldoPendiente),
   };
 }
