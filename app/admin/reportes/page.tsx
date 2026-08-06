@@ -57,10 +57,11 @@ function ReportesContenido() {
   const pestanaActiva: "modificaciones" | "cortesias" =
     searchParams.get("tab") === "cortesias" ? "cortesias" : "modificaciones";
   const [fechaInicio, setFechaInicio] = useState(
-    new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    () =>
+      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
   );
   const [fechaFin, setFechaFin] = useState(
-    new Date().toISOString().split("T")[0],
+    () => new Date().toISOString().split("T")[0],
   );
 
   const cargarDatos = async () => {
@@ -89,6 +90,9 @@ function ReportesContenido() {
 
   useEffect(() => {
     if (usuario && usuario.rol === "admin") {
+      // El setState ocurre dentro de la función async, no de forma síncrona
+      // en el cuerpo del efecto.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       cargarDatos();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

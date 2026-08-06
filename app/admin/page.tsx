@@ -257,6 +257,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (usuario && usuario.rol === "admin") {
+      // Los setState ocurren dentro de las funciones async, no de forma
+      // síncrona en el cuerpo del efecto.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       cargarOrdenes();
       cargarProductosStockBajo();
       cargarOrdenesPendientes();
