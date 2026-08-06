@@ -141,8 +141,12 @@ function DigitalContenido() {
 
   useEffect(() => {
     if (usuario && vistaActiva === "pedidos") {
+      // El setState ocurre dentro de la función async, no de forma síncrona
+      // en el cuerpo del efecto.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       cargarOrdenes();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [usuario, vistaActiva]);
 
   if (authLoading) {

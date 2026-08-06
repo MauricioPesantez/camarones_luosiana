@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import HistorialOrdenTimeline from "./HistorialOrdenTimeline";
 import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 import {
@@ -82,6 +82,15 @@ export default function DetalleOrdenModal({
   onOrdenActualizada,
 }: DetalleOrdenModalProps) {
   const [orden, setOrden] = useState<Orden>(ordenInicial);
+  // Sync si el padre actualiza la orden. En vez de un efecto, se ajusta el
+  // estado durante el render comparando contra el valor anterior de la prop
+  // (patrón recomendado por React para "adjusting state when a prop changes").
+  const [ordenInicialAnterior, setOrdenInicialAnterior] =
+    useState(ordenInicial);
+  if (ordenInicial !== ordenInicialAnterior) {
+    setOrdenInicialAnterior(ordenInicial);
+    setOrden(ordenInicial);
+  }
   const [pestanaActiva, setPestanaActiva] = useState<"resumen" | "historial">(
     "resumen",
   );
@@ -177,11 +186,6 @@ export default function DetalleOrdenModal({
       setAbriendoComprobante(false);
     }
   };
-
-  // Sync if parent updates the orden
-  useEffect(() => {
-    setOrden(ordenInicial);
-  }, [ordenInicial]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
