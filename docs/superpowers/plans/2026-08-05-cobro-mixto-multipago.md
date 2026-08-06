@@ -23,6 +23,36 @@
 
 ---
 
+## Nota de reconciliacion (post-Task-5)
+
+Este plan se escribio leyendo una version desactualizada del repositorio: para
+cuando se redacto, ya estaba mergeada en `develop` una feature completa de
+comprobantes por transferencia via S3 (subida real, compresion de imagen,
+verificacion `parseComprobanteKey`/`objectExists` con degradacion si el storage
+falla, visor firmado para el admin) que la exploracion original nunca vio.
+
+Los sintomas aparecieron a mitad de la Task 5: el implementador seguia el
+brief al pie de la letra y estuvo a punto de borrar logica real de produccion
+porque el brief mismo no la mencionaba. Se encontraron y repararon dos
+regresiones ya cometidas (Task 1 habia borrado `montoACobrarEnCaja`, usada por
+cuatro paginas; Task 5 iba a borrar la verificacion S3) y se identificaron
+cuatro ficheros afectados que las Tasks 10-12 originales no conocian:
+`components/cobros/CobrarOrdenClient.tsx` (+198 lineas: flujo de subida real),
+`app/ordenes/cobrar/[token]/page.tsx` (+2: prop `storageDisponible`),
+`app/mesero/page.tsx` (+22: usa `montoACobrarEnCaja`), `app/admin/page.tsx` y
+`components/admin/DetalleOrdenModal.tsx` (+43/+31: badge y visor de
+comprobante). Se sumo un quinto fichero que este plan nunca habia contemplado,
+`app/digital/page.tsx`, que tambien llama al endpoint de cobro con el
+contrato viejo (Task 13, nueva).
+
+Las Tasks 2, 3, 4, 6, 7, 8, 9 se verificaron sin diferencias contra el
+repositorio real (`git diff --stat` vacio contra el merge de comprobantes-s3)
+y se mantienen tal como estaban escritas. Las Tasks 10, 11 y 12 de aqui en
+adelante estan reescritas contra el codigo real; sus versiones originales ya
+no aplican.
+
+---
+
 ## File Structure
 
 **Nuevos:**
@@ -1284,7 +1314,7 @@ Y reemplazar el bloque de lineas 129-148 por:
 npx tsc --noEmit
 ```
 
-Expected: sin errores en ninguno de los cuatro ficheros de esta task. Siguen fallando solo la UI (`components/cobros/CobrarOrdenClient.tsx`, `app/mesero/page.tsx`), que se migra en las Tasks 10 y 11.
+Expected: sin errores en ninguno de los cuatro ficheros de esta task. Siguen fallando solo la UI (`components/cobros/CobrarOrdenClient.tsx`, `app/mesero/page.tsx`, `app/digital/page.tsx`), que se migra en las Tasks 10, 11 y 13.
 
 - [ ] **Step 7: Commit**
 
@@ -2132,79 +2162,113 @@ no reopened order crosses the daily close unnoticed."
 
 ## Task 10: Cobro mixto en la pantalla de cobro
 
+**Reescrita tras la reconciliacion**: la version original de esta task se
+escribio contra un componente de 270 lineas que no tenia subida real de
+comprobante. El componente real tiene 425 lineas, con un flujo de subida a S3
+ya en produccion (`comprimirImagen`, `POST /api/cobros/[token]/comprobante`,
+reintento/fallback si falla, `storageDisponible`). Esta version reutiliza esa
+maquinaria en vez de reemplazarla.
+
 **Files:**
 - Modify: `components/cobros/CobrarOrdenClient.tsx`
 - Modify: `app/ordenes/cobrar/[token]/page.tsx` (pasar `montoPagado`)
 
 **Interfaces:**
-- Consumes: la API de la Task 6 (`{ partes, expectedRevision, idempotencyKey }`)
+- Consumes: la API de la Task 6 (`{ partes, expectedRevision, idempotencyKey }`), `montoACobrarEnCaja` de `types/cobro.ts`
 
-**Contexto:** hoy el componente tiene dos botones (Efectivo, Transferencia) y manda `metodoPago` suelto. Pasa a tener tres, y el saldo reemplaza al total como cifra a cobrar.
+**Contexto:** hoy el componente tiene dos botones (Efectivo, Transferencia) y
+manda `{ metodoPago, comprobanteTransferenciaKey? }`. Pasa a tener tres, y el
+saldo (`orden.total - orden.montoPagado`) reemplaza al total como cifra a
+cobrar.
+
+**Punto critico — que va en `parte.monto`:** `validarActoDeCobro` exige que
+las partes sumen EXACTO el saldo de la orden. `parte.monto` es siempre la
+cifra bruta que se descuenta del saldo (para efectivo puro o transferencia
+pura, el saldo completo; en mixto, lo que el usuario teclea mas el resto).
+`montoACobrarEnCaja` en cambio es una cifra de **presentacion**: para
+domicilio+efectivo, resta el envio porque ese dinero nunca llega a la caja
+(se lo queda el motorizado). Nunca se manda `montoACobrarEnCaja(...)` como
+`parte.monto` — eso rompe el cuadre de `validarActoDeCobro` y le resta al
+saldo un monto que el cliente no reconoce como pagado.
 
 - [ ] **Step 1: Pass the balance from the server component**
 
-En `app/ordenes/cobrar/[token]/page.tsx`, agregar al `select` de la orden, justo despues de `total: true,` (linea 50):
+En `app/ordenes/cobrar/[token]/page.tsx`, agregar al `select` de la orden, justo despues de `total: true,` (linea 51):
 
 ```ts
       montoPagado: true,
 ```
 
-Y en `serializableOrder` (linea 84), despues de `total: Number(orden.total),`:
+Y en `serializableOrder` (linea 88), despues de `total: Number(orden.total),`:
 
 ```ts
     montoPagado: Number(orden.montoPagado),
 ```
 
-La guarda `if (orden.cobrada) redirect(...)` de la linea 73 se queda tal cual: una orden reabierta tiene `cobrada: false` desde la Task 7, asi que ya deja pasar el cobro del saldo.
+La guarda `if (orden.cobrada) redirect(...)` de la linea 74 se queda tal cual: una orden reabierta tiene `cobrada: false` desde la Task 7, asi que ya deja pasar el cobro del saldo.
 
 - [ ] **Step 2: Add the balance to the component contract**
 
-En `components/cobros/CobrarOrdenClient.tsx`, agregar a la interfaz `CobroOrder` (despues de `total: number;`, linea 26):
+En `components/cobros/CobrarOrdenClient.tsx`, agregar a la interfaz `CobroOrder` (despues de `total: number;`, linea 28):
 
 ```ts
   montoPagado: number;
 ```
 
-- [ ] **Step 3: Replace the payment state and the collect call**
+- [ ] **Step 3: Add the saldo and a generic "acto de cobro" type**
 
-Reemplazar el bloque de estado y la funcion `cobrar` (lineas 63-115) por:
+Despues de los imports (linea 13), agregar el tipo que viaja al backend:
 
 ```ts
-  const router = useRouter();
-  const idempotencyKey = useRef(crypto.randomUUID());
-  const [confirmCash, setConfirmCash] = useState(false);
-  const [showTransfer, setShowTransfer] = useState(false);
-  const [showMixto, setShowMixto] = useState(false);
-  const [montoEfectivo, setMontoEfectivo] = useState("");
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [cobrado, setCobrado] = useState<string | null>(null);
+interface ParteDePago {
+  metodoPago: MetodoPago;
+  monto: number;
+  comprobanteTransferenciaKey?: string;
+}
+```
 
-  const subtotalProductos = orden.items.reduce(
-    (total, item) => total + item.subtotal,
-    0,
-  );
+Reemplazar el bloque de calculos de montos (lineas 84-101, desde `// Lo que entra a caja...` hasta el cierre de `montoTransferencia`) por:
+
+```ts
+  // El saldo es lo que falta por cobrar, no el total: una orden reabierta
+  // (crecio despues de pagada) solo debe el resto.
   const saldoCentavos = Math.max(
     0,
     Math.round(orden.total * 100) - Math.round(orden.montoPagado * 100),
   );
   const saldo = saldoCentavos / 100;
-  const efectivoLocal =
-    orden.tipoOrden === "domicilio"
-      ? Math.max(0, orden.total - orden.costoEnvio)
-      : orden.total;
+  // El envio solo se neta la PRIMERA vez que se cobra la orden: para una
+  // orden reabierta ya se liquido con el motorizado en el pago anterior, asi
+  // que el saldo se muestra tal cual, sin volver a restarlo.
+  const esPrimerPago = orden.montoPagado <= 0;
+  const montoEfectivo = esPrimerPago
+    ? montoACobrarEnCaja({
+        tipoOrden: orden.tipoOrden,
+        total: saldo,
+        costoEnvio: orden.costoEnvio,
+        metodoPago: "efectivo",
+      })
+    : saldo;
+  const montoTransferencia = esPrimerPago
+    ? montoACobrarEnCaja({
+        tipoOrden: orden.tipoOrden,
+        total: saldo,
+        costoEnvio: orden.costoEnvio,
+        metodoPago: "transferencia",
+      })
+    : saldo;
+  const esDomicilio = orden.tipoOrden === "domicilio";
+```
 
-  // La parte de transferencia es siempre el resto: se calcula, no se teclea.
-  const efectivoCentavos = Math.round(Number(montoEfectivo || 0) * 100);
-  const transferenciaCentavos = saldoCentavos - efectivoCentavos;
-  const mixtoValido =
-    efectivoCentavos > 0 && transferenciaCentavos > 0 && photo !== null;
+- [ ] **Step 4: Generalize `cobrar` to N parts**
 
+Reemplazar la funcion `cobrar` (lineas 108-149) por:
+
+```ts
   const cobrar = async (
-    partes: Array<{ metodoPago: string; monto: number; comprobanteTransferenciaKey?: string }>,
+    partes: ParteDePago[],
     etiqueta: string,
-  ) => {
+  ): Promise<boolean> => {
     setLoading(true);
     setError("");
     try {
@@ -2222,7 +2286,7 @@ Reemplazar el bloque de estado y la funcion `cobrar` (lineas 63-115) por:
       if (!cerrarAlFinalizar) {
         router.replace(successUrl);
         router.refresh();
-        return;
+        return true;
       }
       // El cobro llegó desde el enlace/QR, en una pestaña dedicada. Se muestra la
       // confirmación y se pide cerrarla. El navegador solo permite `close()` si la
@@ -2230,111 +2294,267 @@ Reemplazar el bloque de estado y la funcion `cobrar` (lineas 63-115) por:
       // login): cuando lo bloquea, esta misma pantalla queda como salida manual.
       setCobrado(etiqueta);
       window.close();
+      return true;
     } catch (paymentError) {
       setError(
         paymentError instanceof Error
           ? paymentError.message
           : "No se pudo registrar el cobro",
       );
+      return false;
     } finally {
       setLoading(false);
     }
   };
 ```
 
-**Comprobante:** el `key` que se manda es un marcador temporal mientras la subida a S3 sigue pendiente (`docs/superpowers/plans/2026-08-03-comprobantes-s3.md`). Usar `pendiente:${photo.name}` para que `validarActoDeCobro` acepte la parte de transferencia y quede rastro de que el fichero no se subio.
+El tipo de `cobrado` (linea 82, `useState<MetodoPago | null>(null)`) pasa a `useState<string | null>(null)`, para admitir la etiqueta `"mixto"`.
 
-- [ ] **Step 4: Update the total shown and the buttons**
+- [ ] **Step 5: Generalize the upload-then-charge flow**
 
-Reemplazar la fila del total (linea 196) por:
+Aqui es donde vive la logica que la version original de esta task iba a
+borrar: la subida real a S3 con reintento y fallback. Se generaliza para que
+sirva tanto para transferencia pura como para la parte de transferencia de un
+mixto, sin duplicar el manejo de errores.
+
+Agregar el estado del modo mixto justo despues de `estadoTransferencia`
+(linea 79):
+
+```ts
+  const [modoActivo, setModoActivo] = useState<"transferencia" | "mixto" | null>(null);
+  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState("");
+```
+
+`showTransfer` (linea 69) se elimina: su rol pasa a `modoActivo !== null`.
+
+Despues de los calculos de montos del Step 3, agregar los calculos del split
+mixto:
+
+```ts
+  const efectivoMixtoCentavos = Math.round(Number(montoEfectivoMixto || 0) * 100);
+  const transferenciaMixtoCentavos = saldoCentavos - efectivoMixtoCentavos;
+  const mixtoValido = efectivoMixtoCentavos > 0 && transferenciaMixtoCentavos > 0;
+
+  // Que partes arma este acto de cobro segun el modo activo. `objectKey` es
+  // el resultado (posiblemente null) de la subida a S3.
+  const partesDelModo = (objectKey: string | null): ParteDePago[] =>
+    modoActivo === "mixto"
+      ? [
+          { metodoPago: "efectivo", monto: efectivoMixtoCentavos / 100 },
+          {
+            metodoPago: "transferencia",
+            monto: transferenciaMixtoCentavos / 100,
+            ...(objectKey ? { comprobanteTransferenciaKey: objectKey } : {}),
+          },
+        ]
+      : [
+          {
+            metodoPago: "transferencia",
+            monto: saldo,
+            ...(objectKey ? { comprobanteTransferenciaKey: objectKey } : {}),
+          },
+        ];
+```
+
+Reemplazar `subirYCobrar` (lineas 155-199) por:
+
+```ts
+  const subirComprobante = async (): Promise<string | null> => {
+    const comprimida = await comprimirImagen(photo!);
+    const formData = new FormData();
+    formData.append(
+      "archivo",
+      new File([comprimida], "comprobante.jpg", { type: "image/jpeg" }),
+    );
+    const respuesta = await fetch(
+      `/api/cobros/${encodeURIComponent(token)}/comprobante`,
+      { method: "POST", body: formData },
+    );
+    let datos: { error?: string; objectKey?: string };
+    try {
+      datos = await respuesta.json();
+    } catch {
+      // Un proxy o gateway puede responder con HTML (o nada) en vez de JSON, por
+      // ejemplo un 413 que corta la subida antes de que la app la vea: sin esto el
+      // error mostrado sería "Unexpected token '<'" en vez de un texto legible.
+      datos = {
+        error:
+          respuesta.status === 413
+            ? "La foto es muy pesada, repítela"
+            : "No se pudo subir el comprobante",
+      };
+    }
+    if (!respuesta.ok) throw new Error(datos.error || "No se pudo subir el comprobante");
+    return datos.objectKey ?? null;
+  };
+
+  // Sube primero y cobra despues, con la key ya validada. Si el storage falla, el
+  // cobro no se bloquea: la pantalla ofrece reintentar o registrar sin
+  // comprobante, y el cuadre marca despues esa transferencia. El estado de fallo
+  // se activa tanto si falla la subida como si falla el cobro posterior. Sirve
+  // tanto para transferencia pura como para la parte de transferencia de un
+  // mixto: la diferencia esta en `partesDelModo`.
+  const subirYCobrar = async () => {
+    if (!photo) return;
+    setEstadoTransferencia("subiendo");
+    setError("");
+    try {
+      const objectKey = await subirComprobante();
+      setEstadoTransferencia("cobrando");
+      const ok = await cobrar(partesDelModo(objectKey), modoActivo ?? "transferencia");
+      setEstadoTransferencia(ok ? "idle" : "fallo");
+    } catch (subidaError) {
+      setEstadoTransferencia("fallo");
+      setError(
+        subidaError instanceof Error
+          ? subidaError.message
+          : "No se pudo subir el comprobante",
+      );
+    }
+  };
+```
+
+- [ ] **Step 6: Update the success screen**
+
+Reemplazar el bloque de monto en la pantalla de exito (lineas 208-213) por:
 
 ```tsx
-            <div className="flex justify-between border-t pt-2 text-2xl font-bold"><span>Total cliente</span><span>${orden.total.toFixed(2)}</span></div>
+            <strong>
+              $
+              {(cobrado === "mixto"
+                ? saldo
+                : cobrado === "efectivo"
+                  ? montoEfectivo
+                  : montoTransferencia
+              ).toFixed(2)}
+            </strong>{" "}
+            en {cobrado}.
+```
+
+- [ ] **Step 7: Update the total/balance display**
+
+Reemplazar el bloque `Total que paga el cliente` / `Recibes en caja` (lineas
+283-300) por:
+
+```tsx
+            <div className={`flex justify-between border-t pt-2 ${esDomicilio ? "font-semibold" : "text-2xl font-bold"}`}>
+              <span>{esDomicilio ? "Total que paga el cliente" : "Total cliente"}</span>
+              <span className={esDomicilio ? "" : "text-emerald-700"}>${orden.total.toFixed(2)}</span>
+            </div>
             {orden.montoPagado > 0 && (
-              <>
-                <div className="flex justify-between text-slate-600"><span>Ya pagado</span><span>-${orden.montoPagado.toFixed(2)}</span></div>
-                <div className="flex justify-between border-t pt-2 text-2xl font-bold"><span>Saldo a cobrar</span><span className="text-emerald-700">${saldo.toFixed(2)}</span></div>
-              </>
+              <div className="flex justify-between text-slate-600">
+                <span>Ya pagado</span>
+                <span>-${orden.montoPagado.toFixed(2)}</span>
+              </div>
+            )}
+            {esDomicilio && (
+              <div className="flex justify-between border-t pt-2 text-2xl font-bold">
+                <span>{orden.montoPagado > 0 ? "Saldo a cobrar" : "Recibes en caja"}</span>
+                <span className="text-emerald-700">
+                  ${montoEfectivo.toFixed(2)}
+                  {montoTransferencia !== montoEfectivo && (
+                    <span className="block text-right text-sm font-semibold text-slate-500">
+                      o ${montoTransferencia.toFixed(2)} por transferencia
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+            {!esDomicilio && orden.montoPagado > 0 && (
+              <div className="flex justify-between border-t pt-2 text-2xl font-bold">
+                <span>Saldo a cobrar</span>
+                <span className="text-emerald-700">${saldo.toFixed(2)}</span>
+              </div>
             )}
 ```
 
-Reemplazar la seccion de botones (lineas 209-224) por:
+- [ ] **Step 8: Add the third button and update the existing two**
+
+Reemplazar la seccion de botones (lineas 312-329) por:
 
 ```tsx
         <section className="grid gap-3 sm:grid-cols-3">
           <button
-            onClick={() => { setShowTransfer(false); setShowMixto(false); setConfirmCash(true); }}
-            disabled={loading}
+            onClick={() => { setModoActivo(null); setConfirmCash(true); }}
+            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
             className="rounded-2xl bg-emerald-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-emerald-700 disabled:bg-slate-400"
           >
             💵 Efectivo
+            <span className="block text-2xl">${montoEfectivo.toFixed(2)}</span>
           </button>
           <button
-            onClick={() => { setConfirmCash(false); setShowMixto(false); setShowTransfer(true); }}
-            disabled={loading}
+            onClick={() => { setConfirmCash(false); setModoActivo("transferencia"); }}
+            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
             className="rounded-2xl bg-blue-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-blue-700 disabled:bg-slate-400"
           >
             🏦 Transferencia
+            <span className="block text-2xl">${montoTransferencia.toFixed(2)}</span>
           </button>
           <button
-            onClick={() => { setConfirmCash(false); setShowTransfer(false); setShowMixto(true); }}
-            disabled={loading}
+            onClick={() => { setConfirmCash(false); setModoActivo("mixto"); }}
+            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
             className="rounded-2xl bg-amber-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-amber-700 disabled:bg-slate-400"
           >
             🔀 Mixto
+            <span className="block text-2xl">${saldo.toFixed(2)}</span>
           </button>
         </section>
 ```
 
-- [ ] **Step 5: Add the mixed payment panel**
+- [ ] **Step 9: Update the transfer panel to cover both transferencia and mixto**
 
-Insertar despues de la seccion `{showTransfer && ( ... )}` (que termina en la linea 253):
+Reemplazar el bloque `{showTransfer && ( ... )}` completo (lineas 331-401)
+por:
 
 ```tsx
-        {showMixto && (
-          <section className="rounded-2xl border border-amber-200 bg-white p-5 shadow">
-            <h2 className="text-lg font-bold">Cobro mixto</h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Escribe cuánto paga en efectivo. El resto se cobra por transferencia.
-            </p>
+        {modoActivo && (
+          <section className="rounded-2xl border border-blue-200 bg-white p-5 shadow">
+            <h2 className="text-lg font-bold">
+              {modoActivo === "mixto" ? "Cobro mixto" : "Comprobante de transferencia"}
+            </h2>
 
-            <label className="mt-4 block text-sm font-semibold text-slate-700">
-              Monto en efectivo
-              <input
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                max={saldo}
-                value={montoEfectivo}
-                onChange={(event) => setMontoEfectivo(event.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-2xl font-bold"
-                placeholder="0.00"
-              />
-            </label>
-
-            <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-4 text-sm">
-              <div className="flex justify-between"><span>Efectivo</span><span className="font-semibold">${(efectivoCentavos / 100).toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Transferencia</span><span className="font-semibold">${(transferenciaCentavos / 100).toFixed(2)}</span></div>
-              <div className="flex justify-between border-t pt-1 font-bold"><span>Saldo</span><span>${saldo.toFixed(2)}</span></div>
-            </div>
-
-            {transferenciaCentavos <= 0 && efectivoCentavos > 0 && (
-              <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">
-                El efectivo cubre todo el saldo. Usa el botón de Efectivo.
-              </p>
+            {modoActivo === "mixto" && (
+              <>
+                <p className="mt-1 text-sm text-slate-600">
+                  Escribe cuánto paga en efectivo. El resto se cobra por transferencia.
+                </p>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">
+                  Monto en efectivo
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    max={saldo}
+                    value={montoEfectivoMixto}
+                    onChange={(event) => setMontoEfectivoMixto(event.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-2xl font-bold"
+                    placeholder="0.00"
+                  />
+                </label>
+                <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-4 text-sm">
+                  <div className="flex justify-between"><span>Efectivo</span><span className="font-semibold">${(efectivoMixtoCentavos / 100).toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>Transferencia</span><span className="font-semibold">${(transferenciaMixtoCentavos / 100).toFixed(2)}</span></div>
+                  <div className="flex justify-between border-t pt-1 font-bold"><span>Saldo</span><span>${saldo.toFixed(2)}</span></div>
+                </div>
+                {transferenciaMixtoCentavos <= 0 && efectivoMixtoCentavos > 0 && (
+                  <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">
+                    El efectivo cubre todo el saldo. Usa el botón de Efectivo.
+                  </p>
+                )}
+                {esDomicilio && efectivoMixtoCentavos > 0 && (
+                  <p className="mt-3 rounded-lg bg-purple-50 p-3 text-sm text-purple-900">
+                    {efectivoMixtoCentavos >= Math.round(orden.costoEnvio * 100)
+                      ? `El motorizado te entrega $${((efectivoMixtoCentavos - Math.round(orden.costoEnvio * 100)) / 100).toFixed(2)}.`
+                      : `Le entregas $${((Math.round(orden.costoEnvio * 100) - efectivoMixtoCentavos) / 100).toFixed(2)} al motorizado.`}
+                  </p>
+                )}
+              </>
             )}
 
-            {orden.tipoOrden === "domicilio" && efectivoCentavos > 0 && (
-              <p className="mt-3 rounded-lg bg-purple-50 p-3 text-sm text-purple-900">
-                {efectivoCentavos >= Math.round(orden.costoEnvio * 100)
-                  ? `El motorizado te entrega $${((efectivoCentavos - Math.round(orden.costoEnvio * 100)) / 100).toFixed(2)}.`
-                  : `Le entregas $${((Math.round(orden.costoEnvio * 100) - efectivoCentavos) / 100).toFixed(2)} al motorizado.`}
-              </p>
-            )}
-
+            <p className="mt-4 text-sm text-slate-600">Toma una foto clara del comprobante mostrado por el cliente.</p>
             <label className="mt-4 block cursor-pointer rounded-xl border-2 border-dashed border-blue-400 p-5 text-center font-bold text-blue-700 hover:bg-blue-50">
-              📷 Foto del comprobante
+              📷 Tomar foto
               <input
                 className="sr-only"
                 type="file"
@@ -2344,93 +2564,118 @@ Insertar despues de la seccion `{showTransfer && ( ... )}` (que termina en la li
               />
             </label>
             {photo && (
-              <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                Foto seleccionada: <strong>{photo.name}</strong>. La carga persistente a S3 queda preparada para la siguiente fase; esta versión todavía no envía el archivo.
+              <div className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                Foto seleccionada: <strong>{photo.name}</strong>
               </div>
             )}
-
-            <button
-              onClick={() =>
-                void cobrar(
-                  [
-                    { metodoPago: "efectivo", monto: efectivoCentavos / 100 },
-                    {
-                      metodoPago: "transferencia",
-                      monto: transferenciaCentavos / 100,
-                      comprobanteTransferenciaKey: `pendiente:${photo?.name ?? "sin-nombre"}`,
-                    },
-                  ],
-                  "mixto",
-                )
-              }
-              disabled={loading || !mixtoValido}
-              className="mt-4 w-full rounded-xl bg-amber-600 py-3 font-bold text-white hover:bg-amber-700 disabled:bg-slate-300"
-            >
-              {loading ? "Registrando…" : `Confirmar $${saldo.toFixed(2)} mixto`}
-            </button>
+            {!storageDisponible && (
+              <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                El almacenamiento de comprobantes no está configurado en este
+                entorno. Puedes registrar el cobro, pero la foto no se guardará.
+              </div>
+            )}
+            {estadoTransferencia === "fallo" ? (
+              <div className="mt-4 space-y-2">
+                <button
+                  onClick={() => void subirYCobrar()}
+                  disabled={loading}
+                  className="w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
+                >
+                  Reintentar
+                </button>
+                <button
+                  onClick={() => void cobrar(partesDelModo(null), modoActivo)}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-amber-400 bg-amber-50 py-3 font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+                >
+                  {loading ? "Registrando…" : "Registrar sin comprobante"}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() =>
+                  storageDisponible
+                    ? void subirYCobrar()
+                    : void cobrar(partesDelModo(null), modoActivo)
+                }
+                disabled={
+                  loading ||
+                  estadoTransferencia === "subiendo" ||
+                  estadoTransferencia === "cobrando" ||
+                  (storageDisponible && !photo) ||
+                  (modoActivo === "mixto" && !mixtoValido)
+                }
+                className="mt-4 w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
+              >
+                {estadoTransferencia === "subiendo"
+                  ? "Subiendo comprobante…"
+                  : loading
+                    ? "Registrando…"
+                    : modoActivo === "mixto"
+                      ? `Confirmar $${saldo.toFixed(2)} mixto`
+                      : "Confirmar transferencia"}
+              </button>
+            )}
           </section>
         )}
 ```
 
-- [ ] **Step 6: Update the two existing confirm buttons**
+- [ ] **Step 10: Update the cash confirmation modal**
 
-El boton de transferencia (linea 246) pasa a:
-
-```tsx
-              onClick={() =>
-                void cobrar(
-                  [
-                    {
-                      metodoPago: "transferencia",
-                      monto: saldo,
-                      comprobanteTransferenciaKey: `pendiente:${photo?.name ?? "sin-nombre"}`,
-                    },
-                  ],
-                  "transferencia",
-                )
-              }
-```
-
-El de efectivo, dentro del modal `confirmCash` (linea 262), pasa a:
+Dentro de `{confirmCash && ( ... )}` (lineas 404-421), el texto de
+confirmacion y el boton usan `montoEfectivo` (ya calculado sobre el saldo por
+el Step 3) en vez de `orden.total`, y `cobrar` recibe una sola parte:
 
 ```tsx
+            <p className="mt-2 text-slate-600">¿Confirmas que recibiste <strong>${montoEfectivo.toFixed(2)}</strong> en efectivo?</p>
+            {esDomicilio && orden.costoEnvio > 0 && (
+              <p className="mt-2 text-sm text-slate-500">
+                El cliente pagó ${saldo.toFixed(2)}; el motorizado conserva
+                ${orden.costoEnvio.toFixed(2)} del envío.
+              </p>
+            )}
+            <div className="mt-6 flex gap-3">
               <button onClick={() => void cobrar([{ metodoPago: "efectivo", monto: saldo }], "efectivo")} disabled={loading} className="flex-1 rounded-xl bg-emerald-600 py-3 font-bold text-white disabled:bg-slate-400">{loading ? "Procesando…" : "Aceptar"}</button>
+              <button onClick={() => setConfirmCash(false)} disabled={loading} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold text-slate-800">Cancelar</button>
+            </div>
 ```
 
-Y el texto de confirmacion (linea 260) usa el saldo en vez del total:
+Notese que `parte.monto` es `saldo` (el bruto), no `montoEfectivo` (el neto de
+presentacion) — ver el punto critico al inicio de esta task.
 
-```tsx
-            <p className="mt-2 text-slate-600">¿Confirmas que recibiste <strong>${saldo.toFixed(2)}</strong> en efectivo?</p>
+- [ ] **Step 11: Verify it compiles**
+
+```bash
+npx tsc --noEmit
 ```
 
-Igual la pantalla de exito (linea 125):
+Expected: sin errores en `components/cobros/CobrarOrdenClient.tsx` ni en
+`app/ordenes/cobrar/[token]/page.tsx`.
 
-```tsx
-            Orden #{orden.numeroDiario ?? orden.id.slice(-6)} ·{" "}
-            <strong>${saldo.toFixed(2)}</strong> en {cobrado}.
-```
-
-- [ ] **Step 7: Verify in the browser**
+- [ ] **Step 12: Verify in the browser**
 
 ```bash
 npm run dev
 ```
 
-Comprobar en la pantalla de cobro por enlace:
+Comprobar en la pantalla de cobro por enlace, con `S3_BUCKET` sin configurar
+(desarrollo local tipico) para probar el camino `storageDisponible === false`:
 1. Con una orden sin pagos, los tres botones aparecen y el saldo es igual al total.
-2. En Mixto, escribir un monto menor al saldo: la transferencia se autocalcula y el boton se habilita solo despues de elegir la foto.
-3. Escribir un monto igual o mayor al saldo: sale el aviso de usar el boton de Efectivo y el boton queda deshabilitado.
+2. En Mixto, escribir un monto menor al saldo: la transferencia se autocalcula, aparece el aviso de liquidacion con el motorizado si es domicilio, y "Registrar" queda habilitado sin foto (storage no configurado).
+3. Escribir un monto igual o mayor al saldo: sale el aviso de usar el boton de Efectivo.
 4. Confirmar un mixto y comprobar en `npx prisma studio` que se crearon **dos** filas en `Cobro`, con `idempotencyKey` terminadas en `:efectivo` y `:transferencia`, y que `Orden.montoPagado` quedo igual a `total`.
+5. Si es posible configurar `S3_BUCKET` localmente: repetir con `storageDisponible === true` y confirmar que la parte de transferencia del mixto sube una foto real y el `Cobro.comprobanteTransferenciaKey` de esa fila queda con la key real (no null).
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
 git add components/cobros/CobrarOrdenClient.tsx app/ordenes/cobrar
 git commit -m "feat(cobros): mixed payment option on the collection screen
 
-The cash amount is typed and the transfer is the remainder, so the two parts
-can never fail to add up. Delivery orders show the resulting rider settlement
-with an explicit direction."
+Reuses the existing upload-then-charge flow (compress, POST, retry, degrade
+without a receipt) for the transfer half of a mixed payment instead of
+introducing a second, weaker path. The cash amount is typed and the transfer
+is the remainder, so the two parts always sum to the balance exactly."
 ```
 
 ---
