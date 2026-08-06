@@ -7,7 +7,7 @@ import {
   shouldEnqueuePrintJob,
 } from '@/lib/print-jobs';
 import { getAuthenticatedUser } from '@/lib/session';
-import { calcularMovimientosCobro } from '@/types/cobro';
+import { calcularMovimientosPago } from '@/types/cobro';
 
 class ApprovalConflictError extends Error {}
 
@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
           razonAprobacion: razon || 'Aprobada por administrador',
           ...(pagarTransferencia && {
             cobrada: true,
+            montoPagado: orden.total,
             metodoPago: 'transferencia',
             fechaCobro: new Date(),
             cobradaPor: orden.mesero,
@@ -126,16 +127,15 @@ export async function POST(request: NextRequest) {
       });
 
       if (pagarTransferencia) {
-        const movimientos = calcularMovimientosCobro({
-          tipoOrden: orden.tipoOrden,
-          total: orden.total.toString(),
-          costoEnvio: orden.costoEnvio?.toString(),
+        const movimientos = calcularMovimientosPago({
           metodoPago: 'transferencia',
+          monto: orden.total.toString(),
         });
         await tx.cobro.create({
           data: {
             ordenId,
             metodoPago: 'transferencia',
+            monto: orden.total,
             montoTotal: orden.total,
             costoEnvio: orden.costoEnvio ?? 0,
             ...movimientos,
