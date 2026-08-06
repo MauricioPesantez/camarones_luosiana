@@ -77,14 +77,15 @@ assert.throws(
   ActoDeCobroInvalido,
 );
 
-// La parte de transferencia exige comprobante.
-assert.throws(
-  () =>
-    validarActoDeCobro({
-      saldo: 25,
-      partes: [{ metodoPago: "transferencia", monto: 25 }],
-    }),
-  ActoDeCobroInvalido,
+// El comprobante es opcional: ningun flujo de la app lo exige para cobrar.
+// El QR tiene su propio boton "Registrar sin comprobante", y los flujos
+// internos (mesero, admin, digital) nunca capturan foto. La falta de
+// comprobante es una bandera para el admin despues, nunca un bloqueo aqui.
+assert.doesNotThrow(() =>
+  validarActoDeCobro({
+    saldo: 25,
+    partes: [{ metodoPago: "transferencia", monto: 25 }],
+  }),
 );
 
 // Claves de idempotencia derivadas: una por metodo, estables.

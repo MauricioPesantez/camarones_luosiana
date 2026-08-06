@@ -41,14 +41,6 @@ export function validarActoDeCobro(input: {
         'Cada forma de pago debe tener un monto mayor a cero',
       );
     }
-    if (
-      parte.metodoPago === 'transferencia' &&
-      !parte.comprobanteTransferenciaKey?.trim()
-    ) {
-      throw new ActoDeCobroInvalido(
-        'La transferencia requiere el comprobante',
-      );
-    }
     suma += monto;
   }
 
