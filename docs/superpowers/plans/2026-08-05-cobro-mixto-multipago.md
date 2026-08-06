@@ -81,12 +81,27 @@ no aplican.
 | `app/api/ordenes/aprobacion/aprobar/route.ts` | Igual que el anterior |
 | `app/api/ordenes/[id]/items/route.ts` | Permite crecer una orden cobrada |
 | `app/api/admin/cuadre/route.ts` | Envia los pagos de cada orden al resumen |
-| `components/cobros/CobrarOrdenClient.tsx` | Opcion de cobro mixto |
+| `app/api/admin/ordenes/[id]/comprobante/route.ts` | Resuelve el comprobante por `Cobro.id`, no solo por orden |
+| `lib/comprobante-cliente.ts` | `abrirComprobanteFirmado` admite un `cobroId` opcional |
+| `components/cobros/CobrarOrdenClient.tsx` | Opcion de cobro mixto, reutilizando el flujo de subida a S3 ya existente |
+| `app/ordenes/cobrar/[token]/page.tsx` | Pasa `montoPagado` |
 | `app/mesero/page.tsx` | Badge de saldo y cobro mixto |
+| `app/digital/page.tsx` | Badge de saldo y cobro mixto (Task 13 — no estaba en el alcance original) |
 | `app/admin/page.tsx` | Desglose de pagos y fila de saldo pendiente |
-| `components/admin/DetalleOrdenModal.tsx` | Desglose de pagos |
+| `components/admin/DetalleOrdenModal.tsx` | Desglose de pagos y comprobante por pago |
 | `lib/cuadre.test.ts` | Casos nuevos |
+| `lib/cuadre-date.ts` | Lee `pagos` en vez de `cobro` |
 | `package.json` | Scripts de los tests nuevos |
+
+**Reparados durante la implementacion (regresiones de la reconciliacion, ver
+la nota mas abajo):**
+
+| Fichero | Cambio |
+|---|---|
+| `types/cobro.ts` | Restaura `montoACobrarEnCaja`, borrada por error en la Task 1 |
+| `types/cobro.test.ts` | Actualizado para la funcion restaurada |
+| `lib/order-payment.ts` | Restaura la verificacion de comprobante contra S3, borrada por error en la Task 5 |
+| `lib/order-payment-validaciones.ts` | Deja de exigir comprobante en una parte de transferencia |
 
 ---
 
@@ -2028,10 +2043,12 @@ En `app/api/admin/cuadre/route.ts`, cambiar el `include` del `findMany` de orden
         include: {
           pagos: {
             select: {
+              id: true,
               createdAt: true,
               estado: true,
               metodoPago: true,
               monto: true,
+              comprobanteTransferenciaKey: true,
             },
           },
           creador: {
@@ -2044,6 +2061,11 @@ En `app/api/admin/cuadre/route.ts`, cambiar el `include` del `findMany` de orden
           },
         },
 ```
+
+`id` y `comprobanteTransferenciaKey` no los usa `calcularResumenCuadre` (que
+solo lee `metodoPago`/`monto`/`enRango`), pero viajan igual en la respuesta:
+la Task 12 los necesita para el visor de comprobante por pago, y el admin
+consume el JSON completo de esta ruta, no un tipo recortado.
 
 El `where` (lineas 48-57) tambien cambia, porque `cobro` paso a llamarse `pagos` y de uno a muchos:
 
@@ -2086,11 +2108,15 @@ Y reemplazar el `map` de `ordenesConCreador` (lineas 94-122) por:
           _privatePayments[0]?.estado ??
           null,
         // Cada pago dice si cae en el rango. El resumen suma solo los que si.
+        // `id` y `comprobanteTransferenciaKey` no los usa el calculo, viajan
+        // para que el admin pueda pedir el comprobante de un pago puntual.
         pagos: _privatePayments
           .filter((pago) => pago.estado !== 'REEMBOLSADO')
           .map((pago) => ({
+            id: pago.id,
             metodoPago: pago.metodoPago,
             monto: Number(pago.monto),
+            comprobanteTransferenciaKey: pago.comprobanteTransferenciaKey,
             enRango:
               pago.createdAt >= rango.inicio && pago.createdAt < rango.fin,
           })),
@@ -2682,26 +2708,55 @@ is the remainder, so the two parts always sum to the balance exactly."
 
 ## Task 11: Saldo y mixto en la lista del mesero
 
-**Files:**
-- Modify: `app/mesero/page.tsx:31-34, 102-130, 340-450`
+**Reescrita tras la reconciliacion**: el fichero real ya usa
+`montoACobrarEnCaja` (restaurada en la Task 1) para el monto que muestra el
+modal; hay que preservar esa llamada, no reemplazarla por `orden.total` en
+crudo. No hay captura de foto en este flujo — nunca la hubo, y la Task 4 ya
+no la exige, asi que la parte de transferencia de un cobro mixto aqui no
+lleva `comprobanteTransferenciaKey`.
 
-**Contexto:** la lista del mesero tiene su propio modal de cobro con dos botones y llama a `/api/ordenes/:id/cobrar`. Hay que darle el mismo tratamiento que a la pantalla de enlace, y mostrar el badge de saldo en las tarjetas.
+**Files:**
+- Modify: `app/mesero/page.tsx`
+
+**Contexto:** la lista del mesero tiene su propio modal de cobro con dos botones y llama a `/api/ordenes/:id/cobrar`. Hay que darle el mismo tratamiento que a la pantalla de enlace (saldo en vez de total, opcion mixta), y mostrar el badge de saldo en las tarjetas.
 
 - [ ] **Step 1: Extend the order type**
 
-En la interfaz de orden del fichero (alrededor de la linea 31), agregar:
+En la interfaz `Orden` (linea 17), agregar despues de `total: number;` (linea 29):
 
 ```ts
   montoPagado: number;
 ```
 
-- [ ] **Step 2: Update the collect call**
+- [ ] **Step 2: Widen the selected-method state**
 
-Reemplazar `cobrarOrden` (lineas 102-130) por:
+La linea 68-69 declara:
+
+```ts
+  const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] =
+    useState<MetodoPago>("efectivo");
+```
+
+Cambiar el tipo a:
+
+```ts
+  const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] =
+    useState<MetodoPago | "mixto">("efectivo");
+```
+
+Y agregar, justo debajo:
+
+```ts
+  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState("");
+```
+
+- [ ] **Step 3: Update the collect call to send parts**
+
+Reemplazar `cobrarOrden` (lineas 103-130) por:
 
 ```tsx
   const cobrarOrden = async (
-    partes: Array<{ metodoPago: string; monto: number; comprobanteTransferenciaKey?: string }>,
+    partes: Array<{ metodoPago: string; monto: number }>,
   ) => {
     if (!ordenACobrar) return;
     setLoadingCobrar(true);
@@ -2733,37 +2788,54 @@ Reemplazar `cobrarOrden` (lineas 102-130) por:
   };
 ```
 
-Agregar el estado del monto mixto junto a `metodoPagoSeleccionado` (linea 67):
+`comprobanteTransferenciaKey` no viaja en absoluto: esta pantalla nunca
+captura foto, y la Task 4 ya no lo exige.
 
-```tsx
-  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState("");
-```
+- [ ] **Step 4: Show the balance badge on each card**
 
-Y ampliar el tipo de `metodoPagoSeleccionado` para admitir `"mixto"`.
-
-- [ ] **Step 3: Show the balance badge**
-
-En la tarjeta de cada orden, junto al bloque que hoy pinta `!orden.cobrada` (linea 362), agregar antes del boton de cobrar:
+En la tarjeta de cada orden, dentro del bloque de botones (justo antes del
+`{puedeCobrarse && (` de la linea 336), agregar:
 
 ```tsx
                         {orden.montoPagado > 0 && orden.total > orden.montoPagado && (
-                          <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-900">
+                          <span className="mb-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-900">
                             SALDO ${(orden.total - orden.montoPagado).toFixed(2)}
                           </span>
                         )}
 ```
 
-- [ ] **Step 4: Show the balance instead of the total in the modal**
+- [ ] **Step 5: Compute the balance and cash-register amounts**
 
-La linea 401 pinta el total. Reemplazarla por el saldo:
+Agregar estas constantes a nivel de componente, junto a `ordenesPorCobrar`
+(linea 81) — usan `ordenACobrar?.` para no reventar cuando el modal esta
+cerrado (`ordenACobrar === null`):
+
+```ts
+  const saldoCentavos = ordenACobrar
+    ? Math.max(
+        0,
+        Math.round(Number(ordenACobrar.total) * 100) -
+          Math.round(Number(ordenACobrar.montoPagado) * 100),
+      )
+    : 0;
+  const saldo = saldoCentavos / 100;
+  const efectivoMixtoCentavos = Math.round(Number(montoEfectivoMixto || 0) * 100);
+  const transferenciaMixtoCentavos = saldoCentavos - efectivoMixtoCentavos;
+```
+
+- [ ] **Step 6: Show the balance instead of the total**
+
+Reemplazar el bloque de monto (lineas 401-409) por:
 
 ```tsx
-            <p className="text-2xl font-bold text-green-600 mb-5">
-              ${(
-                (Math.round(Number(ordenACobrar.total) * 100) -
-                  Math.round(Number(ordenACobrar.montoPagado) * 100)) /
-                100
-              ).toFixed(2)}
+            <p className="text-2xl font-bold text-green-600 mb-1">
+              $
+              {montoACobrarEnCaja({
+                tipoOrden: ordenACobrar.tipoOrden,
+                total: saldo,
+                costoEnvio: ordenACobrar.costoEnvio,
+                metodoPago: metodoPagoSeleccionado === "mixto" ? "efectivo" : metodoPagoSeleccionado,
+              }).toFixed(2)}
               {ordenACobrar.montoPagado > 0 && (
                 <span className="ml-2 text-sm font-normal text-gray-500">
                   saldo de ${Number(ordenACobrar.total).toFixed(2)}
@@ -2772,9 +2844,13 @@ La linea 401 pinta el total. Reemplazarla por el saldo:
             </p>
 ```
 
-- [ ] **Step 5: Add the third method button**
+(Mixto no tiene una sola cifra neta de caja que mostrar aqui — para ese caso
+esta linea cae al calculo de efectivo solo por simplicidad visual; el
+desglose real esta en el panel del Step 8.)
 
-Insertar dentro del `<div className="flex gap-3 mb-6">` (lineas 407-428), despues del boton de Transferencia:
+- [ ] **Step 7: Add the third method button**
+
+Insertar dentro del `<div className="flex gap-3 mb-6">` (lineas 421-442), despues del boton de Transferencia:
 
 ```tsx
               <button
@@ -2789,9 +2865,9 @@ Insertar dentro del `<div className="flex gap-3 mb-6">` (lineas 407-428), despue
               </button>
 ```
 
-- [ ] **Step 6: Add the mixed amount input**
+- [ ] **Step 8: Add the mixed amount input**
 
-Insertar justo despues de ese `</div>` de cierre (linea 428), antes del aviso de `metodoPagoPrevisto`:
+Insertar justo despues de ese `</div>` de cierre, antes del aviso de `metodoPagoPrevisto` (linea 444):
 
 ```tsx
             {metodoPagoSeleccionado === "mixto" && (
@@ -2812,24 +2888,16 @@ Insertar justo despues de ese `</div>` de cierre (linea 428), antes del aviso de
                 <div className="flex justify-between text-sm">
                   <span>Transferencia</span>
                   <span className="font-semibold">
-                    $
-                    {Math.max(
-                      0,
-                      (Math.round(
-                        (Number(ordenACobrar.total) - Number(ordenACobrar.montoPagado)) * 100,
-                      ) -
-                        Math.round(Number(montoEfectivoMixto || 0) * 100)) /
-                        100,
-                    ).toFixed(2)}
+                    ${Math.max(0, transferenciaMixtoCentavos / 100).toFixed(2)}
                   </span>
                 </div>
               </div>
             )}
 ```
 
-- [ ] **Step 7: Build the parts on confirm**
+- [ ] **Step 9: Build the parts on confirm**
 
-El aviso de `metodoPagoPrevisto` (lineas 430-440) compara contra un metodo simple. Envolverlo para que no salga en mixto: cambiar la condicion de apertura por
+El aviso de `metodoPagoPrevisto` (lineas 444-454) compara contra un metodo simple. Cambiar la condicion de apertura por:
 
 ```tsx
             {metodoPagoSeleccionado !== "mixto" &&
@@ -2837,49 +2905,28 @@ El aviso de `metodoPagoPrevisto` (lineas 430-440) compara contra un metodo simpl
               metodoPagoSeleccionado !== ordenACobrar.metodoPagoPrevisto && (
 ```
 
-Y reemplazar el `onClick` del boton de confirmar (linea 444) por:
+Y reemplazar el `onClick` del boton de confirmar (linea 458) por:
 
 ```tsx
                 onClick={() => {
-                  const saldoCentavos =
-                    Math.round(Number(ordenACobrar.total) * 100) -
-                    Math.round(Number(ordenACobrar.montoPagado) * 100);
-
                   if (metodoPagoSeleccionado !== "mixto") {
                     void cobrarOrden([
-                      {
-                        metodoPago: metodoPagoSeleccionado,
-                        monto: saldoCentavos / 100,
-                        ...(metodoPagoSeleccionado === "transferencia"
-                          ? { comprobanteTransferenciaKey: "pendiente:cobro-en-lista" }
-                          : {}),
-                      },
+                      { metodoPago: metodoPagoSeleccionado, monto: saldo },
                     ]);
                     return;
                   }
-
-                  const efectivoCentavos = Math.round(
-                    Number(montoEfectivoMixto || 0) * 100,
-                  );
-                  const transferenciaCentavos = saldoCentavos - efectivoCentavos;
-                  if (efectivoCentavos <= 0 || transferenciaCentavos <= 0) {
-                    alert(
-                      "En un cobro mixto las dos partes deben ser mayores a cero.",
-                    );
+                  if (efectivoMixtoCentavos <= 0 || transferenciaMixtoCentavos <= 0) {
+                    alert("En un cobro mixto las dos partes deben ser mayores a cero.");
                     return;
                   }
                   void cobrarOrden([
-                    { metodoPago: "efectivo", monto: efectivoCentavos / 100 },
-                    {
-                      metodoPago: "transferencia",
-                      monto: transferenciaCentavos / 100,
-                      comprobanteTransferenciaKey: "pendiente:cobro-en-lista",
-                    },
+                    { metodoPago: "efectivo", monto: efectivoMixtoCentavos / 100 },
+                    { metodoPago: "transferencia", monto: transferenciaMixtoCentavos / 100 },
                   ]);
                 }}
 ```
 
-El `onClick` del boton Cancelar (linea 451) tambien limpia el monto:
+El `onClick` del boton Cancelar (linea 465) tambien limpia el monto mixto:
 
 ```tsx
                 onClick={() => {
@@ -2889,19 +2936,25 @@ El `onClick` del boton Cancelar (linea 451) tambien limpia el monto:
                 }}
 ```
 
-Nota sobre el comprobante: en la lista interna no hay captura de foto, asi que se manda el marcador `pendiente:cobro-en-lista` para satisfacer la validacion. Cuando se implemente la subida a S3 (`docs/superpowers/plans/2026-08-03-comprobantes-s3.md`), esta pantalla necesita su propio selector de imagen.
+- [ ] **Step 10: Verify it compiles**
 
-- [ ] **Step 8: Verify in the browser**
+```bash
+npx tsc --noEmit
+```
+
+Expected: sin errores en `app/mesero/page.tsx`.
+
+- [ ] **Step 11: Verify in the browser**
 
 ```bash
 npm run dev
 ```
 
 1. Cobrar una orden de mesa en efectivo desde la lista: sigue funcionando como antes.
-2. Cobrar otra en mixto: se crean dos filas en `Cobro`.
+2. Cobrar otra en mixto: se crean dos filas en `Cobro`, sin `comprobanteTransferenciaKey`.
 3. Agregar un producto a una orden ya cobrada: la tarjeta reaparece con el badge `SALDO $X` y al cobrarla el modal muestra el saldo, no el total.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 12: Commit**
 
 ```bash
 git add app/mesero/page.tsx
@@ -2912,13 +2965,86 @@ git commit -m "feat(mesero): show pending balance and offer mixed payment"
 
 ## Task 12: Desglose de pagos en los reportes
 
+**Reescrita tras la reconciliacion**: el admin ya muestra un badge de metodo
+de pago y un boton "Ver comprobante" (via `abrirComprobanteFirmado`, que pide
+una URL firmada a `GET /api/admin/ordenes/[id]/comprobante`). Esa ruta lee
+`Orden.comprobanteTransferenciaKey`, que en el modelo nuevo es **legado**: el
+key real de cada pago vive en `Cobro.comprobanteTransferenciaKey`. Sin este
+ajuste, toda orden pagada con multipago mostraria "sin comprobante" aunque el
+cliente sí lo haya subido. Esta version extiende la ruta para aceptar un
+`Cobro.id` puntual, y solo toca la UI para el caso de mas de un pago — el
+caso de un solo pago (la enorme mayoria) sigue exactamente igual que hoy.
+
 **Files:**
+- Modify: `app/api/admin/ordenes/[id]/comprobante/route.ts` (resolver por `Cobro.id` ademas de por orden)
+- Modify: `lib/comprobante-cliente.ts` (pasar el `cobroId` opcional)
 - Modify: `app/admin/page.tsx` (fila de saldo pendiente en el cuadre, desglose en la tabla)
-- Modify: `components/admin/DetalleOrdenModal.tsx`
+- Modify: `components/admin/DetalleOrdenModal.tsx` (desglose y comprobante por pago)
 
-**Contexto:** hoy el admin muestra `orden.metodoPago` plano. Con multipago ese campo dice `mixto` y hay que poder ver de que se compone.
+**Contexto:** hoy el admin muestra `orden.metodoPago` plano. Con multipago ese campo dice `mixto` y hay que poder ver de que se compone, y de donde sale el comprobante de cada transferencia.
 
-- [ ] **Step 1: Show the pending balance in the daily close**
+- [ ] **Step 1: Let the receipt endpoint resolve by payment**
+
+En `app/api/admin/ordenes/[id]/comprobante/route.ts`, reemplazar el bloque
+que resuelve la orden y su key (desde `const { id } = await params;` hasta el
+`parseComprobanteKey` inclusive) por:
+
+```ts
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const cobroId = searchParams.get('cobroId');
+
+    let comprobanteKey: string | null;
+    if (cobroId) {
+      // Multipago: el key real vive en el pago, no en la orden.
+      const cobro = await prisma.cobro.findUnique({
+        where: { id: cobroId },
+        select: { ordenId: true, comprobanteTransferenciaKey: true },
+      });
+      if (!cobro || cobro.ordenId !== id) {
+        return NextResponse.json({ error: 'Comprobante inválido' }, { status: 404 });
+      }
+      comprobanteKey = cobro.comprobanteTransferenciaKey;
+    } else {
+      // Ordenes de antes de esta funcionalidad: un solo pago, key en la orden.
+      const orden = await prisma.orden.findUnique({
+        where: { id },
+        select: { id: true, comprobanteTransferenciaKey: true },
+      });
+      comprobanteKey = orden?.comprobanteTransferenciaKey ?? null;
+    }
+    if (!comprobanteKey) {
+      return NextResponse.json({ error: 'Esta orden no tiene comprobante' }, { status: 404 });
+    }
+    // Defensa en profundidad: aunque la key la escribio el servidor, se vuelve a
+    // comprobar que pertenece a esta orden antes de firmar una lectura.
+    const parsed = parseComprobanteKey(comprobanteKey);
+    if (!parsed || parsed.ordenId !== id) {
+      return NextResponse.json({ error: 'Comprobante inválido' }, { status: 404 });
+    }
+```
+
+El resto de la ruta (el chequeo de `objectExists` y `getSignedReadUrl`) sigue
+igual, salvo que ahora lee la variable local `comprobanteKey` en vez de
+`orden.comprobanteTransferenciaKey`.
+
+- [ ] **Step 2: Pass the payment id from the client helper**
+
+En `lib/comprobante-cliente.ts`, cambiar la firma de `abrirComprobanteFirmado`:
+
+```ts
+export async function abrirComprobanteFirmado(
+  ordenId: string,
+  cobroId?: string,
+): Promise<void> {
+  try {
+    const query = cobroId ? `?cobroId=${encodeURIComponent(cobroId)}` : '';
+    const respuesta = await fetch(`/api/admin/ordenes/${ordenId}/comprobante${query}`);
+```
+
+El resto de la funcion no cambia.
+
+- [ ] **Step 3: Show the pending balance in the daily close**
 
 En `app/admin/page.tsx`, junto a las filas del resumen del cuadre (cerca de la linea 722, donde ya se pinta `efectivoEntregadoMotorizados`), agregar:
 
@@ -2939,113 +3065,461 @@ En `app/admin/page.tsx`, junto a las filas del resumen del cuadre (cerca de la l
               )}
 ```
 
-- [ ] **Step 2: Show the payment breakdown per order**
+- [ ] **Step 4: Extend the order interface**
 
-El badge de metodo de pago de la tabla (`app/admin/page.tsx:1147-1157`) hoy solo distingue efectivo de transferencia, asi que un cobro mixto se pintaria como transferencia. Reemplazar ese `<span>` completo por:
-
-```tsx
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                  orden.metodoPago === "efectivo"
-                                    ? "bg-green-100 text-green-800"
-                                    : orden.metodoPago === "mixto"
-                                      ? "bg-amber-100 text-amber-800"
-                                      : "bg-blue-100 text-blue-800"
-                                }`}
-                                title={
-                                  orden.pagos
-                                    ?.map(
-                                      (pago) =>
-                                        `${pago.metodoPago} $${Number(pago.monto).toFixed(2)}`,
-                                    )
-                                    .join(" + ") ?? undefined
-                                }
-                              >
-                                {orden.metodoPago === "efectivo"
-                                  ? "💵 Efectivo"
-                                  : orden.metodoPago === "mixto"
-                                    ? "🔀 Mixto"
-                                    : "🏦 Transferencia"}
-                              </span>
-```
-
-Y en la interfaz de orden del mismo fichero (linea 43, junto a `metodoPago: string | null;`), agregar:
+En la interfaz `Orden` de `app/admin/page.tsx` (linea 27), agregar junto a `comprobanteTransferenciaKey?: string | null;` (linea 47):
 
 ```ts
-  pagos?: { metodoPago: string; monto: number }[];
+  pagos?: {
+    id: string;
+    metodoPago: string;
+    monto: number;
+    comprobanteTransferenciaKey: string | null;
+  }[];
 ```
 
 El endpoint del cuadre ya devuelve ese campo desde la Task 9.
 
-- [ ] **Step 3: Show the breakdown in the order detail modal**
+- [ ] **Step 5: Show the breakdown for orders with more than one payment**
 
-En `components/admin/DetalleOrdenModal.tsx`, el badge de metodo de pago (lineas 543-559) tiene el mismo problema. Reemplazar el `<p className="mt-1">` completo por:
+El bloque del badge de metodo de pago (`app/admin/page.tsx:1149-1180`) hoy
+asume un solo pago. Reemplazarlo por:
 
 ```tsx
-                      <p className="mt-1">
-                        <span
-                          className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${
-                            !orden.metodoPago
-                              ? "bg-gray-100 text-gray-600"
-                              : orden.metodoPago === "efectivo"
-                                ? "bg-green-100 text-green-800"
-                                : orden.metodoPago === "mixto"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {!orden.metodoPago
-                            ? "— Desconocido"
-                            : orden.metodoPago === "efectivo"
-                              ? "💵 Efectivo"
-                              : orden.metodoPago === "mixto"
-                                ? "🔀 Mixto"
-                                : "🏦 Transferencia"}
-                        </span>
-                      </p>
-                      {orden.pagos && orden.pagos.length > 1 && (
-                        <ul className="mt-2 space-y-0.5 text-sm text-gray-600">
-                          {orden.pagos.map((pago, indice) => (
-                            <li key={indice} className="flex justify-between">
-                              <span className="capitalize">{pago.metodoPago}</span>
-                              <span className="font-semibold">
-                                ${Number(pago.monto).toFixed(2)}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                          {orden.cobrada ? (
+                            <div className="flex flex-col gap-1">
+                              {orden.pagos && orden.pagos.length > 1 ? (
+                                <>
+                                  <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                    🔀 Mixto
+                                  </span>
+                                  <ul className="space-y-1">
+                                    {orden.pagos.map((pago) => (
+                                      <li key={pago.id} className="flex items-center gap-2 text-xs">
+                                        <span className="font-semibold">
+                                          {pago.metodoPago === "efectivo" ? "💵" : "🏦"} ${pago.monto.toFixed(2)}
+                                        </span>
+                                        {pago.metodoPago === "transferencia" &&
+                                          (pago.comprobanteTransferenciaKey ? (
+                                            <button
+                                              onClick={() => void abrirComprobanteFirmado(orden.id, pago.id)}
+                                              className="font-bold text-blue-700 underline"
+                                            >
+                                              📎 Ver
+                                            </button>
+                                          ) : (
+                                            <span className="font-bold text-amber-800">⚠️ sin comprobante</span>
+                                          ))}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </>
+                              ) : (
+                                <>
+                                   {/* Badge método de pago */}
+                                  <span
+                                    className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                      orden.metodoPago === "efectivo"
+                                        ? "bg-green-100 text-green-800"
+                                        : "bg-blue-100 text-blue-800"
+                                    }`}
+                                  >
+                                    {orden.metodoPago === "efectivo"
+                                      ? "💵 Efectivo"
+                                      : "🏦 Transferencia"}
+                                  </span>
+                                  {orden.metodoPago === "transferencia" &&
+                                    (orden.comprobanteTransferenciaKey ? (
+                                      <button
+                                        onClick={() => void abrirComprobanteFirmado(orden.id)}
+                                        className="self-start text-xs font-bold text-blue-700 underline"
+                                      >
+                                        📎 Ver comprobante
+                                      </button>
+                                    ) : (
+                                      // La captura de comprobante solo existe en el flujo por QR: en
+                                      // el resto de orígenes (lista interna, creación o aprobación de
+                                      // domicilio con transferencia) nunca fue posible pedirla, así que
+                                      // la advertencia ahí sería ruido que el admin aprende a ignorar.
+                                      orden.origenCobro === "qr" && (
+                                        <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                          ⚠️ Sin comprobante
+                                        </span>
+                                      )
+                                    ))}
+                                </>
+                              )}
 ```
 
-Y en la interfaz del modal (linea 46, junto a `metodoPago?: string | null;`), agregar:
+Notese que el `else` es exactamente el codigo que ya existia (sin cambios de
+comportamiento): el caso de un solo pago no se toca, solo se envuelve. El
+`(orden.cobrada ? (` de apertura y el resto del `<div>` (badge de "pago llego
+antes de que cocina termine", etc.) siguen debajo sin cambios.
+
+- [ ] **Step 6: Show the breakdown in the order detail modal**
+
+En `components/admin/DetalleOrdenModal.tsx`, extender la interfaz `Orden`
+(linea 45, junto a `comprobanteTransferenciaKey?: string | null;`):
 
 ```ts
-  pagos?: { metodoPago: string; monto: number }[];
+  pagos?: {
+    id: string;
+    metodoPago: string;
+    monto: number;
+    comprobanteTransferenciaKey: string | null;
+  }[];
 ```
 
-El modal se abre desde la tabla del cuadre con la orden que ya trae `pagos`, asi que no hay que tocar ningun endpoint. Si al probar el campo llega `undefined`, comprobar que el `map` de la Task 9 no lo esta descartando.
+Y `abrirComprobante` (lineas 162-168) admite un pago opcional:
 
-- [ ] **Step 4: Run the full suite**
+```ts
+  const abrirComprobante = async (cobroId?: string) => {
+    setAbriendoComprobante(true);
+    try {
+      await abrirComprobanteFirmado(orden.id, cobroId);
+    } finally {
+      setAbriendoComprobante(false);
+    }
+  };
+```
+
+El bloque `{orden.metodoPago === "transferencia" && ( ... )}` (lineas 352-368)
+pasa a cubrir tambien el caso mixto:
+
+```tsx
+              {orden.pagos && orden.pagos.length > 1 ? (
+                <div className="mt-4">
+                  <p className="text-sm font-bold text-gray-500">Pagos</p>
+                  <ul className="mt-1 space-y-1">
+                    {orden.pagos.map((pago) => (
+                      <li key={pago.id} className="flex items-center justify-between text-sm">
+                        <span className="capitalize">{pago.metodoPago}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="font-semibold">${pago.monto.toFixed(2)}</span>
+                          {pago.metodoPago === "transferencia" &&
+                            (pago.comprobanteTransferenciaKey ? (
+                              <button
+                                onClick={() => void abrirComprobante(pago.id)}
+                                disabled={abriendoComprobante}
+                                className="text-xs font-bold text-blue-700 underline disabled:opacity-50"
+                              >
+                                📎 Ver
+                              </button>
+                            ) : (
+                              <span className="text-xs text-amber-700">sin comprobante</span>
+                            ))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                orden.metodoPago === "transferencia" && (
+                  <div className="mt-4">
+                    <p className="text-sm font-bold text-gray-500">Comprobante</p>
+                    {orden.comprobanteTransferenciaKey ? (
+                      <button
+                        onClick={() => void abrirComprobante()}
+                        disabled={abriendoComprobante}
+                        className="mt-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-slate-400"
+                      >
+                        {abriendoComprobante ? "Abriendo…" : "📎 Ver comprobante"}
+                      </button>
+                    ) : (
+                      <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        Registrado sin comprobante
+                      </p>
+                    )}
+                  </div>
+                )
+              )}
+```
+
+De nuevo, la rama `else` es el codigo que ya existia (llamando ahora a
+`abrirComprobante()` sin argumento, que via el default `cobroId` sigue
+resolviendo por `Orden.comprobanteTransferenciaKey` como siempre).
+
+- [ ] **Step 7: Verify it compiles**
 
 ```bash
-npm run test:cobro && npm run test:liquidacion && npm run test:cobro-validaciones && npm run test:cuadre && npm run test:print-jobs && npm run test:printer && npm run test:print-config && npm run test:daily-order-number && npm run test:admin-validaciones && npm run test:fecha-ecuador && npm run test:retiros-validaciones && npm run test:navegacion && npm run test:print-agent
+npx tsc --noEmit
+```
+
+Expected: sin errores en los cuatro ficheros de esta task.
+
+- [ ] **Step 8: Run the full suite**
+
+```bash
+npm run test:cobro && npm run test:monto-caja && npm run test:liquidacion && npm run test:cobro-validaciones && npm run test:cuadre && npm run test:print-jobs && npm run test:printer && npm run test:print-config && npm run test:daily-order-number && npm run test:admin-validaciones && npm run test:fecha-ecuador && npm run test:retiros-validaciones && npm run test:navegacion && npm run test:print-agent
 ```
 
 Expected: todos PASS.
 
-- [ ] **Step 5: Type check and build**
+- [ ] **Step 9: Verify in the browser**
 
 ```bash
-npx tsc --noEmit && npm run lint && npm run build
+npm run dev
 ```
 
-Expected: sin errores.
+1. Abrir el cuadre del dia: una orden con un solo pago se ve exactamente igual que hoy (badge simple, boton "Ver comprobante" si aplica).
+2. Cobrar una orden en mixto (Task 10 u 11) y comprobar que la tabla del cuadre y el `DetalleOrdenModal` muestran el desglose de dos pagos, cada uno con su propio boton o aviso de comprobante.
+3. Con storage configurado, subir un comprobante real en la parte de transferencia de un mixto y confirmar que "Ver" abre la imagen correcta (no la de otra orden).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add app/admin/page.tsx components/admin/DetalleOrdenModal.tsx
-git commit -m "feat(admin): break down mixed payments and flag pending balances"
+git add app/api/admin/ordenes app/admin/page.tsx components/admin/DetalleOrdenModal.tsx lib/comprobante-cliente.ts
+git commit -m "feat(admin): break down mixed payments and resolve receipts per payment
+
+The receipt endpoint now accepts a specific Cobro id, because the key it
+signs a URL for lives on the payment row once an order can have more than
+one. The single-payment path (still the common case) is untouched."
+```
+
+---
+
+## Task 13: Saldo y mixto en la lista de pedidos digitales
+
+**Nueva tras la reconciliacion**: este fichero nunca estuvo en el plan
+original — la exploracion inicial no lo encontro. Es casi un calco de
+`app/mesero/page.tsx` (mismo patron de modal, mismo uso de
+`montoACobrarEnCaja`, sin captura de comprobante), pero para pedidos
+`para_llevar`/`domicilio` vistos desde el rol "digital". Llama al mismo
+endpoint `/api/ordenes/:id/cobrar` con el contrato viejo (`metodoPago`
+suelto); una vez que la Task 6 cambie ese endpoint a exigir `partes`, este
+fichero se rompe si no se actualiza.
+
+**Files:**
+- Modify: `app/digital/page.tsx`
+
+**Interfaces:**
+- Consumes: la API de la Task 6 (`{ partes, expectedRevision, idempotencyKey }`), `montoACobrarEnCaja` de `types/cobro.ts`
+
+- [ ] **Step 1: Extend the order type**
+
+En la interfaz `Orden` (linea 16), agregar despues de `total: number;` (linea 28):
+
+```ts
+  montoPagado: number;
+```
+
+- [ ] **Step 2: Widen the selected-method state and add the mixed-amount state**
+
+Reemplazar la linea 65-66:
+
+```ts
+  const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] =
+    useState<MetodoPago>("efectivo");
+```
+
+por:
+
+```ts
+  const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] =
+    useState<MetodoPago | "mixto">("efectivo");
+  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState("");
+```
+
+- [ ] **Step 3: Compute the balance and mixed split**
+
+Agregar estas constantes a nivel de componente, junto a `pedidosPorCobrar` (linea 76):
+
+```ts
+  const saldoCentavos = ordenACobrar
+    ? Math.max(
+        0,
+        Math.round(Number(ordenACobrar.total) * 100) -
+          Math.round(Number(ordenACobrar.montoPagado) * 100),
+      )
+    : 0;
+  const saldo = saldoCentavos / 100;
+  const efectivoMixtoCentavos = Math.round(Number(montoEfectivoMixto || 0) * 100);
+  const transferenciaMixtoCentavos = saldoCentavos - efectivoMixtoCentavos;
+```
+
+- [ ] **Step 4: Update the collect call to send parts**
+
+Reemplazar `cobrarOrden` (lineas 97-125) por:
+
+```tsx
+  const cobrarOrden = async (
+    partes: Array<{ metodoPago: string; monto: number }>,
+  ) => {
+    if (!ordenACobrar) return;
+    setLoadingCobrar(true);
+    try {
+      const res = await fetch(`/api/ordenes/${ordenACobrar.id}/cobrar`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          partes,
+          expectedRevision: ordenACobrar.printRevision,
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      });
+      if (res.ok) {
+        setOrdenACobrar(null);
+        setMetodoPagoSeleccionado("efectivo");
+        setMontoEfectivoMixto("");
+        await cargarOrdenes();
+      } else {
+        const error = await res.json();
+        alert(error.error || "Error al cobrar el pedido");
+      }
+    } catch (error) {
+      console.error("Error al cobrar:", error);
+      alert("Error al cobrar el pedido");
+    } finally {
+      setLoadingCobrar(false);
+    }
+  };
+```
+
+- [ ] **Step 5: Show the balance badge on each card**
+
+Dentro del bloque "Botones" (linea 325), antes de `{puedeCobrarse && (` (linea 326), agregar:
+
+```tsx
+                        {orden.montoPagado > 0 && orden.total > orden.montoPagado && (
+                          <span className="mb-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-900">
+                            SALDO ${(orden.total - orden.montoPagado).toFixed(2)}
+                          </span>
+                        )}
+```
+
+- [ ] **Step 6: Show the balance instead of the total in the modal**
+
+Reemplazar el bloque de monto (lineas 400-408) por:
+
+```tsx
+            <p className="text-2xl font-bold text-green-600 mt-3 mb-1">
+              $
+              {montoACobrarEnCaja({
+                tipoOrden: ordenACobrar.tipoOrden,
+                total: saldo,
+                costoEnvio: ordenACobrar.costoEnvio,
+                metodoPago: metodoPagoSeleccionado === "mixto" ? "efectivo" : metodoPagoSeleccionado,
+              }).toFixed(2)}
+              {ordenACobrar.montoPagado > 0 && (
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  saldo de ${Number(ordenACobrar.total).toFixed(2)}
+                </span>
+              )}
+            </p>
+```
+
+- [ ] **Step 7: Add the third method button and the mixed amount input**
+
+Insertar dentro del `<div className="flex gap-3 mb-6">` (lineas 421-442), despues del boton de Transferencia:
+
+```tsx
+              <button
+                onClick={() => setMetodoPagoSeleccionado("mixto")}
+                className={`flex-1 py-3 rounded-lg font-bold border-2 transition-colors ${
+                  metodoPagoSeleccionado === "mixto"
+                    ? "bg-amber-600 text-white border-amber-600"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-amber-400"
+                }`}
+              >
+                🔀 Mixto
+              </button>
+```
+
+Y justo despues de ese `</div>` de cierre, antes del aviso de `metodoPagoPrevisto` (linea 444):
+
+```tsx
+            {metodoPagoSeleccionado === "mixto" && (
+              <div className="mb-6 space-y-2 rounded-lg bg-gray-50 p-4">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Monto en efectivo
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={montoEfectivoMixto}
+                    onChange={(event) => setMontoEfectivoMixto(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-xl font-bold"
+                    placeholder="0.00"
+                  />
+                </label>
+                <div className="flex justify-between text-sm">
+                  <span>Transferencia</span>
+                  <span className="font-semibold">
+                    ${Math.max(0, transferenciaMixtoCentavos / 100).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+```
+
+- [ ] **Step 8: Build the parts on confirm**
+
+Cambiar la condicion de apertura del aviso de `metodoPagoPrevisto` (linea 444) por:
+
+```tsx
+            {metodoPagoSeleccionado !== "mixto" &&
+              ordenACobrar.metodoPagoPrevisto &&
+              metodoPagoSeleccionado !== ordenACobrar.metodoPagoPrevisto && (
+```
+
+Y reemplazar el `onClick` del boton de confirmar (linea 458) por:
+
+```tsx
+                onClick={() => {
+                  if (metodoPagoSeleccionado !== "mixto") {
+                    void cobrarOrden([
+                      { metodoPago: metodoPagoSeleccionado, monto: saldo },
+                    ]);
+                    return;
+                  }
+                  if (efectivoMixtoCentavos <= 0 || transferenciaMixtoCentavos <= 0) {
+                    alert("En un cobro mixto las dos partes deben ser mayores a cero.");
+                    return;
+                  }
+                  void cobrarOrden([
+                    { metodoPago: "efectivo", monto: efectivoMixtoCentavos / 100 },
+                    { metodoPago: "transferencia", monto: transferenciaMixtoCentavos / 100 },
+                  ]);
+                }}
+```
+
+El `onClick` del boton Cancelar (linea 465) tambien limpia el monto mixto:
+
+```tsx
+                onClick={() => {
+                  setOrdenACobrar(null);
+                  setMetodoPagoSeleccionado("efectivo");
+                  setMontoEfectivoMixto("");
+                }}
+```
+
+- [ ] **Step 9: Verify it compiles**
+
+```bash
+npx tsc --noEmit
+```
+
+Expected: sin errores en `app/digital/page.tsx`.
+
+- [ ] **Step 10: Verify in the browser**
+
+```bash
+npm run dev
+```
+
+1. Cobrar un pedido para llevar en efectivo desde la lista digital: sigue funcionando como antes.
+2. Cobrar otro en mixto: se crean dos filas en `Cobro`, sin `comprobanteTransferenciaKey`.
+3. Agregar un producto a un pedido ya cobrado: la tarjeta reaparece con el badge `SALDO $X`.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add app/digital/page.tsx
+git commit -m "feat(digital): show pending balance and offer mixed payment
+
+Mirrors the mesero list's treatment — this view calls the same /cobrar
+endpoint and was missed by the original plan entirely."
 ```
 
 ---
