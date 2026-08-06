@@ -79,7 +79,6 @@ export interface PrintOrderSource {
   cobrada?: boolean;
   cobroUrl?: string | null;
   total: NumericValue;
-  montoPagado?: NumericValue | null;
   createdAt: string | Date;
   items: readonly PrintItemSource[];
 }
@@ -335,11 +334,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
     throw new Error('La orden debe incluir al menos un item imprimible');
   }
 
-  const paymentUrl = shouldPrintPaymentQr({
-    ...order,
-    total: toNumber(order.total),
-    montoPagado: toNumber(order.montoPagado),
-  })
+  const paymentUrl = shouldPrintPaymentQr(order)
     ? normalizeOptionalText(order.cobroUrl)
     : null;
 

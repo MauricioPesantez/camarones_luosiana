@@ -46,12 +46,6 @@ interface Orden {
   cobrada?: boolean;
   metodoPago?: string | null;
   comprobanteTransferenciaKey?: string | null;
-  pagos?: {
-    id: string;
-    metodoPago: string;
-    monto: number;
-    comprobanteTransferenciaKey: string | null;
-  }[];
   fechaCobro?: string | null;
   cobradaPor?: string | null;
   createdAt: string;
@@ -165,10 +159,10 @@ export default function DetalleOrdenModal({
     p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase()),
   );
 
-  const abrirComprobante = async (cobroId?: string) => {
+  const abrirComprobante = async () => {
     setAbriendoComprobante(true);
     try {
-      await abrirComprobanteFirmado(orden.id, cobroId);
+      await abrirComprobanteFirmado(orden.id);
     } finally {
       setAbriendoComprobante(false);
     }
@@ -355,51 +349,23 @@ export default function DetalleOrdenModal({
                 </div>
               </div>
 
-              {orden.pagos && orden.pagos.length > 0 ? (
+              {orden.metodoPago === "transferencia" && (
                 <div className="mt-4">
-                  <p className="text-sm font-bold text-gray-500">Pagos</p>
-                  <ul className="mt-1 space-y-1">
-                    {orden.pagos.map((pago) => (
-                      <li key={pago.id} className="flex items-center justify-between text-sm">
-                        <span className="capitalize">{pago.metodoPago}</span>
-                        <span className="flex items-center gap-2">
-                          <span className="font-semibold">${pago.monto.toFixed(2)}</span>
-                          {pago.metodoPago === "transferencia" &&
-                            (pago.comprobanteTransferenciaKey ? (
-                              <button
-                                onClick={() => void abrirComprobante(pago.id)}
-                                disabled={abriendoComprobante}
-                                className="text-xs font-bold text-blue-700 underline disabled:opacity-50"
-                              >
-                                📎 Ver
-                              </button>
-                            ) : (
-                              <span className="text-xs text-amber-700">sin comprobante</span>
-                            ))}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="text-sm font-bold text-gray-500">Comprobante</p>
+                  {orden.comprobanteTransferenciaKey ? (
+                    <button
+                      onClick={() => void abrirComprobante()}
+                      disabled={abriendoComprobante}
+                      className="mt-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-slate-400"
+                    >
+                      {abriendoComprobante ? "Abriendo…" : "📎 Ver comprobante"}
+                    </button>
+                  ) : (
+                    <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                      Registrado sin comprobante
+                    </p>
+                  )}
                 </div>
-              ) : (
-                orden.metodoPago === "transferencia" && (
-                  <div className="mt-4">
-                    <p className="text-sm font-bold text-gray-500">Comprobante</p>
-                    {orden.comprobanteTransferenciaKey ? (
-                      <button
-                        onClick={() => void abrirComprobante()}
-                        disabled={abriendoComprobante}
-                        className="mt-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-slate-400"
-                      >
-                        {abriendoComprobante ? "Abriendo…" : "📎 Ver comprobante"}
-                      </button>
-                    ) : (
-                      <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                        Registrado sin comprobante
-                      </p>
-                    )}
-                  </div>
-                )
               )}
 
               {/* Observaciones Generales */}

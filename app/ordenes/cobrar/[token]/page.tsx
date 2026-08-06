@@ -49,7 +49,6 @@ export default async function CobrarOrdenPage({
       recargo: true,
       costoEnvio: true,
       total: true,
-      montoPagado: true,
       metodoPagoPrevisto: true,
       cobrada: true,
       createdAt: true,
@@ -88,7 +87,6 @@ export default async function CobrarOrdenPage({
     recargo: Number(orden.recargo ?? 0),
     costoEnvio: Number(orden.costoEnvio ?? 0),
     total: Number(orden.total),
-    montoPagado: Number(orden.montoPagado),
     createdAt: orden.createdAt.toISOString(),
     items: orden.items.map((item) => ({
       ...item,

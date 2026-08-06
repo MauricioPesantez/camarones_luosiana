@@ -1,54 +1,17 @@
 import { esMetodoPago, type MetodoPago } from './orden';
 
-export interface MovimientosPago {
-  /** Lo que el cliente entrego en efectivo en este pago, en bruto. */
+export interface MovimientosCobro {
   efectivoRecibido: number;
-  /** Lo que el cliente transfirio en este pago, en bruto. */
+  efectivoEntregado: number;
   transferenciaRecibida: number;
 }
 
-export interface PartePago {
-  metodoPago: MetodoPago;
-  monto: number;
-  comprobanteTransferenciaKey?: string | null;
-}
-
-export function aCentavos(valor: number | string | null | undefined): number {
-  return Math.round(Number(valor ?? 0) * 100);
-}
-
-export function aDolares(centavos: number): number {
-  return centavos / 100;
-}
-
 /**
- * Movimientos de un pago suelto. Deliberadamente NO sabe de envios ni de
- * ordenes: guarda lo que el cliente entrego, en bruto. La liquidacion del
- * envio con el motorizado vive en `calcularLiquidacionDomicilio`, porque
- * depende de la orden completa y no de un pago en particular.
- */
-export function calcularMovimientosPago(input: {
-  metodoPago: MetodoPago | string;
-  monto: number | string;
-}): MovimientosPago {
-  if (!esMetodoPago(input.metodoPago)) {
-    return { efectivoRecibido: 0, transferenciaRecibida: 0 };
-  }
-
-  const monto = aDolares(aCentavos(input.monto));
-  return input.metodoPago === 'efectivo'
-    ? { efectivoRecibido: monto, transferenciaRecibida: 0 }
-    : { efectivoRecibido: 0, transferenciaRecibida: monto };
-}
-
-/**
- * Cuanto efectivo recibe la caja ahora mismo, por UN pago completo de la
- * orden en este metodo. Es un helper de presentacion (UI), deliberadamente
- * independiente de `calcularMovimientosPago`/`PartePago`: en domicilio pagado
- * en efectivo, el motorizado cobra el total al cliente y entrega al local
- * todo menos el envio (que es su ganancia), asi que la caja nunca recibe el
- * envio en ese caso. En cualquier otra combinacion (cualquier metodo en
- * local/para_llevar, o transferencia en domicilio) entra el total completo.
+ * Lo que entra a la caja del local al cerrar el cobro, en el metodo elegido.
+ *
+ * Es el mismo numero que se asienta en `Cobro`, derivado de los movimientos para
+ * que la pantalla de cobro no pueda mostrar una cifra distinta a la contabilizada.
+ * En domicilio con efectivo el envio nunca entra: lo conserva el motorizado.
  */
 export function montoACobrarEnCaja(input: {
   tipoOrden?: string | null;
@@ -56,32 +19,55 @@ export function montoACobrarEnCaja(input: {
   costoEnvio?: number | string | null;
   metodoPago: MetodoPago | string;
 }): number {
-  if (!esMetodoPago(input.metodoPago)) return 0;
-
-  const totalCentavos = aCentavos(input.total);
-
-  if (input.tipoOrden === 'domicilio' && input.metodoPago === 'efectivo') {
-    const envioCentavos = aCentavos(input.costoEnvio);
-    return aDolares(Math.max(0, totalCentavos - envioCentavos));
-  }
-
-  return aDolares(totalCentavos);
+  const movimientos = calcularMovimientosCobro(input);
+  return movimientos.efectivoRecibido + movimientos.transferenciaRecibida;
 }
 
 /**
- * Dato de presentacion que se materializa en `Orden.metodoPago`. El cuadre no
- * lo usa: el dinero se cuenta sumando las filas de `Cobro`.
+ * Movimientos reales del local. En domicilio el envio pertenece al motorizado:
+ * efectivo entra sin el envio; transferencia entra completa y el envio sale de caja.
  */
-export function resumirMetodoPago(
-  pagos: readonly { metodoPago: string }[],
-): MetodoPago | 'mixto' | null {
-  const metodos = new Set(
-    pagos
-      .map((pago) => pago.metodoPago)
-      .filter((metodo): metodo is MetodoPago => esMetodoPago(metodo)),
-  );
+export function calcularMovimientosCobro(input: {
+  tipoOrden?: string | null;
+  total: number | string;
+  costoEnvio?: number | string | null;
+  metodoPago: MetodoPago | string;
+}): MovimientosCobro {
+  if (!esMetodoPago(input.metodoPago)) {
+    return {
+      efectivoRecibido: 0,
+      efectivoEntregado: 0,
+      transferenciaRecibida: 0,
+    };
+  }
 
-  if (metodos.size === 0) return null;
-  if (metodos.size > 1) return 'mixto';
-  return [...metodos][0];
+  const totalCentavos = Math.round(Number(input.total) * 100);
+  const envioCentavos = Math.max(0, Math.round(Number(input.costoEnvio ?? 0) * 100));
+  const dinero = (centavos: number) => centavos / 100;
+
+  if (input.tipoOrden === 'domicilio') {
+    return input.metodoPago === 'efectivo'
+      ? {
+          efectivoRecibido: dinero(Math.max(0, totalCentavos - envioCentavos)),
+          efectivoEntregado: 0,
+          transferenciaRecibida: 0,
+        }
+      : {
+          efectivoRecibido: 0,
+          efectivoEntregado: dinero(envioCentavos),
+          transferenciaRecibida: dinero(totalCentavos),
+        };
+  }
+
+  return input.metodoPago === 'efectivo'
+    ? {
+        efectivoRecibido: dinero(totalCentavos),
+        efectivoEntregado: 0,
+        transferenciaRecibida: 0,
+      }
+    : {
+        efectivoRecibido: 0,
+        efectivoEntregado: 0,
+        transferenciaRecibida: dinero(totalCentavos),
+      };
 }

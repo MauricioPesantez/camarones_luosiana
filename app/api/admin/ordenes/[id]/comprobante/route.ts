@@ -8,7 +8,7 @@ import { getSignedReadUrl, objectExists, storageConfigurado } from '@/lib/storag
 const TTL_SEGUNDOS = 120;
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -27,35 +27,17 @@ export async function GET(
     }
 
     const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const cobroId = searchParams.get('cobroId');
-
-    let comprobanteKey: string | null;
-    if (cobroId) {
-      // Multipago: el key real vive en el pago, no en la orden.
-      const cobro = await prisma.cobro.findUnique({
-        where: { id: cobroId },
-        select: { ordenId: true, comprobanteTransferenciaKey: true },
-      });
-      if (!cobro || cobro.ordenId !== id) {
-        return NextResponse.json({ error: 'Comprobante inválido' }, { status: 404 });
-      }
-      comprobanteKey = cobro.comprobanteTransferenciaKey;
-    } else {
-      // Ordenes de antes de esta funcionalidad: un solo pago, key en la orden.
-      const orden = await prisma.orden.findUnique({
-        where: { id },
-        select: { id: true, comprobanteTransferenciaKey: true },
-      });
-      comprobanteKey = orden?.comprobanteTransferenciaKey ?? null;
-    }
-    if (!comprobanteKey) {
+    const orden = await prisma.orden.findUnique({
+      where: { id },
+      select: { id: true, comprobanteTransferenciaKey: true },
+    });
+    if (!orden?.comprobanteTransferenciaKey) {
       return NextResponse.json({ error: 'Esta orden no tiene comprobante' }, { status: 404 });
     }
     // Defensa en profundidad: aunque la key la escribio el servidor, se vuelve a
     // comprobar que pertenece a esta orden antes de firmar una lectura.
-    const parsed = parseComprobanteKey(comprobanteKey);
-    if (!parsed || parsed.ordenId !== id) {
+    const parsed = parseComprobanteKey(orden.comprobanteTransferenciaKey);
+    if (!parsed || parsed.ordenId !== orden.id) {
       return NextResponse.json({ error: 'Comprobante inválido' }, { status: 404 });
     }
 
@@ -63,14 +45,14 @@ export async function GET(
     // objeto ya no exista. El lifecycle de 30 dias borra el objeto pero no la
     // key en la base, asi que hay que verificar antes de firmar para no mandar
     // al admin a una pestaña con el XML crudo de NoSuchKey.
-    if (!(await objectExists(comprobanteKey))) {
+    if (!(await objectExists(orden.comprobanteTransferenciaKey))) {
       return NextResponse.json(
         { error: 'El comprobante ya expiró (retención de 30 días)' },
         { status: 410 },
       );
     }
 
-    const url = await getSignedReadUrl(comprobanteKey, TTL_SEGUNDOS);
+    const url = await getSignedReadUrl(orden.comprobanteTransferenciaKey, TTL_SEGUNDOS);
     return NextResponse.json({ url, expiraEn: TTL_SEGUNDOS });
   } catch (error) {
     console.error('Error al firmar el comprobante:', error);

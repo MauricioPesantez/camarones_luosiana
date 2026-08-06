@@ -23,7 +23,7 @@ import { isDirectPrintEnabled } from '@/lib/print-config';
 import { allocateDailyOrderNumber } from '@/lib/daily-order-number';
 import { createPaymentLink } from '@/lib/payment-link';
 import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
-import { calcularMovimientosPago } from '@/types/cobro';
+import { calcularMovimientosCobro } from '@/types/cobro';
 import { obtenerFechaEcuador, obtenerRangoEcuador } from '@/lib/fecha-ecuador';
 
 const ORDEN_INCLUDE = {
@@ -337,7 +337,6 @@ export async function POST(request: Request) {
             metodoPagoPrevisto === 'transferencia' &&
             body.transferenciaConfirmada === true,
           metodoPago: cobradaAlCrear ? 'transferencia' : null,
-          montoPagado: cobradaAlCrear ? totalFinal : 0,
           cobrada: cobradaAlCrear,
           fechaCobro: cobradaAlCrear ? createdAt : null,
           cobradaPor: cobradaAlCrear ? creadorNombre : null,
@@ -426,15 +425,16 @@ export async function POST(request: Request) {
       });
 
       if (cobradaAlCrear) {
-        const movimientos = calcularMovimientosPago({
+        const movimientos = calcularMovimientosCobro({
+          tipoOrden,
+          total: totalFinal,
+          costoEnvio,
           metodoPago: 'transferencia',
-          monto: totalFinal,
         });
         await tx.cobro.create({
           data: {
             ordenId: nuevaOrden.id,
             metodoPago: 'transferencia',
-            monto: totalFinal,
             montoTotal: totalFinal,
             costoEnvio,
             ...movimientos,

@@ -78,49 +78,4 @@ assert.equal(
   false,
 );
 
-// --- Rama de saldo (total presente): el balance manda, no el booleano `cobrada` ---
-
-// Orden reabierta (crecio despues de pagada): todavia queda saldo, asi que
-// necesita QR aunque nadie haya vuelto a marcarla como no cobrada.
-assert.equal(
-  shouldPrintPaymentQr({
-    tipoOrden: "local",
-    metodoPagoPrevisto: null,
-    cobrada: false,
-    total: 16,
-    montoPagado: 11,
-    cobroUrl: URL_COBRO,
-  }),
-  true,
-  "con saldo pendiente debe imprimir QR aunque cobrada sea false",
-);
-
-// Pagada por completo y marcada como cobrada: caso normal, sin QR.
-assert.equal(
-  shouldPrintPaymentQr({
-    tipoOrden: "local",
-    metodoPagoPrevisto: null,
-    cobrada: true,
-    total: 16,
-    montoPagado: 16,
-    cobroUrl: URL_COBRO,
-  }),
-  false,
-);
-
-// Saldo en cero pero el flag `cobrada` quedo desactualizado (false): el
-// balance calculado es quien manda cuando hay `total`, no el flag viejo.
-assert.equal(
-  shouldPrintPaymentQr({
-    tipoOrden: "local",
-    metodoPagoPrevisto: null,
-    cobrada: false,
-    total: 16,
-    montoPagado: 16,
-    cobroUrl: URL_COBRO,
-  }),
-  false,
-  "el balance en cero manda sobre un flag `cobrada` desactualizado",
-);
-
 console.log("payment-link: todos los casos pasaron");

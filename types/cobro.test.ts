@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { montoACobrarEnCaja } from "./cobro";
+import { calcularMovimientosCobro, montoACobrarEnCaja } from "./cobro";
 
 // --- montoACobrarEnCaja ---
 // Regla del negocio: la caja nunca recibe el envio en efectivo. En domicilio el
@@ -103,5 +103,22 @@ assert.equal(
   }),
   9.9,
 );
+
+// --- Invariante compartida ---
+// El monto de caja siempre es lo que el cobro asienta como ingreso: no puede
+// divergir de calcularMovimientosCobro, que es lo que se persiste en `Cobro`.
+const casos = [
+  { tipoOrden: "domicilio", total: 25.5, costoEnvio: 3, metodoPago: "efectivo" },
+  { tipoOrden: "domicilio", total: 25.5, costoEnvio: 3, metodoPago: "transferencia" },
+  { tipoOrden: "local", total: 12.75, costoEnvio: 0, metodoPago: "efectivo" },
+  { tipoOrden: "para_llevar", total: 8.4, costoEnvio: 0, metodoPago: "transferencia" },
+];
+for (const caso of casos) {
+  const movimientos = calcularMovimientosCobro(caso);
+  assert.equal(
+    montoACobrarEnCaja(caso),
+    movimientos.efectivoRecibido + movimientos.transferenciaRecibida,
+  );
+}
 
 console.log("cobro: todos los casos pasaron");

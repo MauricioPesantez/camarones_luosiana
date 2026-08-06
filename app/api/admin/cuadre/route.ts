@@ -46,8 +46,8 @@ export async function GET(request: Request) {
               },
             },
             {
-              pagos: {
-                some: {
+              cobro: {
+                is: {
                   createdAt: {
                     gte: rango.inicio,
                     lt: rango.fin,
@@ -58,16 +58,8 @@ export async function GET(request: Request) {
           ],
         },
         include: {
-          pagos: {
-            select: {
-              id: true,
-              createdAt: true,
-              estado: true,
-              metodoPago: true,
-              monto: true,
-              comprobanteTransferenciaKey: true,
-              origen: true,
-            },
+          cobro: {
+            select: { createdAt: true, estado: true },
           },
           creador: {
             select: { id: true, nombre: true, rol: true },
@@ -106,10 +98,11 @@ export async function GET(request: Request) {
       const cobradaEnFecha = isConfirmedPaymentInRange(orden, rango);
       const {
         cobroTokenHash: _privateTokenHash,
-        pagos: _privatePayments,
+        cobro: _privatePayment,
         ...safeOrder
       } = orden;
       void _privateTokenHash;
+      void _privatePayment;
       return {
         ...safeOrder,
         // El cuadre es por fecha del movimiento, no por el estado actual. Asi una
@@ -117,25 +110,7 @@ export async function GET(request: Request) {
         cobrada: cobradaEnFecha,
         metodoPago: cobradaEnFecha ? orden.metodoPago : null,
         fechaCobro: cobradaEnFecha ? orden.fechaCobro : null,
-        estadoCobro:
-          _privatePayments.find((pago) => pago.estado !== 'CONFIRMADO')?.estado ??
-          _privatePayments[0]?.estado ??
-          null,
-        // Cada pago dice si cae en el rango. El resumen suma solo los que si.
-        // `id` y `comprobanteTransferenciaKey` no los usa el calculo, viajan
-        // para que el admin pueda pedir el comprobante de un pago puntual.
-        pagos: _privatePayments
-          .filter((pago) => pago.estado !== 'REEMBOLSADO')
-          .map((pago) => ({
-            id: pago.id,
-            metodoPago: pago.metodoPago,
-            monto: Number(pago.monto),
-            comprobanteTransferenciaKey: pago.comprobanteTransferenciaKey,
-            origen: pago.origen,
-            estado: pago.estado,
-            enRango:
-              pago.createdAt >= rango.inicio && pago.createdAt < rango.fin,
-          })),
+        estadoCobro: orden.cobro?.estado ?? null,
         creadorNombre:
           orden.creador?.nombre ?? creadorInferido?.nombre ?? orden.mesero,
         creadorRol:
