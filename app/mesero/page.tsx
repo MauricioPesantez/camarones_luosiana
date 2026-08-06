@@ -27,6 +27,7 @@ interface Orden {
   mesero: string;
   estado: string;
   total: number;
+  montoPagado: number;
   tiempoEstimado: number;
   modificada: boolean;
   cobrada: boolean;
@@ -66,7 +67,8 @@ function MeseroContenido() {
   const [loadingOrdenes, setLoadingOrdenes] = useState(false);
   const [ordenACobrar, setOrdenACobrar] = useState<Orden | null>(null);
   const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] =
-    useState<MetodoPago>("efectivo");
+    useState<MetodoPago | "mixto">("efectivo");
+  const [montoEfectivoMixto, setMontoEfectivoMixto] = useState("");
   const [loadingCobrar, setLoadingCobrar] = useState(false);
 
   const puedeOrdenCobrarse = (o: Orden): boolean => {
@@ -79,6 +81,17 @@ function MeseroContenido() {
   };
 
   const ordenesPorCobrar = ordenes.filter(puedeOrdenCobrarse);
+
+  const saldoCentavos = ordenACobrar
+    ? Math.max(
+        0,
+        Math.round(Number(ordenACobrar.total) * 100) -
+          Math.round(Number(ordenACobrar.montoPagado) * 100),
+      )
+    : 0;
+  const saldo = saldoCentavos / 100;
+  const efectivoMixtoCentavos = Math.round(Number(montoEfectivoMixto || 0) * 100);
+  const transferenciaMixtoCentavos = saldoCentavos - efectivoMixtoCentavos;
 
   const cargarOrdenes = async () => {
     setLoadingOrdenes(true);
@@ -100,7 +113,9 @@ function MeseroContenido() {
     }
   };
 
-  const cobrarOrden = async () => {
+  const cobrarOrden = async (
+    partes: Array<{ metodoPago: string; monto: number }>,
+  ) => {
     if (!ordenACobrar) return;
     setLoadingCobrar(true);
     try {
@@ -108,8 +123,7 @@ function MeseroContenido() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          metodoPago: metodoPagoSeleccionado,
-          cobradaPor: usuario?.nombre ?? "",
+          partes,
           expectedRevision: ordenACobrar.printRevision,
           idempotencyKey: crypto.randomUUID(),
         }),
@@ -117,6 +131,7 @@ function MeseroContenido() {
       if (res.ok) {
         setOrdenACobrar(null);
         setMetodoPagoSeleccionado("efectivo");
+        setMontoEfectivoMixto("");
         await cargarOrdenes();
       } else {
         const error = await res.json();
@@ -333,6 +348,11 @@ function MeseroContenido() {
 
                       {/* Botones */}
                       <div className="flex flex-col gap-2">
+                        {orden.montoPagado > 0 && orden.total > orden.montoPagado && (
+                          <span className="mb-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-900">
+                            SALDO ${(orden.total - orden.montoPagado).toFixed(2)}
+                          </span>
+                        )}
                         {puedeCobrarse && (
                           <button
                             onClick={() => {
@@ -402,10 +422,15 @@ function MeseroContenido() {
               $
               {montoACobrarEnCaja({
                 tipoOrden: ordenACobrar.tipoOrden,
-                total: ordenACobrar.total,
+                total: saldo,
                 costoEnvio: ordenACobrar.costoEnvio,
-                metodoPago: metodoPagoSeleccionado,
+                metodoPago: metodoPagoSeleccionado === "mixto" ? "efectivo" : metodoPagoSeleccionado,
               }).toFixed(2)}
+              {ordenACobrar.montoPagado > 0 && (
+                <span className="ml-2 text-sm font-normal text-gray-500">
+                  saldo de ${Number(ordenACobrar.total).toFixed(2)}
+                </span>
+              )}
             </p>
             {ordenACobrar.tipoOrden === "domicilio" &&
               Number(ordenACobrar.costoEnvio ?? 0) > 0 && (
@@ -439,9 +464,44 @@ function MeseroContenido() {
               >
                 🏦 Transferencia
               </button>
+              <button
+                onClick={() => setMetodoPagoSeleccionado("mixto")}
+                className={`flex-1 py-3 rounded-lg font-bold border-2 transition-colors ${
+                  metodoPagoSeleccionado === "mixto"
+                    ? "bg-amber-600 text-white border-amber-600"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-amber-400"
+                }`}
+              >
+                🔀 Mixto
+              </button>
             </div>
 
-            {ordenACobrar.metodoPagoPrevisto &&
+            {metodoPagoSeleccionado === "mixto" && (
+              <div className="mb-6 space-y-2 rounded-lg bg-gray-50 p-4">
+                <label className="block text-sm font-semibold text-gray-700">
+                  Monto en efectivo
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={montoEfectivoMixto}
+                    onChange={(event) => setMontoEfectivoMixto(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-xl font-bold"
+                    placeholder="0.00"
+                  />
+                </label>
+                <div className="flex justify-between text-sm">
+                  <span>Transferencia</span>
+                  <span className="font-semibold">
+                    ${Math.max(0, transferenciaMixtoCentavos / 100).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {metodoPagoSeleccionado !== "mixto" &&
+              ordenACobrar.metodoPagoPrevisto &&
               metodoPagoSeleccionado !== ordenACobrar.metodoPagoPrevisto && (
                 <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 mb-6">
                   <p className="text-sm text-amber-800">
@@ -455,7 +515,22 @@ function MeseroContenido() {
 
             <div className="flex gap-3">
               <button
-                onClick={cobrarOrden}
+                onClick={() => {
+                  if (metodoPagoSeleccionado !== "mixto") {
+                    void cobrarOrden([
+                      { metodoPago: metodoPagoSeleccionado, monto: saldo },
+                    ]);
+                    return;
+                  }
+                  if (efectivoMixtoCentavos <= 0 || transferenciaMixtoCentavos <= 0) {
+                    alert("En un cobro mixto las dos partes deben ser mayores a cero.");
+                    return;
+                  }
+                  void cobrarOrden([
+                    { metodoPago: "efectivo", monto: efectivoMixtoCentavos / 100 },
+                    { metodoPago: "transferencia", monto: transferenciaMixtoCentavos / 100 },
+                  ]);
+                }}
                 disabled={loadingCobrar}
                 className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 rounded-lg font-bold transition-colors"
               >
@@ -465,6 +540,7 @@ function MeseroContenido() {
                 onClick={() => {
                   setOrdenACobrar(null);
                   setMetodoPagoSeleccionado("efectivo");
+                  setMontoEfectivoMixto("");
                 }}
                 disabled={loadingCobrar}
                 className="flex-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 text-white py-2 rounded-lg font-bold transition-colors"
