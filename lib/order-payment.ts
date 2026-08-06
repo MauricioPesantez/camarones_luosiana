@@ -1,11 +1,13 @@
 import { Prisma } from '@prisma/client';
 
+import { parseComprobanteKey } from '@/lib/comprobantes';
 import { prisma } from '@/lib/db';
 import {
   ActoDeCobroInvalido,
   derivarClaveIdempotencia,
   validarActoDeCobro,
 } from '@/lib/order-payment-validaciones';
+import { objectExists } from '@/lib/storage';
 import { canCollectPayments, type AuthenticatedUser } from '@/lib/session';
 import {
   aCentavos,
@@ -158,6 +160,54 @@ export async function collectOrderPayment(input: {
         ? ['lista', 'entregada', 'cobrada']
         : ['pendiente', 'en_preparacion', 'lista', 'entregada', 'cobrada'];
 
+  // `validarActoDeCobro` garantiza a lo sumo una parte por método en un mismo
+  // acto, asi que nunca hay mas de una parte en transferencia que verificar aca.
+  const parteTransferencia = input.partes.find(
+    (parte) => parte.metodoPago === 'transferencia',
+  );
+
+  // La key nunca se acepta como viene: solo cuenta si es un string de verdad (no
+  // un array ni un objeto que coincidiera con el regex al coercionar), recortado.
+  // Vacío o de otro tipo se trata como ausente para no persistir "" en vez de null.
+  // Este es el valor resuelto que se usa en el resto de la función, nunca el input.
+  let comprobanteKey: string | null =
+    typeof parteTransferencia?.comprobanteTransferenciaKey === 'string'
+      ? parteTransferencia.comprobanteTransferenciaKey.trim() || null
+      : null;
+
+  // Tiene que tener la forma exacta que arma el servidor, apuntar a ESTA orden,
+  // y el objeto tiene que existir de verdad. Se resuelve antes de entrar al
+  // `$transaction`: es una llamada de I/O externa (S3), no debe mantener la
+  // transacción de la base de datos abierta.
+  if (comprobanteKey) {
+    const parsed = parseComprobanteKey(comprobanteKey);
+    if (!parsed || parsed.ordenId !== input.orderId) {
+      throw new PaymentValidationError('El comprobante no corresponde a esta orden');
+    }
+    try {
+      if (!(await objectExists(comprobanteKey))) {
+        throw new PaymentValidationError('El comprobante no se guardó, reintenta');
+      }
+    } catch (error) {
+      if (error instanceof PaymentValidationError) throw error;
+      // El storage puede fallar por una causa que no es "el objeto no existe"
+      // (credenciales vencidas, endpoint caído, permiso de solo escritura). El pago
+      // nunca puede depender de esa disponibilidad: se deja constancia del error
+      // para poder diagnosticar la caída y se sigue como si no hubiera llegado
+      // ninguna key, igual que si el cliente nunca hubiera subido nada.
+      console.error(
+        'No se pudo verificar el comprobante en el storage, se cobra sin él:',
+        error,
+      );
+      comprobanteKey = null;
+    }
+  }
+
+  // Se permite cobrar una transferencia sin comprobante, pero queda asentado en
+  // el historial: usa el valor ya resuelto arriba, asi que una caida del storage
+  // tambien cae en este camino.
+  const sinComprobante = Boolean(parteTransferencia) && !comprobanteKey;
+
   try {
     return await prisma.$transaction(async (tx) => {
       // El filtro por `montoPagado` es el candado optimista del dinero: si otro
@@ -203,7 +253,7 @@ export async function collectOrderPayment(input: {
               parte.metodoPago,
             ),
             comprobanteTransferenciaKey:
-              parte.comprobanteTransferenciaKey ?? null,
+              parte.metodoPago === 'transferencia' ? comprobanteKey : null,
           },
         });
       }
@@ -227,7 +277,7 @@ export async function collectOrderPayment(input: {
         data: {
           ordenId: input.orderId,
           tipoAccion: 'orden_cobrada',
-          descripcion: `Cobro de $${saldo.toFixed(2)} por ${input.user.nombre}: ${detallePartes}`,
+          descripcion: `Cobro de $${saldo.toFixed(2)} por ${input.user.nombre}: ${detallePartes}${sinComprobante ? ' · sin comprobante de transferencia' : ''}`,
           datosAntes: {
             montoPagado: Number(existing.montoPagado),
             metodoPago: existing.metodoPago,
