@@ -50,6 +50,7 @@ interface Orden {
     metodoPago: string;
     monto: number;
     comprobanteTransferenciaKey: string | null;
+    origen: string;
     /** La API la incluye para el calculo del cuadre (Task 9); la UI no la usa. */
     enRango: boolean;
   }[];
@@ -1189,7 +1190,13 @@ export default function AdminPage() {
                                               📎 Ver
                                             </button>
                                           ) : (
-                                            <span className="font-bold text-amber-800">⚠️ sin comprobante</span>
+                                            // La captura de comprobante solo existe en el flujo por QR: en
+                                            // el resto de orígenes (lista interna, creación o aprobación de
+                                            // domicilio con transferencia) nunca fue posible pedirla, así que
+                                            // la advertencia ahí sería ruido que el admin aprende a ignorar.
+                                            pago.origen === "qr" && (
+                                              <span className="font-bold text-amber-800">⚠️ sin comprobante</span>
+                                            )
                                           ))}
                                       </li>
                                     ))}

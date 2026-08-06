@@ -66,6 +66,7 @@ export async function GET(request: Request) {
               metodoPago: true,
               monto: true,
               comprobanteTransferenciaKey: true,
+              origen: true,
             },
           },
           creador: {
@@ -130,6 +131,7 @@ export async function GET(request: Request) {
             metodoPago: pago.metodoPago,
             monto: Number(pago.monto),
             comprobanteTransferenciaKey: pago.comprobanteTransferenciaKey,
+            origen: pago.origen,
             enRango:
               pago.createdAt >= rango.inicio && pago.createdAt < rango.fin,
           })),
