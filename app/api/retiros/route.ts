@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import {
+  bloquearCajaAbierta,
+  CajaNoDisponibleError,
+  obtenerCajaDeHoy,
+} from '@/lib/caja';
 import { obtenerRangoEcuador } from '@/lib/fecha-ecuador';
 import { RETIRO_SELECT, serializarRetiro } from '@/lib/retiros';
 import { validarRetiroNuevo } from '@/lib/retiros-validaciones';
 import { getAuthenticatedUser } from '@/lib/session';
 import { CATEGORIA_ADELANTO, ROL_REGISTRA_RETIRO } from '@/types/retiro';
+import { ESTADO_CAJA_ABIERTA } from '@/types/caja';
 
 export async function GET(request: Request) {
   try {
@@ -73,6 +79,33 @@ export async function POST(request: Request) {
       );
     }
 
+    // Reintento de una salida ya registrada: debe ser idempotente incluso si
+    // la caja se cerro entre la respuesta original y el reintento de red.
+    const retiroExistente = await prisma.retiroCaja.findUnique({
+      where: { clientRequestId: datos.clientRequestId },
+      select: RETIRO_SELECT,
+    });
+    if (retiroExistente) {
+      return NextResponse.json(serializarRetiro(retiroExistente));
+    }
+
+    const caja = await obtenerCajaDeHoy();
+    if (!caja) {
+      return NextResponse.json(
+        {
+          error:
+            'La caja de hoy no ha sido iniciada. Registra el fondo inicial primero.',
+        },
+        { status: 409 },
+      );
+    }
+    if (caja.estado !== ESTADO_CAJA_ABIERTA) {
+      return NextResponse.json(
+        { error: 'La caja de hoy ya fue cerrada' },
+        { status: 409 },
+      );
+    }
+
     let beneficiario: { id: string; nombre: string } | null = null;
 
     if (datos.categoria === CATEGORIA_ADELANTO && datos.beneficiarioId) {
@@ -90,19 +123,22 @@ export async function POST(request: Request) {
     }
 
     try {
-      const retiro = await prisma.retiroCaja.create({
-        data: {
-          monto: new Prisma.Decimal(datos.monto.toFixed(2)),
-          categoria: datos.categoria,
-          motivo: datos.motivo,
-          usuarioId: usuario.id,
-          usuarioNombre: usuario.nombre,
-          usuarioRol: usuario.rol,
-          beneficiarioId: beneficiario?.id ?? null,
-          beneficiarioNombre: beneficiario?.nombre ?? null,
-          clientRequestId: datos.clientRequestId,
-        },
-        select: RETIRO_SELECT,
+      const retiro = await prisma.$transaction(async (tx) => {
+        await bloquearCajaAbierta(tx);
+        return tx.retiroCaja.create({
+          data: {
+            monto: new Prisma.Decimal(datos.monto.toFixed(2)),
+            categoria: datos.categoria,
+            motivo: datos.motivo,
+            usuarioId: usuario.id,
+            usuarioNombre: usuario.nombre,
+            usuarioRol: usuario.rol,
+            beneficiarioId: beneficiario?.id ?? null,
+            beneficiarioNombre: beneficiario?.nombre ?? null,
+            clientRequestId: datos.clientRequestId,
+          },
+          select: RETIRO_SELECT,
+        });
       });
 
       return NextResponse.json(serializarRetiro(retiro), { status: 201 });
@@ -125,6 +161,9 @@ export async function POST(request: Request) {
       throw error;
     }
   } catch (error) {
+    if (error instanceof CajaNoDisponibleError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     console.error('Error al registrar el retiro:', error);
     return NextResponse.json(
       { error: 'Error al registrar el retiro' },

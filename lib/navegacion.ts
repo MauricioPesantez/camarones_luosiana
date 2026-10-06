@@ -101,6 +101,14 @@ const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
       titulo: "Caja",
       items: [
         {
+          id: "caja",
+          label: "Inicio de caja",
+          labelCorto: "Caja",
+          emoji: "💵",
+          href: "/mesero?vista=caja",
+          enBarraInferior: true,
+        },
+        {
           id: "retiro",
           label: "Retiro de caja",
           labelCorto: "Retiro",

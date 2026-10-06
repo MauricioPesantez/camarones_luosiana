@@ -39,6 +39,7 @@ const resumen = calcularResumenCuadre([
 
 // Las ordenes suman 210 en bruto, pero 11 de eso son envios del motorizado.
 assert.deepEqual(resumen, {
+  fondoInicial: 0,
   totalOrdenes: 5,
   ordenesCobradas: 4,
   ordenesSinCobrar: 1,
@@ -230,6 +231,20 @@ const todosAnulados = calcularResumenCuadre(ventasDelDia, [
 assert.equal(todosAnulados.retirosEfectivo, 0);
 assert.equal(todosAnulados.cantidadRetiros, 0);
 assert.equal(todosAnulados.efectivoEnCaja, 80);
+
+// El fondo inicial entra una sola vez al efectivo esperado. No altera ventas,
+// transferencias ni retiros.
+const conFondoInicial = calcularResumenCuadre(ventasDelDia, [
+  { monto: 15, estado: "registrado" },
+], 50);
+assert.equal(conFondoInicial.fondoInicial, 50);
+assert.equal(conFondoInicial.efectivoEnCaja, 115);
+assert.equal(conFondoInicial.ventasTotales, 80);
+assert.equal(conFondoInicial.retirosEfectivo, 15);
+
+const fondoConCentavos = calcularResumenCuadre([], [], "18.35");
+assert.equal(fondoConCentavos.fondoInicial, 18.35);
+assert.equal(fondoConCentavos.efectivoEnCaja, 18.35);
 
 // ---------------------------------------------------------------------------
 // Ordenes anuladas

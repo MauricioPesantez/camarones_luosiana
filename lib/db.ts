@@ -5,7 +5,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const cachedPrisma = globalForPrisma.prisma;
-const compatiblePrisma = cachedPrisma?.contadorOrdenDiaria
+const compatiblePrisma = cachedPrisma?.contadorOrdenDiaria && cachedPrisma?.sesionCaja
   ? cachedPrisma
   : undefined;
 

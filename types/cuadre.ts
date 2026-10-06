@@ -35,6 +35,8 @@ export interface RetiroParaCuadre {
 }
 
 export interface ResumenCuadre {
+  /** Efectivo registrado al iniciar la jornada. */
+  fondoInicial: number;
   /** Ordenes que cuentan: las anuladas quedan fuera de este total. */
   totalOrdenes: number;
   ordenesCobradas: number;
@@ -108,6 +110,7 @@ function aDolares(centavos: number): number {
 export function calcularResumenCuadre(
   ordenes: readonly OrdenParaCuadre[],
   retiros: readonly RetiroParaCuadre[] = [],
+  fondoInicial: number | string = 0,
 ): ResumenCuadre {
   const ordenesAnuladas = ordenes.filter((orden) => orden.anulada === true);
   const ordenesVigentes = ordenes.filter((orden) => orden.anulada !== true);
@@ -269,8 +272,10 @@ export function calcularResumenCuadre(
     (total, retiro) => total + aCentavos(retiro.monto),
     0,
   );
+  const fondoInicialCentavos = aCentavos(fondoInicial);
 
   return {
+    fondoInicial: aDolares(fondoInicialCentavos),
     totalOrdenes: ordenesVigentes.length,
     ordenesCobradas: resumen.ordenesCobradas,
     ordenesSinCobrar: resumen.ordenesSinCobrar,
@@ -287,7 +292,8 @@ export function calcularResumenCuadre(
       resumen.efectivoEntregadoMotorizados,
     ),
     efectivoEnCaja: aDolares(
-      resumen.efectivoVentasDirectas +
+      fondoInicialCentavos +
+        resumen.efectivoVentasDirectas +
         resumen.efectivoCobradoMotorizados -
         resumen.efectivoEntregadoMotorizados -
         retirosEfectivo,

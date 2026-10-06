@@ -1,6 +1,11 @@
 import { Prisma } from '@prisma/client';
 
 import { parseComprobanteKey } from '@/lib/comprobantes';
+import {
+  bloquearCajaAbierta,
+  CajaNoDisponibleError,
+  exigirCajaAbierta,
+} from '@/lib/caja';
 import { prisma } from '@/lib/db';
 import {
   ActoDeCobroInvalido,
@@ -130,6 +135,17 @@ export async function collectOrderPayment(input: {
     });
   }
 
+  // Todo pago pertenece a una jornada financiera. La comprobacion ocurre
+  // despues de la idempotencia: un reintento de un cobro ya guardado sigue
+  // respondiendo bien aunque el administrador haya cerrado la caja entretanto.
+  try {
+    await exigirCajaAbierta();
+  } catch (error) {
+    throw new PaymentConflictError(
+      error instanceof Error ? error.message : 'La caja no está disponible',
+    );
+  }
+
   const existing = await prisma.orden.findUnique({ where: { id: input.orderId } });
   if (!existing) throw new PaymentNotFoundError('Orden no encontrada');
   if (!canUserCollectOrder(input.user)) {
@@ -215,6 +231,8 @@ export async function collectOrderPayment(input: {
 
   try {
     return await prisma.$transaction(async (tx) => {
+      await bloquearCajaAbierta(tx);
+
       // El filtro por `montoPagado` es el candado optimista del dinero: si otro
       // cobrador cerro el saldo entre la lectura y esta escritura, no coincide.
       const updated = await tx.orden.updateMany({
@@ -310,6 +328,9 @@ export async function collectOrderPayment(input: {
       });
     });
   } catch (error) {
+    if (error instanceof CajaNoDisponibleError) {
+      throw new PaymentConflictError(error.message);
+    }
     if (
       error instanceof PaymentConflictError ||
       (error instanceof Prisma.PrismaClientKnownRequestError &&

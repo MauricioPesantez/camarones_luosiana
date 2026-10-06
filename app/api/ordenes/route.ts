@@ -26,6 +26,11 @@ import { createPaymentLink } from '@/lib/payment-link';
 import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
 import { calcularMovimientosPago } from '@/types/cobro';
 import { obtenerFechaEcuador, obtenerRangoEcuador } from '@/lib/fecha-ecuador';
+import {
+  bloquearCajaAbierta,
+  CajaNoDisponibleError,
+  exigirCajaAbierta,
+} from '@/lib/caja';
 
 const ORDEN_INCLUDE = {
   items: {
@@ -322,8 +327,15 @@ export async function POST(request: Request) {
       metodoPagoPrevisto === 'transferencia' &&
       body.transferenciaConfirmada === true;
 
+    if (cobradaAlCrear) {
+      await exigirCajaAbierta();
+    }
+
     // Orden, stock, historial y trabajo de impresion se confirman juntos.
     const { orden, printJobQueued } = await prisma.$transaction(async (tx) => {
+      if (cobradaAlCrear) {
+        await bloquearCajaAbierta(tx);
+      }
       const createdAt = new Date();
       const dailyNumber = await allocateDailyOrderNumber(tx, createdAt);
       const nuevaOrden = await tx.orden.create({
@@ -558,6 +570,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(respuesta);
   } catch (error) {
+    if (error instanceof CajaNoDisponibleError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     if (error instanceof StockConflictError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }
