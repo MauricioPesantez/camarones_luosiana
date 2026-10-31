@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { encodeEscPosRaster } from './logo.js';
 import { buildEscPosTicket } from './printer.js';
-import type { PrintJobPayload } from './types.js';
+import type { PrintJobPayload, WithdrawalPrintPayload } from './types.js';
 
 function createPayload(
   type: PrintJobPayload['order']['type'],
@@ -349,6 +349,19 @@ function run(): void {
   assert.match(reprintText, /Solicita: Daniel/);
   assert.equal((reprintText.match(/\[ \]/g) ?? []).length, 8);
   assert.equal((reprintText.match(/Responsable:/g) ?? []).length, 1);
+
+  const withdrawal: WithdrawalPrintPayload = {
+    payloadVersion: 1, jobType: 'CASH_WITHDRAWAL', withdrawalId: 'retiro-123',
+    lines: ['RETIRO DE CAJA', 'Retiro: retiro-123', 'MONTO RETIRADO: $12.50', ''],
+  };
+  const withdrawalBytes = buildEscPosTicket(withdrawal);
+  assert.equal(withdrawalBytes.includes(rasterCommand), false, 'El comprobante minimalista no incluye logo');
+  const withdrawalText = withdrawalBytes.toString('ascii');
+  assert.ok(withdrawalText.includes(withdrawal.lines.join('\n')));
+  assert.doesNotMatch(withdrawalText, /ORDEN #|ESCANEA PARA COBRAR|Responsable:/);
+  for (const lines of [['X'.repeat(43)], ['Texto\x1b@'], []]) {
+    assert.throws(() => buildEscPosTicket({ ...withdrawal, lines }), /Comprobante de retiro no valido/);
+  }
 
   const oneBlackPixel = encodeEscPosRaster(
     8,

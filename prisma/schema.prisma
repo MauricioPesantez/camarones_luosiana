@@ -11,6 +11,7 @@ enum PrintJobType {
   ORDER
   AMENDMENT
   REPRINT
+  CASH_WITHDRAWAL
 }
 
 enum PrintJobStatus {
@@ -140,8 +141,10 @@ model ContadorOrdenDiaria {
 
 model PrintJob {
   id             String         @id @default(cuid())
-  ordenId        String
-  orden          Orden          @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  ordenId        String?
+  orden          Orden?         @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  retiroId       String?
+  retiro         RetiroCaja?    @relation(fields: [retiroId], references: [id], onDelete: Restrict)
   type           PrintJobType
   status         PrintJobStatus @default(PENDING)
   dedupeKey      String         @unique
@@ -166,6 +169,7 @@ model PrintJob {
 
   @@index([status, availableAt])
   @@index([ordenId, createdAt])
+  @@index([retiroId, createdAt])
   @@index([leaseExpiresAt])
 }
 
@@ -269,6 +273,7 @@ model RetiroCaja {
 
   /// Idempotencia: el mismo envio reintentado no duplica la salida de dinero.
   clientRequestId String @unique
+  printJobs       PrintJob[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

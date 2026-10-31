@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { PrinterService } from '@/lib/printer';
+import { buildWithdrawalPrintPayload, enqueueWithdrawalPrintJob, getWithdrawalPrintMode } from '@/lib/withdrawal-print';
 import {
   bloquearCajaAbierta,
   CajaNoDisponibleError,
@@ -86,6 +88,9 @@ export async function POST(request: Request) {
       select: RETIRO_SELECT,
     });
     if (retiroExistente) {
+      if (retiroExistente.usuarioId !== usuario.id) {
+        return NextResponse.json({ error: 'El identificador del envio ya fue utilizado' }, { status: 409 });
+      }
       return NextResponse.json(serializarRetiro(retiroExistente));
     }
 
@@ -122,10 +127,11 @@ export async function POST(request: Request) {
       }
     }
 
+    const printMode = getWithdrawalPrintMode(new Date());
     try {
       const retiro = await prisma.$transaction(async (tx) => {
         await bloquearCajaAbierta(tx);
-        return tx.retiroCaja.create({
+        const registrado = await tx.retiroCaja.create({
           data: {
             monto: new Prisma.Decimal(datos.monto.toFixed(2)),
             categoria: datos.categoria,
@@ -139,9 +145,29 @@ export async function POST(request: Request) {
           },
           select: RETIRO_SELECT,
         });
+        if (printMode === 'queue') await enqueueWithdrawalPrintJob(tx, registrado);
+        return registrado;
       });
 
-      return NextResponse.json(serializarRetiro(retiro), { status: 201 });
+      // El retiro ya fue confirmado: un fallo de impresora nunca pide registrar dinero otra vez.
+      let directResult: { success: boolean } | null = null;
+      if (printMode === 'direct') {
+        try {
+          directResult = await new PrinterService().imprimirRetiro(buildWithdrawalPrintPayload(retiro));
+        } catch (error) {
+          console.error('Error al enviar comprobante del retiro:', error);
+          directResult = { success: false };
+        }
+      }
+      return NextResponse.json({
+        ...serializarRetiro(retiro),
+        estadoImpresion: printMode === 'queue' ? 'PENDING' : null,
+        impresionEnCola: printMode === 'queue',
+        impresionEnviada: directResult?.success === true,
+        impresionError: printMode === 'disabled'
+          ? 'No hay un mecanismo de impresion activo'
+          : directResult && !directResult.success ? 'No se pudo enviar el comprobante a la impresora' : null,
+      }, { status: 201 });
     } catch (error) {
       // Reintento o doble clic del mismo envio: se devuelve el retiro que ya
       // quedo registrado en vez de sacar el dinero dos veces.
@@ -155,6 +181,9 @@ export async function POST(request: Request) {
         });
 
         if (existente) {
+          if (existente.usuarioId !== usuario.id) {
+            return NextResponse.json({ error: 'El identificador del envio ya fue utilizado' }, { status: 409 });
+          }
           return NextResponse.json(serializarRetiro(existente));
         }
       }

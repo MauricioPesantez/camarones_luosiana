@@ -6,6 +6,7 @@ import {
   obtenerEtiquetaNivelPicante,
 } from '../types/orden';
 import { shouldPrintPaymentQr } from './payment-link';
+import type { WithdrawalPrintPayload } from './withdrawal-print';
 
 const LINE_WIDTH = 42;
 const STRONG_SEPARATOR = '='.repeat(LINE_WIDTH);
@@ -257,26 +258,38 @@ export class PrinterService {
   }
 
   async imprimirComanda(orden: OrdenComanda) {
+    return this.imprimirDocumento(orden);
+  }
+
+  async imprimirRetiro(payload: WithdrawalPrintPayload) {
+    return this.imprimirDocumento(payload);
+  }
+
+  private async imprimirDocumento(documento: OrdenComanda | WithdrawalPrintPayload) {
     try {
-      // Mantener el mismo formato que print-agent/src/printer.ts para trabajos ORDER.
-      try {
-        const logo = await this.printer.printImage(
-          process.env.PRINT_LOGO_PATH || DEFAULT_LOGO_PATH,
-        );
-        this.printer.setBuffer(Buffer.concat([
-          Buffer.from([0x1b, 0x61, 0x01]),
-          logo,
-          Buffer.from([0x0a, 0x1b, 0x61, 0x00]),
-        ]));
-      } catch (error) {
-        console.warn('No se pudo cargar el logo de impresion:', error);
-        this.printer.clear();
+      const lines = 'jobType' in documento ? documento.lines : buildOrderTicketLines(documento);
+      if (!('jobType' in documento)) {
+        // Mantener el mismo formato que print-agent/src/printer.ts para trabajos ORDER.
+        try {
+          const logo = await this.printer.printImage(
+            process.env.PRINT_LOGO_PATH || DEFAULT_LOGO_PATH,
+          );
+          this.printer.setBuffer(Buffer.concat([
+            Buffer.from([0x1b, 0x61, 0x01]),
+            logo,
+            Buffer.from([0x0a, 0x1b, 0x61, 0x00]),
+          ]));
+        } catch (error) {
+          console.warn('No se pudo cargar el logo de impresion:', error);
+          this.printer.clear();
+        }
+
       }
 
       this.printer.setTextSize(0, 0);
       this.printer.bold(false);
       this.printer.alignLeft();
-      for (const line of buildOrderTicketLines(orden)) {
+      for (const line of lines) {
         const emphasizedLabel = line.match(EMPHASIZED_LABEL_PATTERN);
         const selectedValue = line.match(SELECTED_VALUE_PATTERN);
 
@@ -297,12 +310,12 @@ export class PrinterService {
           this.printer.println(line);
         }
       }
-      if (shouldPrintPaymentQr(orden)) {
+      if (!('jobType' in documento) && shouldPrintPaymentQr(documento)) {
         this.printer.alignCenter();
         this.printer.bold(true);
         this.printer.println('ESCANEA PARA COBRAR');
         this.printer.bold(false);
-        this.printer.printQR(orden.cobroUrl!, {
+        this.printer.printQR(documento.cobroUrl!, {
           cellSize: 5,
           correction: 'M',
           model: 2,

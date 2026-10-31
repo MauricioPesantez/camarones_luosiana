@@ -5,6 +5,7 @@ import {
   PrinterService,
   type OrdenComanda,
 } from './printer';
+import { buildWithdrawalPrintPayload } from './withdrawal-print';
 import { NIVELES_PICANTE, calcularRecargoEnvases } from '../types/orden';
 
 const createdAt = new Date('2026-07-31T18:42:18.000Z');
@@ -284,6 +285,16 @@ async function run(): Promise<void> {
   assert.equal((await service.imprimirComanda(createOrder())).success, true);
   assert.ok(encoded.includes('  [ ] Salsa Louisiana: <invert> LEVE </invert>\n'));
   assert.equal(encoded.includes('<invert>[ ]'), false);
+
+  encoded = '';
+  const withdrawal = buildWithdrawalPrintPayload({ id: 'retiro-123', monto: 20, categoria: 'adelanto',
+    motivo: 'Adelanto semanal', usuarioNombre: 'Maria', beneficiarioNombre: 'Daniel', estado: 'registrado', createdAt });
+  assert.equal((await service.imprimirRetiro(withdrawal)).success, true);
+  assert.ok(encoded.includes('ADELANTO A EMPLEADO'));
+  assert.ok(encoded.includes('Firma de quien recibe:'));
+  assert.ok(encoded.includes('Firma de quien entrega:'));
+  assert.equal(encoded.includes('ORDEN #'), false);
+  assert.equal(encoded.includes('ESCANEA PARA COBRAR'), false);
 
   console.log('printer format tests: ok');
 }

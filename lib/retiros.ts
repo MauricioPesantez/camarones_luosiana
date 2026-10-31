@@ -9,6 +9,11 @@ export const ESTADO_REGISTRADO = ESTADO_RETIRO_REGISTRADO;
 export const ESTADO_ANULADO = ESTADO_RETIRO_ANULADO;
 
 export const RETIRO_SELECT = {
+  printJobs: {
+    orderBy: { revision: 'desc' },
+    take: 1,
+    select: { status: true },
+  },
   id: true,
   monto: true,
   categoria: true,
@@ -36,6 +41,7 @@ type RetiroConsultado = Prisma.RetiroCajaGetPayload<{
  */
 export function serializarRetiro(retiro: RetiroConsultado): RetiroCaja {
   return {
+    estadoImpresion: retiro.printJobs[0]?.status ?? null,
     id: retiro.id,
     monto: Number(retiro.monto),
     categoria: retiro.categoria,

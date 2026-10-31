@@ -212,6 +212,19 @@ class TicketTests(unittest.TestCase):
         self.assertEqual(text.count("[ ]"), 2)
         self.assertEqual(text.count("Responsable:"), 1)
 
+    def test_withdrawal_receipt_has_no_order_or_payment_qr(self):
+        value = {"payloadVersion": 1, "jobType": "CASH_WITHDRAWAL", "withdrawalId": "retiro-123",
+                 "lines": ["RETIRO DE CAJA", "Retiro: retiro-123", "MONTO RETIRADO: $12.50", ""]}
+        text = self.ticket_text(value)
+        self.assertIn("\n".join(value["lines"]), text)
+        self.assertNotIn("ORDEN #", text)
+        self.assertNotIn("ESCANEA PARA COBRAR", text)
+        for lines in (["X" * 43], ["Texto\x1b@"], []):
+            with self.subTest(lines=lines):
+                value["lines"] = lines
+                with self.assertRaises(agent.PrinterError):
+                    agent.build_esc_pos_ticket(value, logo_raster=b"")
+
     def test_raster_encoding(self):
         rgba = bytearray([0, 0, 0, 255, 255, 255, 255, 255])
         raster = agent.encode_esc_pos_raster(2, 1, rgba)

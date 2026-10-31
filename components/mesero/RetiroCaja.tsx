@@ -50,6 +50,7 @@ export default function RetiroCaja({ usuario }: Props) {
   const [recargas, setRecargas] = useState(0);
   const [usuarios, setUsuarios] = useState<UsuarioSimple[]>([]);
   const [guardando, setGuardando] = useState(false);
+  const [imprimiendoId, setImprimiendoId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [confirmacion, setConfirmacion] = useState("");
 
@@ -108,8 +109,12 @@ export default function RetiroCaja({ usuario }: Props) {
       }
 
       setConfirmacion(
-        `Retiro de $${Number(data.monto).toFixed(2)} registrado. Sale del efectivo de la caja.`,
+        `Retiro de $${Number(data.monto).toFixed(2)} registrado. Sale del efectivo de la caja. ${
+          data.impresionEnCola ? 'Comprobante pendiente de impresion.' :
+          data.impresionEnviada ? 'Comprobante enviado a la impresora.' : ''
+        }`,
       );
+      if (data.impresionError) setError(`El retiro ya esta registrado. ${data.impresionError}. Puedes volver a imprimir desde la lista.`);
       setMonto("");
       setMotivo("");
       setBeneficiarioId("");
@@ -121,6 +126,24 @@ export default function RetiroCaja({ usuario }: Props) {
       setError(err instanceof Error ? err.message : "Error al registrar el retiro");
     } finally {
       setGuardando(false);
+    }
+  };
+
+  const imprimirComprobante = async (id: string) => {
+    if (imprimiendoId) return;
+    setImprimiendoId(id);
+    setError("");
+    setConfirmacion("");
+    try {
+      const res = await fetch(`/api/retiros/${encodeURIComponent(id)}/imprimir`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || data.impresionError) throw new Error(data.error || data.impresionError || "No se pudo imprimir el comprobante");
+      setConfirmacion(data.impresionEnCola ? "Comprobante pendiente de impresion." : "Comprobante enviado a la impresora.");
+      setRecargas((valor) => valor + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo imprimir el comprobante");
+    } finally {
+      setImprimiendoId(null);
     }
   };
 
@@ -277,8 +300,8 @@ export default function RetiroCaja({ usuario }: Props) {
                             ` · ${retiro.beneficiarioNombre}`}
                         </p>
                         <p className="text-sm text-gray-600">{retiro.motivo}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {formatearHora(retiro.createdAt)}
+                        <p className="text-xs text-gray-500 mt-1 break-all">
+                          {formatearHora(retiro.createdAt)} · Ref: {retiro.id}
                         </p>
                       </div>
                       <p
@@ -290,6 +313,23 @@ export default function RetiroCaja({ usuario }: Props) {
                       </p>
                     </div>
 
+                    {!anulado && (
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <button type="button" disabled={imprimiendoId !== null}
+                          onClick={() => imprimirComprobante(retiro.id)}
+                          className="rounded border border-amber-300 bg-white px-3 py-1.5 text-sm text-amber-900 disabled:opacity-50">
+                          {imprimiendoId === retiro.id ? "Enviando..." : "Imprimir comprobante"}
+                        </button>
+                        {retiro.estadoImpresion && (
+                          <span className="text-xs text-gray-600">
+                            {retiro.estadoImpresion === "SUCCEEDED" ? "Enviado a impresora" :
+                              retiro.estadoImpresion === "PROCESSING" ? "Enviando a impresora" :
+                              ["PENDING", "RETRY"].includes(retiro.estadoImpresion) ? "Pendiente de impresion" :
+                              "Requiere volver a imprimir"}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {anulado && (
                       <p className="mt-2 rounded bg-white border border-gray-200 px-3 py-2 text-xs text-gray-600">
                         Anulado

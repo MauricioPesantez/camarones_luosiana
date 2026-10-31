@@ -1,7 +1,7 @@
 import net from 'node:net';
 
 import { loadLogoRaster } from './logo.js';
-import type { AgentConfig, PrintJobPayload } from './types.js';
+import type { AgentConfig, AnyPrintJobPayload, PrintJobPayload } from './types.js';
 
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -167,7 +167,14 @@ function spiceLevelLabel(
   return value === 'natural' ? 'NATURAL' : null;
 }
 
-function linesForPayload(payload: PrintJobPayload): string[] {
+function linesForPayload(payload: AnyPrintJobPayload): string[] {
+  if (payload.jobType === 'CASH_WITHDRAWAL') {
+    if (payload.payloadVersion !== 1 || !payload.withdrawalId || !Array.isArray(payload.lines) ||
+        payload.lines.length === 0 || payload.lines.some((line) => typeof line !== 'string' || line.length > LINE_WIDTH || /[^\x20-\x7E]/.test(line))) {
+      throw new PrinterError('Comprobante de retiro no valido', 'INVALID_PAYLOAD');
+    }
+    return payload.lines;
+  }
   if (payload.payloadVersion !== 1 || !payload.order?.id) {
     throw new PrinterError('Payload de impresion no soportado', 'INVALID_PAYLOAD');
   }
@@ -345,16 +352,16 @@ export function encodeEscPosQr(data: string): Buffer {
   ]);
 }
 
-export function buildEscPosTicket(payload: PrintJobPayload): Buffer {
+export function buildEscPosTicket(payload: AnyPrintJobPayload): Buffer {
   const text = encodeTicketLines(linesForPayload(payload));
   const paymentQr =
-    payload.jobType !== 'AMENDMENT' && payload.order.paymentUrl
+    payload.jobType !== 'CASH_WITHDRAWAL' && payload.jobType !== 'AMENDMENT' && payload.order.paymentUrl
       ? encodeEscPosQr(payload.order.paymentUrl)
       : Buffer.alloc(0);
   let logo: ReturnType<typeof loadLogoRaster> | null = null;
 
   try {
-    logo = loadLogoRaster();
+    logo = payload.jobType === 'CASH_WITHDRAWAL' ? null : loadLogoRaster();
   } catch (error) {
     if (!logoWarningShown) {
       logoWarningShown = true;
@@ -381,7 +388,7 @@ function errorCode(error: unknown): string {
 
 export async function sendToPrinter(
   config: AgentConfig,
-  payload: PrintJobPayload,
+  payload: AnyPrintJobPayload,
 ): Promise<void> {
   const ticket = buildEscPosTicket(payload);
 

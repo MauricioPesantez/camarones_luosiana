@@ -20,7 +20,7 @@ from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
 
-VERSION = "1.0.0-python"
+VERSION = "1.1.0-python"
 ESC = 0x1B
 GS = 0x1D
 LINE_WIDTH = 42
@@ -193,7 +193,7 @@ class ApiClient(object):
 
     def claim(self):
         result = self.request(
-            "/api/print-agent/claim", {"workerId": self.config.worker_id}
+            "/api/print-agent/claim", {"workerId": self.config.worker_id, "supportedJobTypes": ["ORDER", "AMENDMENT", "REPRINT", "CASH_WITHDRAWAL"]}
         )
         return result.get("job")
 
@@ -367,6 +367,14 @@ def amendment_amount_delta(change):
 
 
 def lines_for_payload(payload):
+    if payload.get("jobType") == "CASH_WITHDRAWAL":
+        lines = payload.get("lines")
+        if (payload.get("payloadVersion") != 1 or not payload.get("withdrawalId")
+                or not isinstance(lines, list) or not lines
+                or any(not isinstance(line, str) or len(line) > LINE_WIDTH
+                       or re.search(r"[^\x20-\x7E]", line) for line in lines)):
+            raise PrinterError("Comprobante de retiro no valido", "INVALID_PAYLOAD")
+        return lines
     order = payload.get("order") or {}
     if payload.get("payloadVersion") != 1 or not order.get("id"):
         raise PrinterError("Payload de impresion no soportado", "INVALID_PAYLOAD")
@@ -617,6 +625,8 @@ def build_esc_pos_ticket(payload, logo_path=DEFAULT_LOGO_PATH, logo_raster=None)
     global _logo_warning_shown
     text = encode_ticket_lines(lines_for_payload(payload))
     logo = logo_raster
+    if payload.get("jobType") == "CASH_WITHDRAWAL":
+        logo = b""
     if logo is None:
         try:
             logo = load_logo_raster(logo_path)
@@ -631,7 +641,7 @@ def build_esc_pos_ticket(payload, logo_path=DEFAULT_LOGO_PATH, logo_raster=None)
         chunks.extend([ALIGN_CENTER, logo, b"\n"])
     chunks.extend([ALIGN_LEFT, text])
     payment_url = (payload.get("order") or {}).get("paymentUrl")
-    if payload.get("jobType") != "AMENDMENT" and payment_url:
+    if payload.get("jobType") not in ("AMENDMENT", "CASH_WITHDRAWAL") and payment_url:
         chunks.append(encode_esc_pos_qr(payment_url))
     chunks.append(bytes(bytearray([ESC, 0x64, 0x05])))
     chunks.append(bytes(bytearray([GS, 0x56, 0x42, 0x10])))
@@ -780,6 +790,7 @@ class Worker(object):
                     "job_claimed",
                     jobId=job.get("id"),
                     orderId=job.get("ordenId"),
+                    withdrawalId=job.get("retiroId"),
                     type=job.get("type"),
                     attempt=job.get("attempts"),
                 )

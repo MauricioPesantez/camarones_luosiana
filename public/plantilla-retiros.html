@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comprobantes de retiro de caja</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f3f0e8; color: #171b16; font: 15px system-ui, sans-serif; }
+  main { max-width: 920px; margin: 40px auto; padding: 0 20px; }
+  h1 { margin-bottom: 10px; font-size: 30px; }
+  p { max-width: 650px; line-height: 1.6; color: #525b51; }
+  .examples { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 32px; margin-top: 28px; }
+  article { width: 80mm; }
+  header { margin-bottom: 14px; }
+  h2 { font-size: 17px; }
+  button { padding: 8px 12px; border: 1px solid #b5bcae; border-radius: 6px; background: #fff; cursor: pointer; }
+  pre { width: 80mm; padding: 6mm; margin: 0; background: #fff; color: #000;
+    font: 10px/1.6 "Courier New", monospace; white-space: pre; box-shadow: 0 4px 24px #0001; }
+  @page { size: 80mm 200mm; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    main { margin: 0; padding: 0; }
+    h1, main > p, header { display: none; }
+    .examples { display: block; margin: 0; }
+    article { display: none; }
+    body[data-print="0"] article[data-receipt="0"], body[data-print="1"] article[data-receipt="1"] { display: block; }
+    pre { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Comprobantes de retiro de caja</h1>
+  <p>Ejemplos con datos ficticios, generados con el mismo formato que recibe la impresora. Cada comprobante identifica el retiro y su monto. Los adelantos tienen espacios para las firmas de quien recibe y quien entrega el dinero.</p>
+  <div class="examples"><article data-receipt="0"><header><h2>Gasto del local</h2><button type="button" onclick="printReceipt(0)">Imprimir ejemplo</button></header><pre>------------------------------------------
+RETIRO DE CAJA
+------------------------------------------
+Retiro: demo-retiro-0001
+Fecha: 31/10/2026, 13:42:18
+Categoria: Insumos / mercaderia
+Motivo: Compra de hielo
+------------------------------------------
+MONTO RETIRADO:                     $12.50
+------------------------------------------
+Retirado por: Maria Perez
+
+------------------------------------------
+
+
+</pre></article>
+<article data-receipt="1"><header><h2>Adelanto a empleado</h2><button type="button" onclick="printReceipt(1)">Imprimir ejemplo</button></header><pre>------------------------------------------
+ADELANTO A EMPLEADO
+------------------------------------------
+Retiro: demo-retiro-0002
+Fecha: 31/10/2026, 13:42:18
+Categoria: Adelanto a empleado
+Motivo: Adelanto semanal
+------------------------------------------
+MONTO RETIRADO:                     $20.00
+------------------------------------------
+Entrega: Maria Perez
+Recibe: Andres Lopez
+
+
+
+Firma de quien recibe:
+____________________________
+
+
+
+Firma de quien entrega:
+____________________________
+
+------------------------------------------
+
+
+</pre></article></div>
+</main>
+<script>
+  function printReceipt(index) { document.body.dataset.print = String(index); window.print(); }
+  window.addEventListener('afterprint', () => { delete document.body.dataset.print; });
+</script>
+</body>
+</html>

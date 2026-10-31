@@ -1,0 +1,158 @@
+[
+  {
+    "name": "A01: create admin without session",
+    "observed": {
+      "status": 201,
+      "authCalls": 0
+    }
+  },
+  {
+    "name": "A01: remove admin password without session",
+    "observed": {
+      "status": 200,
+      "authCalls": 0
+    }
+  },
+  {
+    "name": "A01: create product without session",
+    "observed": {
+      "status": 201,
+      "authCalls": 0
+    }
+  },
+  {
+    "name": "A04: two concurrent +5 stock additions lose one",
+    "observed": {
+      "statuses": [
+        200,
+        200
+      ],
+      "expectedStock": 20,
+      "observedStock": 15,
+      "authCalls": 0
+    }
+  },
+  {
+    "name": "A03: kitchen bypasses stock approval",
+    "observed": {
+      "status": 200,
+      "estado": "en_preparacion"
+    }
+  },
+  {
+    "name": "A03: kitchen reactivates cancelled order",
+    "observed": {
+      "status": 200,
+      "estado": "pendiente"
+    }
+  },
+  {
+    "name": "A05: concurrent courtesy oversells and never returns ready order to kitchen",
+    "observed": {
+      "statuses": [
+        200,
+        200
+      ],
+      "stock": -1,
+      "estado": "lista",
+      "revision": 0,
+      "recargo": 0,
+      "spice": null
+    }
+  },
+  {
+    "name": "A02: QR payment changes pending kitchen state to collected",
+    "observed": {
+      "estado": "cobrada",
+      "kitchenVisible": false
+    }
+  },
+  {
+    "name": "A06: annulling reopened paid order leaves confirmed payments",
+    "observed": {
+      "status": 200,
+      "annulPaymentsCalls": 0
+    }
+  },
+  {
+    "name": "A06: pending refund disappears from annulled order summary",
+    "observed": {
+      "pendingRefund": 0,
+      "cash": 0
+    }
+  },
+  {
+    "name": "A07: rejected paid order still counts sale and courier payout",
+    "observed": {
+      "sales": 20,
+      "cash": -3,
+      "refund": 23
+    }
+  },
+  {
+    "name": "A09: day closes with fully unpaid order",
+    "observed": {
+      "status": 200,
+      "estado": "cerrada"
+    }
+  },
+  {
+    "name": "A08: next-day growth moves delivery settlement and changes old report",
+    "observed": {
+      "day1Before": -3,
+      "day1After": 0,
+      "day2Cash": 2,
+      "day2ActualIncrement": 5
+    }
+  },
+  {
+    "name": "A17: overprecise amounts break paid-total invariant",
+    "observed": {
+      "accepted": [
+        1.005,
+        8.99
+      ],
+      "materializedAmount": 9.99,
+      "decimalRoundedSum": 10
+    }
+  },
+  {
+    "name": "A11: queue enabled while direct print default remains enabled",
+    "observed": {
+      "queue": true,
+      "direct": true
+    }
+  },
+  {
+    "name": "A10: repeat same creation request creates two orders",
+    "observed": {
+      "statuses": [
+        200,
+        200
+      ],
+      "orders": 2
+    }
+  },
+  {
+    "name": "A16: unknown order type is persisted",
+    "observed": {
+      "status": 200,
+      "tipoOrden": "robot"
+    }
+  },
+  {
+    "name": "A16: string delivery cost concatenates into total",
+    "observed": {
+      "status": 200,
+      "computedTotal": "12.253",
+      "expectedTotal": 15.25
+    }
+  },
+  {
+    "name": "A18: Combo preparation time is ignored",
+    "observed": {
+      "productMinutes": 20,
+      "orderMinutes": 0
+    }
+  }
+]
