@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { SesionCaja } from "@/types/caja";
 
 function formatearFechaHora(fecha: string): string {
@@ -10,7 +11,7 @@ function formatearFechaHora(fecha: string): string {
   });
 }
 
-export default function InicioCaja() {
+export default function InicioCaja({ requerida = false }: { requerida?: boolean }) {
   const [caja, setCaja] = useState<SesionCaja | null>(null);
   const [montoInicial, setMontoInicial] = useState("");
   const [cargando, setCargando] = useState(true);
@@ -20,7 +21,7 @@ export default function InicioCaja() {
 
   useEffect(() => {
     let vigente = true;
-    fetch("/api/caja")
+    fetch("/api/caja", { cache: "no-store" })
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Error al cargar la caja");
@@ -76,6 +77,12 @@ export default function InicioCaja() {
       <div className="mx-auto max-w-2xl space-y-6">
         <div className="rounded-xl bg-white p-6 shadow">
           <h2 className="text-2xl font-bold text-gray-900">💵 Inicio de caja</h2>
+          {requerida && !caja && !error && (
+            <p role="status" className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+              Antes de crear tu primera orden del día, inicia la caja registrando
+              el fondo inicial. Solo un mesero necesita hacerlo para todo el equipo.
+            </p>
+          )}
           <p className="mt-2 text-sm text-gray-600">
             Registra efectivo físico existente antes del primer cobro. Se suma a
             ventas en efectivo y se resta retiros para calcular cierre.
@@ -126,9 +133,17 @@ export default function InicioCaja() {
               </p>
               {caja.estado === "cerrada" && (
                 <p className="mt-2 text-sm text-gray-600">
-                  Cierre realizado por administrador. Próxima apertura: siguiente
-                  jornada.
+                  La caja de hoy ya fue cerrada por el administrador. Podrás crear
+                  nuevas órdenes en la siguiente jornada.
                 </p>
+              )}
+              {caja.estado === "abierta" && (
+                <Link
+                  href="/mesero?vista=crear"
+                  className="mt-5 inline-flex min-h-12 items-center justify-center rounded-lg bg-blue-600 px-5 font-bold text-white hover:bg-blue-700"
+                >
+                  Continuar a crear orden
+                </Link>
               )}
             </div>
           ) : (
