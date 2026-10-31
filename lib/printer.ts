@@ -6,6 +6,7 @@ import {
   obtenerEtiquetaNivelPicante,
 } from '../types/orden';
 import { shouldPrintPaymentQr } from './payment-link';
+import type { WithdrawalPrintPayload } from './withdrawal-print';
 
 const LINE_WIDTH = 42;
 const STRONG_SEPARATOR = '='.repeat(LINE_WIDTH);
@@ -13,7 +14,7 @@ const SECTION_SEPARATOR = '-'.repeat(LINE_WIDTH);
 /** Etiquetas cuya etiqueta se imprime en video inverso. */
 const EMPHASIZED_LABEL_PATTERN = /^(Tipo|Mesa):/;
 /** Etiquetas cuyo valor seleccionado se imprime en video inverso. */
-const SELECTED_VALUE_PATTERN = /^(\s*Salsa Louisiana:) (.+)$/;
+const SELECTED_VALUE_PATTERN = /^(\s*(?:\[ \] )?Salsa Louisiana:) (.+)$/;
 const DEFAULT_LOGO_PATH = path.join(
   process.cwd(),
   'public',
@@ -28,6 +29,24 @@ function ascii(value: unknown): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^\x20-\x7E\n]/g, '?');
+}
+
+/** Ajusta texto a 42 columnas; solo la primera linea lleva la casilla. */
+function ticketTextLines(value: string, prefix = ''): string[] {
+  const lines: string[] = [];
+  let currentPrefix = prefix;
+  for (const paragraph of ascii(value.replace(/\r\n?/g, '\n').replace(/\t/g, ' ')).split('\n')) {
+    let remaining = paragraph.trim();
+    while (remaining) {
+      const width = LINE_WIDTH - currentPrefix.length;
+      const space = remaining.length > width ? remaining.lastIndexOf(' ', width) : remaining.length;
+      const end = space > 0 ? space : width;
+      lines.push(currentPrefix + remaining.slice(0, end));
+      remaining = remaining.slice(end).trimStart();
+      currentPrefix = ' '.repeat(prefix.length);
+    }
+  }
+  return lines;
 }
 
 function centered(value: string): string {
@@ -183,14 +202,14 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
 
   for (const item of orden.items) {
     lines.push(
-      `${item.cantidad}x ${item.producto.nombre}${item.esCortesia ? ' [CORTESIA]' : ''}`,
+      ...ticketTextLines(`${item.cantidad}x ${item.producto.nombre}${item.esCortesia ? ' [CORTESIA]' : ''}`, '[ ] '),
     );
     if (esNivelPicante(item.nivelPicante)) {
       lines.push(
-        `  Salsa Louisiana: ${obtenerEtiquetaNivelPicante(item.nivelPicante).toUpperCase()}`,
+        `  [ ] Salsa Louisiana: ${obtenerEtiquetaNivelPicante(item.nivelPicante).toUpperCase()}`,
       );
     }
-    if (item.observaciones) lines.push(`  Obs: ${item.observaciones}`);
+    if (item.observaciones?.trim()) lines.push(...ticketTextLines(`Obs: ${item.observaciones}`, '  [ ] '));
   }
 
   // Compatibilidad con comandas históricas, anteriores al picante por item.
@@ -200,12 +219,12 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
   ) {
     lines.push(
       SECTION_SEPARATOR,
-      `Salsa Louisiana: ${obtenerEtiquetaNivelPicante(orden.nivelPicante).toUpperCase()}`,
+      `[ ] Salsa Louisiana: ${obtenerEtiquetaNivelPicante(orden.nivelPicante).toUpperCase()}`,
     );
   }
 
-  if (orden.observaciones) {
-    lines.push(SECTION_SEPARATOR, 'OBSERVACIONES:', orden.observaciones);
+  if (orden.observaciones?.trim()) {
+    lines.push(SECTION_SEPARATOR, ...ticketTextLines(`OBSERVACIONES:\n${orden.observaciones}`, '[ ] '));
   }
 
   lines.push(
@@ -218,7 +237,7 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
     }),
   );
 
-  lines.push(STRONG_SEPARATOR, '', '', '');
+  lines.push(SECTION_SEPARATOR, '', '', 'Responsable: ________________', '', STRONG_SEPARATOR, '', '', '');
   return lines.map(ascii);
 }
 
@@ -239,26 +258,38 @@ export class PrinterService {
   }
 
   async imprimirComanda(orden: OrdenComanda) {
+    return this.imprimirDocumento(orden);
+  }
+
+  async imprimirRetiro(payload: WithdrawalPrintPayload) {
+    return this.imprimirDocumento(payload);
+  }
+
+  private async imprimirDocumento(documento: OrdenComanda | WithdrawalPrintPayload) {
     try {
-      // Mantener el mismo formato que print-agent/src/printer.ts para trabajos ORDER.
-      try {
-        const logo = await this.printer.printImage(
-          process.env.PRINT_LOGO_PATH || DEFAULT_LOGO_PATH,
-        );
-        this.printer.setBuffer(Buffer.concat([
-          Buffer.from([0x1b, 0x61, 0x01]),
-          logo,
-          Buffer.from([0x0a, 0x1b, 0x61, 0x00]),
-        ]));
-      } catch (error) {
-        console.warn('No se pudo cargar el logo de impresion:', error);
-        this.printer.clear();
+      const lines = 'jobType' in documento ? documento.lines : buildOrderTicketLines(documento);
+      if (!('jobType' in documento)) {
+        // Mantener el mismo formato que print-agent/src/printer.ts para trabajos ORDER.
+        try {
+          const logo = await this.printer.printImage(
+            process.env.PRINT_LOGO_PATH || DEFAULT_LOGO_PATH,
+          );
+          this.printer.setBuffer(Buffer.concat([
+            Buffer.from([0x1b, 0x61, 0x01]),
+            logo,
+            Buffer.from([0x0a, 0x1b, 0x61, 0x00]),
+          ]));
+        } catch (error) {
+          console.warn('No se pudo cargar el logo de impresion:', error);
+          this.printer.clear();
+        }
+
       }
 
       this.printer.setTextSize(0, 0);
       this.printer.bold(false);
       this.printer.alignLeft();
-      for (const line of buildOrderTicketLines(orden)) {
+      for (const line of lines) {
         const emphasizedLabel = line.match(EMPHASIZED_LABEL_PATTERN);
         const selectedValue = line.match(SELECTED_VALUE_PATTERN);
 
@@ -279,12 +310,12 @@ export class PrinterService {
           this.printer.println(line);
         }
       }
-      if (shouldPrintPaymentQr(orden)) {
+      if (!('jobType' in documento) && shouldPrintPaymentQr(documento)) {
         this.printer.alignCenter();
         this.printer.bold(true);
         this.printer.println('ESCANEA PARA COBRAR');
         this.printer.bold(false);
-        this.printer.printQR(orden.cobroUrl!, {
+        this.printer.printQR(documento.cobroUrl!, {
           cellSize: 5,
           correction: 'M',
           model: 2,

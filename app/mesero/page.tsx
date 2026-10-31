@@ -7,6 +7,7 @@ import AppShell from "@/components/shell/AppShell";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
 import RetiroCaja from "@/components/mesero/RetiroCaja";
+import InicioCaja from "@/components/mesero/InicioCaja";
 import { montoACobrarEnCaja } from "@/types/cobro";
 import {
   MetodoPago,
@@ -60,8 +61,12 @@ function MeseroContenido() {
   // ?vista=ordenes, y el drawer y la barra inferior navegan al mismo sitio.
   const searchParams = useSearchParams();
   const vistaParam = searchParams.get("vista");
-  const vistaActiva: "crear" | "ordenes" | "retiro" =
-    vistaParam === "ordenes" || vistaParam === "retiro" ? vistaParam : "crear";
+  const vistaActiva: "crear" | "ordenes" | "caja" | "retiro" =
+    vistaParam === "ordenes" ||
+    vistaParam === "caja" ||
+    vistaParam === "retiro"
+      ? vistaParam
+      : "crear";
   const [ordenes, setOrdenes] = useState<Orden[]>([]);
   const [ordenEditar, setOrdenEditar] = useState<Orden | null>(null);
   const [loadingOrdenes, setLoadingOrdenes] = useState(false);
@@ -168,6 +173,7 @@ function MeseroContenido() {
   const titulos = {
     crear: "Crear orden",
     ordenes: "Mis órdenes",
+    caja: "Inicio de caja",
     retiro: "Retiro de caja",
   } as const;
 
@@ -190,6 +196,8 @@ function MeseroContenido() {
       }
     >
       {vistaActiva === "crear" && <CrearOrden />}
+
+      {vistaActiva === "caja" && <InicioCaja />}
 
       {vistaActiva === "retiro" && <RetiroCaja usuario={usuario} />}
 

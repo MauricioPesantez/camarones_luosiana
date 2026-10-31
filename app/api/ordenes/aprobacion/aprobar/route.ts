@@ -8,6 +8,11 @@ import {
 } from '@/lib/print-jobs';
 import { getAuthenticatedUser } from '@/lib/session';
 import { calcularMovimientosPago } from '@/types/cobro';
+import {
+  bloquearCajaAbierta,
+  CajaNoDisponibleError,
+  exigirCajaAbierta,
+} from '@/lib/caja';
 
 class ApprovalConflictError extends Error {}
 
@@ -69,9 +74,16 @@ export async function POST(request: NextRequest) {
       orden.transferenciaConfirmadaAlCrear &&
       !orden.cobrada;
 
+    if (pagarTransferencia) {
+      await exigirCajaAbierta();
+    }
+
     // Descontar el stock de los productos
     // Usamos una transacción para asegurar atomicidad
     const { ordenAprobada, printJobQueued } = await prisma.$transaction(async (tx) => {
+      if (pagarTransferencia) {
+        await bloquearCajaAbierta(tx);
+      }
       const transicion = await tx.orden.updateMany({
         where: {
           id: ordenId,
@@ -197,6 +209,9 @@ export async function POST(request: NextRequest) {
       mensaje: 'Orden aprobada exitosamente',
     });
   } catch (error) {
+    if (error instanceof CajaNoDisponibleError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     if (error instanceof ApprovalConflictError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }

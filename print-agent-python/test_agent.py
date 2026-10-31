@@ -122,6 +122,109 @@ class TicketTests(unittest.TestCase):
         self.assertIn("NO REPETIR ENVIO NI RECIPIENTES", text)
         self.assertNotIn("Recipientes:", text)
 
+    def test_checklist_products_sauces_notes_and_responsible(self):
+        value = payload()
+        value["order"].update({
+            "observations": "Incluir cubiertos",
+            "items": [
+                {"productName": "Combo Mixto Small", "quantity": 2, "spiceLevel": "natural", "observations": "Salsa aparte"},
+                {"productName": "Combo Simple", "quantity": 1, "spiceLevel": "picante_3"},
+                {"productName": "Chorizo", "quantity": 1},
+                {"productName": "Gaseosa Personal Coca", "quantity": 1, "complimentary": True},
+            ],
+        })
+        ticket = agent.build_esc_pos_ticket(value, logo_raster=b"")
+        text = ticket.decode("ascii")
+        for product in ("[ ] 2x Combo Mixto Small", "[ ] 1x Combo Simple", "[ ] 1x Chorizo", "[ ] 1x Gaseosa Personal Coca [CORTESIA]"):
+            self.assertIn(product, text)
+        for level in (b"NATURAL", b"PICANTE 3"):
+            self.assertIn(b"  [ ] Salsa Louisiana: " + agent.INVERT_ON + b" " + level + b" " + agent.INVERT_OFF, ticket)
+        self.assertIn("  [ ] Obs: Salsa aparte", text)
+        self.assertIn("[ ] OBSERVACIONES:\n    Incluir cubiertos", text)
+        self.assertEqual(text.count("[ ]"), 8)
+        self.assertEqual(text.count("Responsable:"), 1)
+
+    def test_legacy_and_missing_spice(self):
+        value = payload()
+        value["order"]["spiceLevel"] = "leve"
+        value["order"]["items"] = [{"productName": "Combo", "quantity": 1}]
+        self.assertIn("[ ] Salsa Louisiana: LEVE", agent.lines_for_payload(value))
+        del value["order"]["spiceLevel"]
+        value["order"]["items"][0].update({"spiceLevel": "desconocido", "observations": " "})
+        value["order"]["observations"] = " "
+        text = self.ticket_text(value)
+        self.assertNotIn("Salsa Louisiana:", text)
+        self.assertNotIn("OBSERVACIONES:", text)
+        self.assertNotIn("Obs:", text)
+
+    def test_long_text_wraps_without_losing_content_or_repeating_boxes(self):
+        value = payload()
+        name = "Combo mixto con camarón jumbo y langostinos " + "X" * 70
+        note = "Salsa aparte\r\n" + "Y" * 70
+        value["order"]["items"] = [{"productName": name, "quantity": 2, "complimentary": True, "observations": note}]
+        lines = agent.lines_for_payload(value)
+        self.assertTrue(all(len(line) <= 42 for line in lines))
+        self.assertEqual("\n".join(lines).count("[ ]"), 2)
+        start = next(i for i, line in enumerate(lines) if line.startswith("[ ] 2x"))
+        note_start = next(i for i, line in enumerate(lines) if line.startswith("  [ ] Obs:"))
+        self.assertEqual(
+            "".join("".join(lines[start:note_start]).split()),
+            "".join(("[ ] 2x " + agent.ascii_text(name) + " [CORTESIA]").split()),
+        )
+        self.assertIn("Y" * 70, "".join("".join(lines[note_start:]).split()))
+
+    def test_additions_removals_and_reductions_only_check_changes(self):
+        for action, previous, quantity in (("ADD", 0, 1), ("REMOVE", 1, 0), ("UPDATE", 3, 2), ("UPDATE", 2, 3)):
+            with self.subTest(action=action, quantity=quantity):
+                value = payload()
+                delta = quantity - previous
+                value.update({
+                    "jobType": "AMENDMENT", "ticketLabel": "MODIFICACION", "revision": 2,
+                    "changes": [{"action": action, "previousQuantity": previous, "quantity": quantity,
+                                 "quantityDelta": delta, "amountDelta": delta * 6.5,
+                                 "productName": "Combo Simple", "spiceLevel": "picante_2", "observations": "Salsa aparte"}],
+                })
+                value["order"]["items"][0]["spiceLevel"] = None
+                value["order"]["spiceLevel"] = "leve"
+                value["order"]["observations"] = "Incluir cubiertos"
+                text = self.ticket_text(value)
+                self.assertNotIn("Arroz chaufa", text)
+                self.assertNotIn(" LEVE ", text)
+                self.assertIn("OBSERVACIONES (REFERENCIA):", text)
+                self.assertNotIn("ESCANEA PARA COBRAR", text)
+                if delta < 0:
+                    self.assertIn("[ ] RETIRAR / NO PREPARAR:\n    - 1x Combo Simple", text)
+                    self.assertNotIn("[ ] Salsa Louisiana:", text)
+                    self.assertNotIn("[ ] Obs:", text)
+                    self.assertEqual(text.count("[ ]"), 1)
+                else:
+                    self.assertIn("[ ] + 1x Combo Simple", text)
+                    self.assertIn("  [ ] Salsa Louisiana:", text)
+                    self.assertIn("  [ ] Obs: Salsa aparte", text)
+
+    def test_reprint_has_blank_boxes_and_copy_warning(self):
+        value = payload()
+        value.update({"jobType": "REPRINT", "ticketLabel": "REIMPRESION", "revision": 3,
+                      "reason": "Papel extraviado", "requestedBy": "Daniel"})
+        text = self.ticket_text(value)
+        for expected in ("REIMPRESION", "COPIA - NO PREPARAR DE NUEVO", "Motivo: Papel extraviado", "Solicita: Daniel"):
+            self.assertIn(expected, text)
+        self.assertEqual(text.count("[ ]"), 2)
+        self.assertEqual(text.count("Responsable:"), 1)
+
+    def test_withdrawal_receipt_has_no_order_or_payment_qr(self):
+        value = {"payloadVersion": 1, "jobType": "CASH_WITHDRAWAL", "withdrawalId": "retiro-123",
+                 "lines": ["RETIRO DE CAJA", "Retiro: retiro-123", "MONTO RETIRADO: $12.50", ""]}
+        text = self.ticket_text(value)
+        self.assertIn("\n".join(value["lines"]), text)
+        self.assertNotIn("ORDEN #", text)
+        self.assertNotIn("ESCANEA PARA COBRAR", text)
+        for lines in (["X" * 43], ["Texto\x1b@"], []):
+            with self.subTest(lines=lines):
+                value["lines"] = lines
+                with self.assertRaises(agent.PrinterError):
+                    agent.build_esc_pos_ticket(value, logo_raster=b"")
+
     def test_raster_encoding(self):
         rgba = bytearray([0, 0, 0, 255, 255, 255, 255, 255])
         raster = agent.encode_esc_pos_raster(2, 1, rgba)

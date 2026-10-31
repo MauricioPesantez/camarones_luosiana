@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { encodeEscPosRaster } from './logo.js';
 import { buildEscPosTicket } from './printer.js';
-import type { PrintJobPayload } from './types.js';
+import type { PrintJobPayload, WithdrawalPrintPayload } from './types.js';
 
 function createPayload(
   type: PrintJobPayload['order']['type'],
@@ -265,6 +265,103 @@ function run(): void {
   const legacyAmendmentText = buildEscPosTicket(legacyAmendment).toString('ascii');
   assert.match(legacyAmendmentText, /AJUSTE NO DISPONIBLE - REVISAR/);
   assert.doesNotMatch(legacyAmendmentText, /Envio:/);
+
+  const checklist = createPayload('local', null, {
+    observations: 'Incluir cubiertos',
+    items: [
+      { productName: 'Combo Mixto Small', quantity: 2, spiceLevel: 'natural', observations: 'Salsa aparte', complimentary: false },
+      { productName: 'Combo Simple', quantity: 1, spiceLevel: 'picante_3', observations: null, complimentary: false },
+      { productName: 'Chorizo', quantity: 1, observations: null, complimentary: false },
+      { productName: 'Gaseosa Personal Coca', quantity: 1, observations: null, complimentary: true },
+    ],
+  });
+  const checklistTicket = buildEscPosTicket(checklist);
+  const checklistText = checklistTicket.toString('ascii');
+  for (const product of ['[ ] 2x Combo Mixto Small', '[ ] 1x Combo Simple', '[ ] 1x Chorizo', '[ ] 1x Gaseosa Personal Coca [CORTESIA]']) {
+    assert.ok(checklistText.includes(product));
+  }
+  for (const level of ['NATURAL', 'PICANTE 3']) {
+    assert.ok(checklistTicket.includes(Buffer.concat([
+      Buffer.from('  [ ] Salsa Louisiana: ', 'ascii'), invertedSelectedValue(level),
+    ])));
+  }
+  assert.match(checklistText, /  \[ \] Obs: Salsa aparte/);
+  assert.match(checklistText, /\[ \] OBSERVACIONES:\n    Incluir cubiertos/);
+  assert.equal((checklistText.match(/Responsable:/g) ?? []).length, 1);
+
+  const legacySpice = createPayload('local', null, {
+    spiceLevel: 'leve',
+    items: [{ productName: 'Combo', quantity: 1, observations: null, complimentary: false }],
+  });
+  assert.ok(buildEscPosTicket(legacySpice).includes(Buffer.concat([
+    Buffer.from('[ ] Salsa Louisiana: ', 'ascii'), invertedSelectedValue('LEVE'),
+  ])));
+  const noSpice = createPayload('local', null, { observations: '  ', items: [
+    { productName: 'Chorizo', quantity: 1, observations: ' ', complimentary: false },
+  ] });
+  Object.assign(noSpice.order.items[0], { spiceLevel: 'desconocido' });
+  const noSpiceText = buildEscPosTicket(noSpice).toString('ascii');
+  assert.doesNotMatch(noSpiceText, /Salsa Louisiana:|OBSERVACIONES:|Obs:/);
+
+  // Los nombres e indicaciones largos no pierden texto ni repiten casillas.
+  const longName = 'Combo mixto con camarón jumbo y langostinos ' + 'X'.repeat(70);
+  const longPayload = createPayload('local', null, { items: [
+    { productName: longName, quantity: 2, observations: 'Salsa aparte\n' + 'Y'.repeat(70), complimentary: true },
+  ] });
+  const longText = buildEscPosTicket(longPayload).toString('ascii');
+  const body = longText.slice(longText.indexOf('='.repeat(42)), longText.lastIndexOf('='.repeat(42)) + 42)
+    .replace(/\x1dB[\x00\x01]/g, '');
+  assert.ok(body.split('\n').every((line) => line.length <= 42));
+  assert.equal((body.match(/\[ \]/g) ?? []).length, 2);
+  const productBlock = body.slice(body.indexOf('[ ] 2x'), body.indexOf('  [ ] Obs:'));
+  assert.equal(productBlock.replace(/\s/g, ''), ('[ ] 2x ' + longName.replace('ó', 'o') + ' [CORTESIA]').replace(/\s/g, ''));
+  assert.ok(body.replace(/\s/g, '').includes('Y'.repeat(70)));
+
+  for (const delta of [1, -1]) {
+    const changePayload = createAmendmentPayload('para_llevar', delta * 6.5);
+    changePayload.order = legacySpice.order;
+    changePayload.order.observations = 'Incluir cubiertos';
+    Object.assign(changePayload.changes![0], { spiceLevel: 'picante_2', observations: 'Salsa aparte' });
+    const changeText = buildEscPosTicket(changePayload).toString('ascii');
+    assert.doesNotMatch(changeText, /\[ \] 1x Combo\n/);
+    assert.doesNotMatch(changeText, / LEVE /);
+    assert.ok(changeText.includes('OBSERVACIONES (REFERENCIA):'));
+    if (delta > 0) {
+      assert.match(changeText, /\[ \] \+ 1x Combo Simple/);
+      assert.match(changeText, /  \[ \] Salsa Louisiana:/);
+      assert.match(changeText, /  \[ \] Obs: Salsa aparte/);
+    } else {
+      assert.match(changeText, /\[ \] RETIRAR \/ NO PREPARAR:\n    - 1x Combo Simple/);
+      assert.doesNotMatch(changeText, /\[ \] Salsa Louisiana:|\[ \] Obs:/);
+      assert.equal((changeText.match(/\[ \]/g) ?? []).length, 1);
+    }
+  }
+  // Una reducción UPDATE también es retiro, aunque el producto siga en la orden.
+  const reduction = createAmendmentPayload('local', -6.5);
+  Object.assign(reduction.changes![0], { action: 'UPDATE', previousQuantity: 3, quantity: 2 });
+  assert.match(buildEscPosTicket(reduction).toString('ascii'), /RETIRAR \/ NO PREPARAR:/);
+
+  const reprint: PrintJobPayload = { ...checklist, jobType: 'REPRINT', ticketLabel: 'REIMPRESION', reason: 'Papel extraviado', requestedBy: 'Daniel', revision: 3 };
+  const reprintText = buildEscPosTicket(reprint).toString('ascii');
+  assert.match(reprintText, /REIMPRESION/);
+  assert.match(reprintText, /COPIA - NO PREPARAR DE NUEVO/);
+  assert.match(reprintText, /Motivo: Papel extraviado/);
+  assert.match(reprintText, /Solicita: Daniel/);
+  assert.equal((reprintText.match(/\[ \]/g) ?? []).length, 8);
+  assert.equal((reprintText.match(/Responsable:/g) ?? []).length, 1);
+
+  const withdrawal: WithdrawalPrintPayload = {
+    payloadVersion: 1, jobType: 'CASH_WITHDRAWAL', withdrawalId: 'retiro-123',
+    lines: ['RETIRO DE CAJA', 'Retiro: retiro-123', 'MONTO RETIRADO: $12.50', ''],
+  };
+  const withdrawalBytes = buildEscPosTicket(withdrawal);
+  assert.equal(withdrawalBytes.includes(rasterCommand), false, 'El comprobante minimalista no incluye logo');
+  const withdrawalText = withdrawalBytes.toString('ascii');
+  assert.ok(withdrawalText.includes(withdrawal.lines.join('\n')));
+  assert.doesNotMatch(withdrawalText, /ORDEN #|ESCANEA PARA COBRAR|Responsable:/);
+  for (const lines of [['X'.repeat(43)], ['Texto\x1b@'], []]) {
+    assert.throws(() => buildEscPosTicket({ ...withdrawal, lines }), /Comprobante de retiro no valido/);
+  }
 
   const oneBlackPixel = encodeEscPosRaster(
     8,

@@ -20,7 +20,7 @@ from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
 
-VERSION = "1.0.0-python"
+VERSION = "1.1.0-python"
 ESC = 0x1B
 GS = 0x1D
 LINE_WIDTH = 42
@@ -193,7 +193,7 @@ class ApiClient(object):
 
     def claim(self):
         result = self.request(
-            "/api/print-agent/claim", {"workerId": self.config.worker_id}
+            "/api/print-agent/claim", {"workerId": self.config.worker_id, "supportedJobTypes": ["ORDER", "AMENDMENT", "REPRINT", "CASH_WITHDRAWAL"]}
         )
         return result.get("job")
 
@@ -247,6 +247,23 @@ def ascii_text(value):
 def centered(value):
     clean = ascii_text(value)[:LINE_WIDTH]
     return " " * max(0, (LINE_WIDTH - len(clean)) // 2) + clean
+
+
+def ticket_text_lines(value, prefix=""):
+    """Ajusta texto a 42 columnas; solo la primera linea lleva la casilla."""
+    lines = []
+    current_prefix = prefix
+    text = ascii_text(str(value).replace("\r\n", "\n").replace("\r", "\n").replace("\t", " "))
+    for paragraph in text.split("\n"):
+        remaining = paragraph.strip()
+        while remaining:
+            width = LINE_WIDTH - len(current_prefix)
+            space = remaining.rfind(" ", 0, width + 1) if len(remaining) > width else len(remaining)
+            end = space if space > 0 else width
+            lines.append(current_prefix + remaining[:end])
+            remaining = remaining[end:].lstrip()
+            current_prefix = " " * len(prefix)
+    return lines
 
 
 def amount_line(label, amount):
@@ -350,6 +367,14 @@ def amendment_amount_delta(change):
 
 
 def lines_for_payload(payload):
+    if payload.get("jobType") == "CASH_WITHDRAWAL":
+        lines = payload.get("lines")
+        if (payload.get("payloadVersion") != 1 or not payload.get("withdrawalId")
+                or not isinstance(lines, list) or not lines
+                or any(not isinstance(line, str) or len(line) > LINE_WIDTH
+                       or re.search(r"[^\x20-\x7E]", line) for line in lines)):
+            raise PrinterError("Comprobante de retiro no valido", "INVALID_PAYLOAD")
+        return lines
     order = payload.get("order") or {}
     if payload.get("payloadVersion") != 1 or not order.get("id"):
         raise PrinterError("Payload de impresion no soportado", "INVALID_PAYLOAD")
@@ -387,6 +412,8 @@ def lines_for_payload(payload):
     lines.append(
         "{}: {}".format("Hora mod." if job_type == "AMENDMENT" else "Hora", local_datetime(date_value))
     )
+    if job_type == "REPRINT":
+        lines.append("COPIA - NO PREPARAR DE NUEVO")
     lines.append("-" * LINE_WIDTH)
 
     if job_type == "AMENDMENT":
@@ -398,17 +425,16 @@ def lines_for_payload(payload):
             amount_delta = amendment_amount_delta(change)
             prefix = "+" if quantity_delta > 0 else "-"
             courtesy = " [CORTESIA]" if change.get("complimentary") else ""
-            lines.append(
-                "{} {}x {}{}".format(
-                    prefix,
-                    abs(quantity_delta),
-                    change.get("productName") or "Producto",
-                    courtesy,
-                )
+            removal = quantity_delta < 0
+            product_text = "{} {}x {}{}".format(
+                prefix, abs(quantity_delta), change.get("productName") or "Producto", courtesy
             )
+            lines.extend(ticket_text_lines(
+                "RETIRAR / NO PREPARAR:\n" + product_text if removal else product_text, "[ ] "
+            ))
             change_spice = spice_level_label(change.get("spiceLevel"))
             if change_spice:
-                lines.append("  Salsa Louisiana: " + change_spice)
+                lines.append(("  " if removal else "  [ ] ") + "Salsa Louisiana: " + change_spice)
             if amount_delta is not None:
                 has_amount_delta = True
                 total_delta += amount_delta
@@ -417,8 +443,10 @@ def lines_for_payload(payload):
             if surcharge_delta:
                 total_surcharge_delta += surcharge_delta
                 lines.append(amount_line("  Envases:", surcharge_delta))
-            if change.get("observations"):
-                lines.append("  Obs: " + str(change.get("observations")))
+            if (change.get("observations") or "").strip():
+                lines.extend(ticket_text_lines(
+                    "Obs: " + str(change["observations"]), "  " if removal else "  [ ] "
+                ))
         lines.append("-" * LINE_WIDTH)
         if has_amount_delta:
             lines.append(amount_line("AJUSTE PRODUCTOS:", total_delta))
@@ -437,35 +465,39 @@ def lines_for_payload(payload):
     else:
         for item in order.get("items") or []:
             courtesy = " [CORTESIA]" if item.get("complimentary") else ""
-            lines.append(
+            lines.extend(ticket_text_lines(
                 "{}x {}{}".format(
                     item.get("quantity") or 0,
                     item.get("productName") or "Producto",
                     courtesy,
-                )
-            )
+                ), "[ ] "
+            ))
             item_spice = spice_level_label(item.get("spiceLevel"))
             if item_spice:
-                lines.append("  Salsa Louisiana: " + item_spice)
-            if item.get("observations"):
-                lines.append("  Obs: " + str(item.get("observations")))
+                lines.append("  [ ] Salsa Louisiana: " + item_spice)
+            if (item.get("observations") or "").strip():
+                lines.extend(ticket_text_lines("Obs: " + str(item["observations"]), "  [ ] "))
 
     has_item_spice = any(
         spice_level_label(item.get("spiceLevel"))
         for item in (order.get("items") or [])
     )
     legacy_spice = spice_level_label(order.get("spiceLevel"))
-    if not has_item_spice and legacy_spice:
-        lines.extend(["-" * LINE_WIDTH, "Salsa Louisiana: " + legacy_spice])
-    if order.get("observations"):
-        lines.extend(["-" * LINE_WIDTH, "OBSERVACIONES:", str(order.get("observations"))])
+    if job_type != "AMENDMENT" and not has_item_spice and legacy_spice:
+        lines.extend(["-" * LINE_WIDTH, "[ ] Salsa Louisiana: " + legacy_spice])
+    if (order.get("observations") or "").strip():
+        label = "OBSERVACIONES (REFERENCIA):" if job_type == "AMENDMENT" else "OBSERVACIONES:"
+        lines.append("-" * LINE_WIDTH)
+        lines.extend(ticket_text_lines(
+            label + "\n" + str(order["observations"]), "" if job_type == "AMENDMENT" else "[ ] "
+        ))
     if payload.get("reason"):
         lines.extend(["-" * LINE_WIDTH, "Motivo: " + str(payload.get("reason"))])
     if payload.get("requestedBy"):
         lines.append("Solicita: " + str(payload.get("requestedBy")))
     if job_type != "AMENDMENT":
         lines.extend(amount_lines_for_order(order))
-    lines.extend(["=" * LINE_WIDTH, "", "", ""])
+    lines.extend(["-" * LINE_WIDTH, "", "", "Responsable: ________________", "", "=" * LINE_WIDTH, "", "", ""])
     return [ascii_text(line) for line in lines]
 
 
@@ -473,7 +505,7 @@ def encode_ticket_lines(lines):
     chunks = []
     for line in lines:
         emphasized = re.match(r"^(Tipo|Mesa):", line)
-        selected = re.match(r"^(\s*Salsa Louisiana:) (.+)$", line)
+        selected = re.match(r"^(\s*(?:\[ \] )?Salsa Louisiana:) (.+)$", line)
         if emphasized:
             label = emphasized.group(0)
             chunks.extend(
@@ -593,6 +625,8 @@ def build_esc_pos_ticket(payload, logo_path=DEFAULT_LOGO_PATH, logo_raster=None)
     global _logo_warning_shown
     text = encode_ticket_lines(lines_for_payload(payload))
     logo = logo_raster
+    if payload.get("jobType") == "CASH_WITHDRAWAL":
+        logo = b""
     if logo is None:
         try:
             logo = load_logo_raster(logo_path)
@@ -607,7 +641,7 @@ def build_esc_pos_ticket(payload, logo_path=DEFAULT_LOGO_PATH, logo_raster=None)
         chunks.extend([ALIGN_CENTER, logo, b"\n"])
     chunks.extend([ALIGN_LEFT, text])
     payment_url = (payload.get("order") or {}).get("paymentUrl")
-    if payload.get("jobType") != "AMENDMENT" and payment_url:
+    if payload.get("jobType") not in ("AMENDMENT", "CASH_WITHDRAWAL") and payment_url:
         chunks.append(encode_esc_pos_qr(payment_url))
     chunks.append(bytes(bytearray([ESC, 0x64, 0x05])))
     chunks.append(bytes(bytearray([GS, 0x56, 0x42, 0x10])))
@@ -756,6 +790,7 @@ class Worker(object):
                     "job_claimed",
                     jobId=job.get("id"),
                     orderId=job.get("ordenId"),
+                    withdrawalId=job.get("retiroId"),
                     type=job.get("type"),
                     attempt=job.get("attempts"),
                 )

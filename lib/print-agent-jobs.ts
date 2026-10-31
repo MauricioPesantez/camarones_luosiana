@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import { Prisma, type PrismaClient } from '@prisma/client';
 
 import { PRINT_JOB_STATUSES } from './print-jobs';
 
@@ -30,13 +30,24 @@ export function sanitizePrintErrorMessage(value: unknown): string {
   return normalized.slice(0, 500) || 'Error de impresion no especificado';
 }
 
+export function normalizeSupportedJobTypes(value: unknown): string[] {
+  if (value === undefined) return ['ORDER', 'AMENDMENT', 'REPRINT'];
+  const allowed = ['ORDER', 'AMENDMENT', 'REPRINT', 'CASH_WITHDRAWAL'];
+  if (!Array.isArray(value) || value.length === 0 || value.some((type) => !allowed.includes(type))) {
+    throw new Error('supportedJobTypes no valido');
+  }
+  return [...new Set(value)] as string[];
+}
+
 export async function claimNextPrintJob(
   prisma: PrismaClient,
   workerId: string,
   now = new Date(),
   leaseSeconds = 30,
+  supportedJobTypes = normalizeSupportedJobTypes(undefined),
 ) {
   const leaseExpiresAt = new Date(now.getTime() + leaseSeconds * 1_000);
+  const supported = normalizeSupportedJobTypes(supportedJobTypes);
 
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`
@@ -74,6 +85,7 @@ export async function claimNextPrintJob(
       SELECT id
       FROM "PrintJob"
       WHERE status IN ('PENDING'::"PrintJobStatus", 'RETRY'::"PrintJobStatus")
+        AND type::text IN (${Prisma.join(supported)})
         AND "availableAt" <= ${now}
         AND "autoPrintUntil" >= ${now}
         AND attempts < "maxAttempts"
@@ -126,7 +138,7 @@ export async function completePrintJob(
 
     if (updated.count === 1) {
       const job = await tx.printJob.findUnique({ where: { id: jobId } });
-      if (job?.type === 'ORDER') {
+      if (job?.type === 'ORDER' && job.ordenId) {
         await tx.orden.update({
           where: { id: job.ordenId },
           data: { impresa: true },

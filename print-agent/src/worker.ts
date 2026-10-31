@@ -104,6 +104,7 @@ export class PrintWorker {
         log('info', 'job_claimed', {
           jobId: job.id,
           orderId: job.ordenId,
+          withdrawalId: job.retiroId,
           type: job.type,
           attempt: job.attempts,
         });

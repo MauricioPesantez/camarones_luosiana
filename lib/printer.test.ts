@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 
 import {
   buildOrderTicketLines,
+  PrinterService,
   type OrdenComanda,
 } from './printer';
+import { buildWithdrawalPrintPayload } from './withdrawal-print';
 import { NIVELES_PICANTE, calcularRecargoEnvases } from '../types/orden';
 
 const createdAt = new Date('2026-07-31T18:42:18.000Z');
@@ -53,7 +55,7 @@ function amountLine(label: string, amount: string): string {
   return `${label}${' '.repeat(42 - label.length - amount.length)}${amount}`;
 }
 
-function run(): void {
+async function run(): Promise<void> {
   const itemsParaRecargo = [
     { cantidad: 2, categoria: 'Combos' },
     { cantidad: 3, categoria: 'Bebidas' },
@@ -73,23 +75,23 @@ function run(): void {
   assert.equal(local[1].trim(), 'ORDEN #123');
   assert.equal(local[2], '='.repeat(42));
   assert.equal(local.some((line) => line.startsWith('Tipo:')), false);
-  assert.equal(includesLine(local, '  Salsa Louisiana: LEVE'), true);
+  assert.equal(includesLine(local, '  [ ] Salsa Louisiana: LEVE'), true);
   assert.equal(includesLine(local, 'Mesa: 8'), true);
   assert.equal(local.some((line) => line.startsWith('Mesero:')), false);
   assert.equal(local.some((line) => line.startsWith('Cliente:')), false);
   assert.equal(local.some((line) => line.startsWith('Telefono:')), false);
-  assert.equal(includesLine(local, '2x Arroz chaufa especial'), true);
-  assert.equal(includesLine(local, '  Obs: Sin cebolla'), true);
-  assert.equal(includesLine(local, '1x Wantan frito [CORTESIA]'), true);
-  assert.equal(includesLine(local, 'OBSERVACIONES:'), true);
+  assert.equal(includesLine(local, '[ ] 2x Arroz chaufa especial'), true);
+  assert.equal(includesLine(local, '  [ ] Obs: Sin cebolla'), true);
+  assert.equal(includesLine(local, '[ ] 1x Wantan frito [CORTESIA]'), true);
+  assert.equal(includesLine(local, '[ ] OBSERVACIONES:'), true);
   // El picante se imprime inmediatamente junto al combo correspondiente.
   assert.ok(
-    local.indexOf('2x Arroz chaufa especial') <
-      local.indexOf('  Salsa Louisiana: LEVE'),
+    local.indexOf('[ ] 2x Arroz chaufa especial') <
+      local.indexOf('  [ ] Salsa Louisiana: LEVE'),
   );
   assert.ok(
-    local.indexOf('  Salsa Louisiana: LEVE') <
-      local.indexOf('  Obs: Sin cebolla'),
+    local.indexOf('  [ ] Salsa Louisiana: LEVE') <
+      local.indexOf('  [ ] Obs: Sin cebolla'),
   );
   assert.equal(includesLine(local, amountLine('TOTAL:', '$31.75')), true);
   assert.equal(local.some((line) => line.startsWith('Pago:')), false);
@@ -235,7 +237,69 @@ function run(): void {
     if (line.includes('$')) assert.equal(line.length, 42);
   }
 
+  assert.equal(local.filter((line) => line.startsWith('[ ] ')).length, 3);
+  assert.equal(local.filter((line) => line.startsWith('Responsable:')).length, 1);
+  assert.equal(local.includes('    Servir entradas primero'), true);
+
+  const legacy = buildOrderTicketLines(createOrder({
+    nivelPicante: 'picante_2',
+    observaciones: null,
+    items: [{ cantidad: 1, producto: { nombre: 'Combo' } }],
+  }));
+  assert.ok(legacy.includes('[ ] Salsa Louisiana: PICANTE 2'));
+  const noSpice = buildOrderTicketLines(createOrder({
+    nivelPicante: null,
+    observaciones: '  ',
+    items: [{ cantidad: 1, nivelPicante: 'desconocido', producto: { nombre: 'Chorizo' } }],
+  }));
+  assert.equal(noSpice.some((line) => line.includes('Salsa Louisiana:')), false);
+  assert.equal(noSpice.some((line) => line.includes('OBSERVACIONES:')), false);
+
+  const longName = 'Combo mixto con camarón jumbo y langostinos ' + 'X'.repeat(70);
+  const longNote = 'Salsa aparte y sin cebolla.\n' + 'Y'.repeat(70);
+  const wrapped = buildOrderTicketLines(createOrder({
+    observaciones: null,
+    items: [{ cantidad: 2, esCortesia: true, observaciones: longNote, producto: { nombre: longName } }],
+  }));
+  assert.ok(wrapped.every((line) => line.length <= 42));
+  assert.equal(wrapped.filter((line) => line.includes('[ ]')).length, 2);
+  const itemStart = wrapped.findIndex((line) => line.startsWith('[ ] 2x'));
+  const noteStart = wrapped.findIndex((line) => line.startsWith('  [ ] Obs:'));
+  assert.equal(
+    wrapped.slice(itemStart, noteStart).join('').replace(/\s/g, ''),
+    ('[ ] 2x ' + longName.replace('ó', 'o') + ' [CORTESIA]').replace(/\s/g, ''),
+  );
+  assert.ok(wrapped.slice(noteStart).join('').replace(/\s/g, '').includes('Y'.repeat(70)));
+
+  // Se ejercita el codificador directo sin conectar a ninguna impresora.
+  let encoded = '';
+  const fakePrinter = {
+    printImage: async () => Buffer.alloc(0),
+    setBuffer: () => {}, setTextSize: () => {}, bold: () => {}, alignLeft: () => {},
+    invert: (enabled: boolean) => { encoded += enabled ? '<invert>' : '</invert>'; },
+    print: (value: string) => { encoded += value; },
+    println: (value: string) => { encoded += value + '\n'; },
+    cut: () => {}, execute: async () => true,
+  };
+  const service: PrinterService = Object.assign(Object.create(PrinterService.prototype), { printer: fakePrinter });
+  assert.equal((await service.imprimirComanda(createOrder())).success, true);
+  assert.ok(encoded.includes('  [ ] Salsa Louisiana: <invert> LEVE </invert>\n'));
+  assert.equal(encoded.includes('<invert>[ ]'), false);
+
+  encoded = '';
+  const withdrawal = buildWithdrawalPrintPayload({ id: 'retiro-123', monto: 20, categoria: 'adelanto',
+    motivo: 'Adelanto semanal', usuarioNombre: 'Maria', beneficiarioNombre: 'Daniel', estado: 'registrado', createdAt });
+  assert.equal((await service.imprimirRetiro(withdrawal)).success, true);
+  assert.ok(encoded.includes('ADELANTO A EMPLEADO'));
+  assert.ok(encoded.includes('Firma de quien recibe:'));
+  assert.ok(encoded.includes('Firma de quien entrega:'));
+  assert.equal(encoded.includes('ORDEN #'), false);
+  assert.equal(encoded.includes('ESCANEA PARA COBRAR'), false);
+
   console.log('printer format tests: ok');
 }
 
-run();
+run().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

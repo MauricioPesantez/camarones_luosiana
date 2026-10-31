@@ -7,6 +7,7 @@ import {
 } from './print-agent-auth';
 import {
   getRetryDelaySeconds,
+  normalizeSupportedJobTypes,
   sanitizePrintErrorCode,
   sanitizePrintErrorMessage,
 } from './print-agent-jobs';
@@ -19,6 +20,10 @@ function requestWithToken(token?: string): Request {
 }
 
 function run(): void {
+  assert.deepEqual(normalizeSupportedJobTypes(undefined), ['ORDER', 'AMENDMENT', 'REPRINT']);
+  assert.deepEqual(normalizeSupportedJobTypes(['ORDER', 'CASH_WITHDRAWAL']), ['ORDER', 'CASH_WITHDRAWAL']);
+  assert.throws(() => normalizeSupportedJobTypes([]), /supportedJobTypes/);
+  assert.throws(() => normalizeSupportedJobTypes(['INVALID']), /supportedJobTypes/);
   const secret = 'a'.repeat(64);
   assert.deepEqual(authenticatePrintAgent(requestWithToken(secret), secret), {
     ok: true,

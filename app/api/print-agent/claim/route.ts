@@ -5,7 +5,7 @@ import {
   getPrintLeaseSeconds,
   normalizeWorkerId,
 } from '@/lib/print-agent-auth';
-import { claimNextPrintJob } from '@/lib/print-agent-jobs';
+import { claimNextPrintJob, normalizeSupportedJobTypes } from '@/lib/print-agent-jobs';
 import { prisma } from '@/lib/db';
 
 export const runtime = 'nodejs';
@@ -18,13 +18,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as { workerId?: unknown };
+    const body = (await request.json()) as { workerId?: unknown; supportedJobTypes?: unknown };
     const workerId = normalizeWorkerId(body.workerId);
     const job = await claimNextPrintJob(
       prisma,
       workerId,
       new Date(),
       getPrintLeaseSeconds(),
+      normalizeSupportedJobTypes(body.supportedJobTypes),
     );
 
     return NextResponse.json({ job });
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     if (error instanceof SyntaxError) {
       return NextResponse.json({ error: 'JSON invalido' }, { status: 400 });
     }
-    if (error instanceof Error && error.message.startsWith('workerId')) {
+    if (error instanceof Error && (error.message.startsWith('workerId') || error.message.startsWith('supportedJobTypes'))) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 

@@ -1,4 +1,4 @@
-export type PrintJobType = 'ORDER' | 'AMENDMENT' | 'REPRINT';
+export type PrintJobType = 'ORDER' | 'AMENDMENT' | 'REPRINT' | 'CASH_WITHDRAWAL';
 
 export interface PrintOrderSnapshot {
   id: string;
@@ -34,7 +34,7 @@ export interface PrintOrderSnapshot {
 
 export interface PrintJobPayload {
   payloadVersion: number;
-  jobType: PrintJobType;
+  jobType: Exclude<PrintJobType, 'CASH_WITHDRAWAL'>;
   revision: number;
   ticketLabel: 'ORDEN' | 'MODIFICACION' | 'REIMPRESION';
   generatedAt: string;
@@ -56,14 +56,24 @@ export interface PrintJobPayload {
   requestedBy?: string;
 }
 
+export interface WithdrawalPrintPayload {
+  payloadVersion: 1;
+  jobType: 'CASH_WITHDRAWAL';
+  withdrawalId: string;
+  lines: string[];
+}
+
+export type AnyPrintJobPayload = PrintJobPayload | WithdrawalPrintPayload;
+
 export interface ClaimedPrintJob {
   id: string;
-  ordenId: string;
+  ordenId: string | null;
+  retiroId: string | null;
   type: PrintJobType;
   attempts: number;
   maxAttempts: number;
   leaseExpiresAt: string;
-  payload: PrintJobPayload;
+  payload: AnyPrintJobPayload;
 }
 
 export interface AgentConfig {

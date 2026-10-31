@@ -1,0 +1,321 @@
+{
+  "revision": "de69983",
+  "routeFiles": 34,
+  "handlers": 42,
+  "routes": [
+    {
+      "path": "app/api/admin/cuadre/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/admin/ordenes/[id]/comprobante/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/admin/reportes/cortesias/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/admin/reportes/modificaciones/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/auth/login/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/auth/logout/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/auth/session/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/caja/route.ts",
+      "methods": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/cobros/[token]/comprobante/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/cobros/[token]/route.ts",
+      "methods": [
+        "PATCH"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/[id]/anular/route.ts",
+      "methods": [
+        "PATCH"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/[id]/cobrar/route.ts",
+      "methods": [
+        "PATCH"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/[id]/cortesia/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/[id]/historial/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/[id]/items/route.ts",
+      "methods": [
+        "PATCH"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/[id]/route.ts",
+      "methods": [
+        "PATCH",
+        "DELETE"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/aprobacion/aprobar/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/aprobacion/pendientes/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/aprobacion/rechazar/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/events/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/ordenes/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/print-agent/claim/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": true,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/print-agent/heartbeat/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": true,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/print-agent/jobs/[id]/complete/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": true,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/print-agent/jobs/[id]/fail/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": true,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/productos/[id]/route.ts",
+      "methods": [
+        "PATCH"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/productos/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/retiros/[id]/anular/route.ts",
+      "methods": [
+        "PATCH"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/retiros/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "sessionGuardInFile": true,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/stock/actualizar/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/stock/bajo/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/stock/validar/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/usuarios/[id]/route.ts",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    },
+    {
+      "path": "app/api/usuarios/route.ts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "sessionGuardInFile": false,
+      "agentGuardInFile": false,
+      "note": "Static inventory only: per-method role checks and public exceptions described in AUDITORIA.md."
+    }
+  ]
+}

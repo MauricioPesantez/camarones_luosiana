@@ -45,6 +45,7 @@ export const ROL_REGISTRA_RETIRO = 'mesero';
 
 /** Forma con la que las pantallas leen un retiro. */
 export interface RetiroCaja {
+  estadoImpresion?: string | null;
   id: string;
   monto: number;
   categoria: string;

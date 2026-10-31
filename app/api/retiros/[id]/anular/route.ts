@@ -70,6 +70,10 @@ export async function PATCH(
         throw new AnulacionConflictError('El retiro fue anulado al mismo tiempo.');
       }
 
+      await tx.printJob.updateMany({
+        where: { retiroId: id, status: { in: ['PENDING', 'RETRY', 'NEEDS_REVIEW', 'FAILED', 'PROCESSING'] } },
+        data: { status: 'DISCARDED', reviewedAt: new Date(), reviewedBy: admin.nombre, reviewReason: `Retiro anulado: ${razon}` },
+      });
       return tx.retiroCaja.findUniqueOrThrow({
         where: { id },
         select: RETIRO_SELECT,

@@ -23,6 +23,7 @@ import {
   obtenerEtiquetaCategoriaRetiro,
   type RetiroCaja,
 } from "@/types/retiro";
+import type { SesionCaja } from "@/types/caja";
 
 interface Orden {
   id: string;
@@ -118,6 +119,10 @@ export default function AdminPage() {
     useState<OrdenPendienteAprobacion | null>(null);
   const [razonAprobacion, setRazonAprobacion] = useState("");
   const [retiros, setRetiros] = useState<RetiroCaja[]>([]);
+  const [sesionCaja, setSesionCaja] = useState<SesionCaja | null>(null);
+  const [montoCierre, setMontoCierre] = useState("");
+  const [cerrandoCaja, setCerrandoCaja] = useState(false);
+  const [errorCierre, setErrorCierre] = useState("");
   const [retiroAAnular, setRetiroAAnular] = useState<RetiroCaja | null>(null);
   const [razonAnulacion, setRazonAnulacion] = useState("");
   const [loadingAnular, setLoadingAnular] = useState(false);
@@ -139,6 +144,7 @@ export default function AdminPage() {
       }
       setOrdenes(data.ordenes || []);
       setRetiros(data.retiros || []);
+      setSesionCaja(data.caja ?? null);
     } catch (error) {
       console.error("Error al cargar órdenes:", error);
     } finally {
@@ -358,6 +364,32 @@ export default function AdminPage() {
     }
   };
 
+  const cerrarCaja = async () => {
+    if (!sesionCaja || montoCierre === "") return;
+    setCerrandoCaja(true);
+    setErrorCierre("");
+    try {
+      const res = await fetch("/api/caja", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fecha: fechaFiltro, montoCierre: Number(montoCierre) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Error al cerrar la caja");
+      }
+      setSesionCaja(data.caja);
+      setMontoCierre("");
+      await cargarOrdenes();
+    } catch (error) {
+      setErrorCierre(
+        error instanceof Error ? error.message : "Error al cerrar la caja",
+      );
+    } finally {
+      setCerrandoCaja(false);
+    }
+  };
+
   const creadoresDisponibles = Array.from(
     new Map(
       ordenes
@@ -389,6 +421,10 @@ export default function AdminPage() {
   // un efectivo en caja sin significado: mejor dejarlos fuera y avisarlo.
   const filtrosDeOrdenActivos =
     tipoOrdenFiltro !== "todos" || estadoCobroFiltro !== "todos";
+  const filtrosDeCajaActivos =
+    filtrosDeOrdenActivos ||
+    rolCreadorFiltro !== "todos" ||
+    usuarioCreadorFiltro !== "todos";
 
   // La tabla siempre muestra los retiros de quien se este filtrando; lo que
   // cambia es si entran o no al calculo de la caja.
@@ -402,6 +438,7 @@ export default function AdminPage() {
   const resumenCuadre = calcularResumenCuadre(
     ordenesFiltradas,
     filtrosDeOrdenActivos ? [] : retirosVisibles,
+    filtrosDeCajaActivos ? 0 : (sesionCaja?.montoInicial ?? 0),
   );
 
   // Las anuladas siguen en la tabla (tachadas) pero no cuentan en ningun
@@ -696,6 +733,143 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* Apertura y cierre de caja */}
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">
+                Jornada de caja · {fechaFiltro}
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Apertura registrada por mesero; cierre y diferencia quedan
+                congelados para auditoría.
+              </p>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-sm font-bold ${
+                !sesionCaja
+                  ? "bg-amber-100 text-amber-800"
+                  : sesionCaja.estado === "abierta"
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-slate-200 text-slate-800"
+              }`}
+            >
+              {!sesionCaja
+                ? "Sin iniciar"
+                : sesionCaja.estado === "abierta"
+                  ? "Caja abierta"
+                  : "Caja cerrada"}
+            </span>
+          </div>
+
+          {!sesionCaja ? (
+            <div className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              No existe fondo inicial para esta fecha. Cobros y retiros quedan
+              bloqueados hasta que un mesero use <strong>Inicio de caja</strong>.
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+              <div className="rounded-lg bg-blue-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                  Fondo inicial
+                </p>
+                <p className="mt-1 text-3xl font-black text-blue-950">
+                  ${sesionCaja.montoInicial.toFixed(2)}
+                </p>
+                <p className="mt-2 text-xs text-blue-800">
+                  {sesionCaja.abiertaPorNombre} ·{" "}
+                  {new Date(sesionCaja.abiertaAt).toLocaleString("es-EC")}
+                </p>
+              </div>
+
+              {sesionCaja.estado === "cerrada" ? (
+                <>
+                  <div className="rounded-lg bg-slate-100 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                      Esperado / contado
+                    </p>
+                    <p className="mt-1 text-xl font-black text-slate-900">
+                      ${Number(sesionCaja.montoEsperadoCierre).toFixed(2)} / ${" "}
+                      {Number(sesionCaja.montoCierre).toFixed(2)}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-600">
+                      Cerrada por {sesionCaja.cerradaPorNombre ?? "administrador"}
+                    </p>
+                  </div>
+                  <div
+                    className={`rounded-lg p-4 ${
+                      Number(sesionCaja.diferenciaCierre) === 0
+                        ? "bg-emerald-50"
+                        : "bg-red-50"
+                    }`}
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Diferencia
+                    </p>
+                    <p
+                      className={`mt-1 text-3xl font-black ${
+                        Number(sesionCaja.diferenciaCierre) === 0
+                          ? "text-emerald-700"
+                          : "text-red-700"
+                      }`}
+                    >
+                      {Number(sesionCaja.diferenciaCierre) >= 0 ? "+" : ""}$
+                      {Number(sesionCaja.diferenciaCierre).toFixed(2)}
+                    </p>
+                    <p className="mt-2 text-xs text-gray-600">
+                      Contado − esperado al momento del cierre
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="lg:col-span-2 rounded-lg border border-slate-200 p-4">
+                  <label className="text-sm font-semibold text-gray-800">
+                    Efectivo contado al cierre
+                    <div className="mt-2 flex gap-3">
+                      <input
+                        type="number"
+                        min="0"
+                        max="9999.99"
+                        step="0.01"
+                        value={montoCierre}
+                        onChange={(e) => setMontoCierre(e.target.value)}
+                        className="min-w-0 flex-1 rounded-lg border px-4 py-3 text-lg font-bold text-black"
+                        placeholder="0.00"
+                      />
+                      <button
+                        type="button"
+                        onClick={cerrarCaja}
+                        disabled={
+                          cerrandoCaja ||
+                          montoCierre === "" ||
+                          filtrosDeCajaActivos
+                        }
+                        className="rounded-lg bg-slate-900 px-5 font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+                      >
+                        {cerrandoCaja ? "Cerrando..." : "Cerrar caja"}
+                      </button>
+                    </div>
+                  </label>
+                  <p className="mt-3 text-sm text-gray-600">
+                    Sistema espera <strong>${resumenCuadre.efectivoEnCaja.toFixed(2)}</strong>.
+                    Diferencia se calcula en servidor.
+                  </p>
+                  {filtrosDeCajaActivos && (
+                    <p className="mt-2 text-sm text-amber-700">
+                      Limpia filtros para ver total global antes de cerrar.
+                    </p>
+                  )}
+                  {errorCierre && (
+                    <p className="mt-2 rounded bg-red-50 p-2 text-sm text-red-700">
+                      {errorCierre}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Cuadro de caja */}
         <div className="mb-6 rounded-xl border border-slate-200 bg-slate-900 p-5 shadow-lg">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
@@ -748,11 +922,12 @@ export default function AdminPage() {
                 ${resumenCuadre.efectivoEnCaja.toFixed(2)}
               </p>
               <p className="mt-2 text-xs text-emerald-50">
-                Ventas + cobros a motorizados − entregas a motorizados − retiros
+                Fondo inicial + ventas + cobros a motorizados − entregas − retiros
               </p>
-              {filtrosDeOrdenActivos && (
+              {filtrosDeCajaActivos && (
                 <p className="mt-2 rounded bg-black/20 px-2 py-1 text-xs">
-                  ⚠️ Retiros excluidos por los filtros de orden aplicados
+                  ⚠️ Fondo inicial excluido por filtros; algunos filtros también
+                  excluyen retiros
                 </p>
               )}
             </div>
@@ -789,6 +964,12 @@ export default function AdminPage() {
               </p>
               <p className="mt-2 text-xs text-slate-400">
                 Órdenes con pago registrado, sin el envío
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-600 bg-slate-800 p-4">
+              <h3 className="text-xs text-slate-300">💵 Fondo inicial</h3>
+              <p className="mt-1 text-xl font-bold text-blue-300">
+                +${resumenCuadre.fondoInicial.toFixed(2)}
               </p>
             </div>
             <div className="rounded-lg border border-slate-600 bg-slate-800 p-4">

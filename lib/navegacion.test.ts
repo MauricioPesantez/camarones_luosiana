@@ -19,11 +19,11 @@ assert.deepEqual(
   ["logout"],
 );
 
-// Mesero: tres destinos en la barra inferior, en orden.
+// Mesero: cuatro destinos en la barra inferior, en orden.
 const mesero = resolverNav("mesero", ctxSinPermiso);
 assert.deepEqual(
   itemsBarraInferior(mesero).map((i) => i.id),
-  ["crear", "ordenes", "retiro"],
+  ["crear", "ordenes", "caja", "retiro"],
 );
 
 // Cocina tiene un solo destino, asi que la barra inferior no se rinde.

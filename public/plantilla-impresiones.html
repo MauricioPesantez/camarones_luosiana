@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Vista previa de comandas térmicas para pedidos locales, a domicilio y para retirar."
+      content="Propuesta de comandas con lista de verificación manual de productos, salsa e indicaciones."
     />
     <title>Vista previa de comandas · Restaurant POS</title>
     <style id="dynamic-print-page">
@@ -527,6 +527,52 @@
         print-color-adjust: exact;
       }
 
+      /* Casillas impresas para marcar con esfero; ASCII compatible con ESC/POS. */
+      .item__main,
+      .item__note,
+      .general-note--check {
+        position: relative;
+        padding-left: 29px;
+      }
+
+      .item__main::before,
+      .item__note::before,
+      .general-note--check::before,
+      .item__selection::before {
+        content: "[ ]";
+        color: #000;
+        font-size: 14px;
+        font-weight: 700;
+        white-space: pre;
+      }
+
+      .item__main::before,
+      .item__note::before,
+      .general-note--check::before {
+        position: absolute;
+        left: 0;
+        top: 0;
+      }
+
+      .item__selection {
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      .item__selection::before {
+        flex-shrink: 0;
+      }
+
+      .item {
+        break-inside: avoid;
+      }
+
+      .ticket__responsible {
+        margin: 9mm 0 5mm;
+        text-align: left;
+        white-space: nowrap;
+      }
+
       .general-note {
         margin: 8px 0;
       }
@@ -749,7 +795,7 @@
           </span>
           Restaurant POS · Impresiones
         </div>
-        <span class="status">Plantilla lista</span>
+        <span class="status">Formato · revisión manual</span>
       </div>
     </header>
 
@@ -757,11 +803,12 @@
       <section class="hero" aria-labelledby="page-title">
         <div>
           <p class="eyebrow">Comandas de cocina</p>
-          <h1 id="page-title">Orden inicial y modificaciones.</h1>
+          <h1 id="page-title">Cada pedido, verificado.</h1>
           <p class="intro">
-            Vista previa fiel al ticket térmico de 80 mm. La orden inicial conserva
-            su desglose según tipo y pago; cada modificación usa el número diario,
-            la fecha y la revisión, e imprime el ajuste de productos y envases cuando corresponde.
+            Formato para papel de 80 mm: marca con esfero cada producto,
+            su salsa y las indicaciones cuando estén listos. Revisa toda la cantidad
+            de cada renglón antes de marcar y escribe el nombre del responsable al final.
+            Los montos y las referencias de las modificaciones conservan su formato.
           </p>
         </div>
         <button class="print-all" type="button" onclick="printTickets('all')">
@@ -792,14 +839,14 @@
         <header class="preview-section__heading">
           <div>
             <h2 id="initial-orders-title">Impresión inicial</h2>
-            <p>Incluye todos los productos y los montos que corresponden al tipo de orden.</p>
+            <p>Una casilla por producto, salsa e indicación. Los extras y las bebidas se verifican en su propio renglón.</p>
           </div>
         </header>
 
         <div class="preview-grid" aria-label="Vistas previas de órdenes iniciales">
           <article class="preview-card" data-ticket="order-local">
             <header class="preview-card__header">
-              <div class="case-label"><span class="case-icon" aria-hidden="true">01</span><div><h2>Local</h2><p>Total completo de la mesa</p></div></div>
+              <div class="case-label"><span class="case-icon" aria-hidden="true">01</span><div><h2>Local</h2><p>Combo + extra + bebida</p></div></div>
               <button class="ticket-action" type="button" onclick="printTickets('order-local')" aria-label="Imprimir orden local">↗</button>
             </header>
             <div class="preview-stage"><section class="ticket" aria-label="Orden inicial local">
@@ -807,10 +854,10 @@
               <div class="printer-rule">==========================================</div><h3 class="ticket__title">ORDEN #123</h3><div class="printer-rule">==========================================</div>
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Mesa:</dt><dd>8</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 13:42:18</dd></div></dl>
               <div class="printer-rule">------------------------------------------</div>
-              <ul class="items"><li class="item"><div class="item__main">2x Combo Especial</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Leve</strong></span><span class="item__note">Obs: Sin cebolla</span></li><li class="item"><div class="item__main">1x Wantan frito</div></li><li class="item"><div class="item__main">2x Limonada natural</div></li></ul>
-              <div class="printer-rule">------------------------------------------</div><div class="general-note"><strong>OBSERVACIONES:</strong>Servir entradas primero.</div>
-              <div class="printer-rule">------------------------------------------</div><div class="local-total"><span>TOTAL:</span><span>$31.75</span></div>
-              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+              <ul class="items"><li class="item"><div class="item__main">1x Combo Mixto Small</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Natural</strong></span><span class="item__note">Obs: Salsa aparte</span></li><li class="item"><div class="item__main">1x Chorizo</div></li><li class="item"><div class="item__main">1x Gaseosa Personal Coca</div></li></ul>
+              <div class="printer-rule">------------------------------------------</div><div class="general-note general-note--check"><strong>OBSERVACIONES:</strong>Incluir cubiertos.</div>
+              <div class="printer-rule">------------------------------------------</div><div class="local-total"><span>TOTAL:</span><span>$16.00</span></div>
+              <div class="ticket__footer"><div class="printer-rule">------------------------------------------</div><p class="ticket__responsible">Responsable: ________________</p><div class="printer-rule">==========================================</div></div>
             </section></div>
           </article>
 
@@ -827,7 +874,7 @@
               <ul class="items"><li class="item"><div class="item__main">2x Combo Tallarín</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Picante 2</strong></span><span class="item__note">Obs: Uno sin pimiento</span></li><li class="item"><div class="item__main">1x Costillas BBQ</div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-lines"><div class="amount-line"><span>Subtotal productos:</span><span>$45.00</span></div><div class="amount-line"><span>Recipientes:</span><span>$2.50</span></div></div>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>TOTAL:</span><span>$47.50</span></div>
-              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+              <div class="ticket__footer"><div class="printer-rule">------------------------------------------</div><p class="ticket__responsible">Responsable: ________________</p><div class="printer-rule">==========================================</div></div>
             </section></div>
           </article>
 
@@ -844,7 +891,7 @@
               <div class="printer-rule">------------------------------------------</div><div class="amount-lines"><div class="amount-line"><span>Subtotal productos:</span><span>$100.00</span></div><div class="amount-line"><span>Recipientes:</span><span>$1.25</span></div></div>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>TOTAL:</span><span>$101.25</span></div>
               <div class="printer-rule">------------------------------------------</div><div class="general-note"><strong>DELIVERY:</strong></div><div class="amount-lines"><div class="amount-line"><span>Envio:</span><span>$5.00</span></div><div class="amount-line"><span>Cobra al cliente:</span><span>$106.25</span></div></div>
-              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+              <div class="ticket__footer"><div class="printer-rule">------------------------------------------</div><p class="ticket__responsible">Responsable: ________________</p><div class="printer-rule">==========================================</div></div>
             </section></div>
           </article>
 
@@ -859,7 +906,7 @@
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>DOMICILIO</dd></div><div class="meta-row"><dt>Pago:</dt><dd>TRANSFERENCIA</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Gabriela</dd></div><div class="meta-row"><dt>Telefono:</dt><dd>0991234567</dd></div><div class="meta-row"><dt>Hora:</dt><dd>31/7/2026, 14:01:12</dd></div></dl>
               <div class="printer-rule">------------------------------------------</div><ul class="items"><li class="item"><div class="item__main">2x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Natural</strong></span></li><li class="item"><div class="item__main">1x Limonada natural</div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>Envio:</span><span>$5.00</span></div>
-              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+              <div class="ticket__footer"><div class="printer-rule">------------------------------------------</div><p class="ticket__responsible">Responsable: ________________</p><div class="printer-rule">==========================================</div></div>
             </section></div>
           </article>
         </div>
@@ -869,7 +916,7 @@
         <header class="preview-section__heading">
           <div>
             <h2 id="amendments-title">Reimpresión por modificación</h2>
-            <p>La revisión identifica la misma orden. Se imprime el delta con signo; los cargos fijos no se repiten.</p>
+            <p>Se verifican solo los cambios de esta revisión. Una reducción se marca después de retirar las unidades indicadas; no se vuelve a preparar el pedido completo.</p>
           </div>
         </header>
 
@@ -883,7 +930,7 @@
               <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Natural</strong></span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div>
               <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
-              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+              <div class="ticket__footer"><div class="printer-rule">------------------------------------------</div><p class="ticket__responsible">Responsable: ________________</p><div class="printer-rule">==========================================</div></div>
             </section></div>
           </article>
 
@@ -893,10 +940,10 @@
               <img class="ticket__logo" src="/assets/logo-camarones-louisiana.png" alt="Camarones Louisiana Sea Food Boil" />
               <div class="printer-rule">==========================================</div><h3 class="ticket__title">MODIFICACION</h3><h3 class="ticket__title">ORDEN #124 31-07 REV 3</h3><div class="printer-rule">==========================================</div>
               <dl class="ticket__meta"><div class="meta-row meta-row--emphasis"><dt>Tipo:</dt><dd>PARA LLEVAR</dd></div><div class="meta-row"><dt>Cliente:</dt><dd>Andres Perez</dd></div><div class="meta-row"><dt>Hora mod.:</dt><dd>31/7/2026, 14:12:26</dd></div></dl><div class="printer-rule">------------------------------------------</div>
-              <ul class="items"><li class="item"><div class="item__main">- 1x Costillas BBQ</div><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>-$6.50</span></div></li></ul>
+              <ul class="items"><li class="item"><div class="item__main">RETIRAR / NO PREPARAR:<br>- 1x Costillas BBQ</div><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>-$6.50</span></div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>-$6.50</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
               <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente retiro un producto</div><div class="general-note">Solicita: Daniel</div>
-              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+              <div class="ticket__footer"><div class="printer-rule">------------------------------------------</div><p class="ticket__responsible">Responsable: ________________</p><div class="printer-rule">==========================================</div></div>
             </section></div>
           </article>
 
@@ -909,7 +956,7 @@
               <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Picante 1</strong></span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div><div class="amount-line"><span>&nbsp;&nbsp;Envases:</span><span>$1.25</span></div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div><div class="amount-line amount-line--strong"><span>AJUSTE ENVASES:</span><span>$1.25</span></div><div class="amount-line amount-line--strong"><span>AJUSTE TOTAL:</span><span>$7.75</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
               <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
-              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+              <div class="ticket__footer"><div class="printer-rule">------------------------------------------</div><p class="ticket__responsible">Responsable: ________________</p><div class="printer-rule">==========================================</div></div>
             </section></div>
           </article>
 
@@ -922,7 +969,7 @@
               <ul class="items"><li class="item"><div class="item__main">+ 1x Combo Simple</div><span class="item__selection"><span>Salsa Louisiana:</span><strong>Leve</strong></span><div class="amount-line"><span>&nbsp;&nbsp;Cambio:</span><span>$6.50</span></div><div class="amount-line"><span>&nbsp;&nbsp;Envases:</span><span>$1.25</span></div></li></ul>
               <div class="printer-rule">------------------------------------------</div><div class="amount-line amount-line--strong"><span>AJUSTE PRODUCTOS:</span><span>$6.50</span></div><div class="amount-line amount-line--strong"><span>AJUSTE ENVASES:</span><span>$1.25</span></div><div class="amount-line amount-line--strong"><span>AJUSTE TOTAL:</span><span>$7.75</span></div><p class="ticket-alert">NO REPETIR ENVIO NI RECIPIENTES</p>
               <div class="printer-rule">------------------------------------------</div><div class="general-note">Motivo: Cliente agrego un producto</div><div class="general-note">Solicita: Daniel</div>
-              <div class="ticket__footer"><div class="printer-rule">==========================================</div></div>
+              <div class="ticket__footer"><div class="printer-rule">------------------------------------------</div><p class="ticket__responsible">Responsable: ________________</p><div class="printer-rule">==========================================</div></div>
             </section></div>
           </article>
         </div>
@@ -930,7 +977,7 @@
 
       <aside class="footer-note">
         <span><strong>Regla de seguridad:</strong> una modificación no repite el <code>TOTAL</code>, el <code>Envio</code> ni el recargo completo; solo muestra el delta de envases cuando cambia la cantidad de combos.</span>
-        <span>“Para llevar” corresponde al valor interno <code>para_llevar</code>.</span>
+        <span>Auditoría en papel: conservar la comanda marcada. Formato implementado; pendiente instalar la actualización en el local.</span>
       </aside>
     </main>
 
