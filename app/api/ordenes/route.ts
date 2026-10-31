@@ -31,6 +31,7 @@ import {
   CajaNoDisponibleError,
   exigirCajaAbierta,
 } from '@/lib/caja';
+import { ROL_ABRE_CAJA } from '@/types/caja';
 
 const ORDEN_INCLUDE = {
   items: {
@@ -327,13 +328,14 @@ export async function POST(request: Request) {
       metodoPagoPrevisto === 'transferencia' &&
       body.transferenciaConfirmada === true;
 
-    if (cobradaAlCrear) {
+    const requiereCajaAbierta = usuario.rol === ROL_ABRE_CAJA;
+    if (requiereCajaAbierta) {
       await exigirCajaAbierta();
     }
 
     // Orden, stock, historial y trabajo de impresion se confirman juntos.
     const { orden, printJobQueued } = await prisma.$transaction(async (tx) => {
-      if (cobradaAlCrear) {
+      if (requiereCajaAbierta) {
         await bloquearCajaAbierta(tx);
       }
       const createdAt = new Date();
@@ -571,7 +573,10 @@ export async function POST(request: Request) {
     return NextResponse.json(respuesta);
   } catch (error) {
     if (error instanceof CajaNoDisponibleError) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+      return NextResponse.json(
+        { error: error.message, code: 'CAJA_NO_DISPONIBLE' },
+        { status: 409 },
+      );
     }
     if (error instanceof StockConflictError) {
       return NextResponse.json({ error: error.message }, { status: 409 });

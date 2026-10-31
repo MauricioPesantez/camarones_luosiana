@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { ItemSinStock } from "@/types/stock";
+import { ROL_ABRE_CAJA } from "@/types/caja";
 
 interface Producto {
   id: string;
@@ -35,6 +37,10 @@ import {
 
 export default function CrearOrden() {
   const { usuario, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [cajaVerificada, setCajaVerificada] = useState(false);
+  const [errorCaja, setErrorCaja] = useState("");
+  const [intentoCaja, setIntentoCaja] = useState(0);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [tipoOrden, setTipoOrden] = useState<TipoOrden>(() =>
@@ -60,6 +66,30 @@ export default function CrearOrden() {
   const [carritoAlcanzado, setCarritoAlcanzado] = useState(false);
   const inicioRef = useRef<HTMLDivElement>(null);
   const carritoRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (authLoading || usuario?.rol !== ROL_ABRE_CAJA) return;
+    let vigente = true;
+    const verificarCaja = async () => {
+      try {
+        const res = await fetch("/api/caja", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "No se pudo verificar la caja");
+        if (!vigente) return;
+        if (data.caja?.estado !== "abierta") {
+          router.replace("/mesero?vista=caja&requerida=1");
+          return;
+        }
+        setCajaVerificada(true);
+      } catch (err) {
+        if (vigente) {
+          setErrorCaja(err instanceof Error ? err.message : "No se pudo verificar la caja");
+        }
+      }
+    };
+    void verificarCaja();
+    return () => { vigente = false; };
+  }, [authLoading, usuario?.rol, usuario?.id, router, intentoCaja]);
 
   const cargarProductos = async () => {
     try {
@@ -118,6 +148,30 @@ export default function CrearOrden() {
   }
 
   if (!usuario) return null;
+
+  if (usuario.rol === ROL_ABRE_CAJA && !cajaVerificada) {
+    return (
+      <div className="mx-auto max-w-2xl p-6">
+        {errorCaja ? (
+          <div role="alert" className="rounded-xl border border-red-200 bg-white p-6">
+            <p className="text-red-700">{errorCaja}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setErrorCaja("");
+                setIntentoCaja((intento) => intento + 1);
+              }}
+              className="mt-4 min-h-11 rounded-lg bg-blue-600 px-5 font-semibold text-white hover:bg-blue-700"
+            >
+              Volver a verificar
+            </button>
+          </div>
+        ) : (
+          <p role="status" className="text-center text-gray-600">Verificando la caja de hoy...</p>
+        )}
+      </div>
+    );
+  }
 
   const categorias = [
     "Todas",
@@ -351,7 +405,11 @@ export default function CrearOrden() {
         // Recargar productos para actualizar stock
         await cargarProductos();
       } else {
-        alert("Error al enviar orden");
+        if (data.code === "CAJA_NO_DISPONIBLE" && usuario.rol === ROL_ABRE_CAJA) {
+          router.replace("/mesero?vista=caja&requerida=1");
+          return;
+        }
+        alert(data.error || "Error al enviar orden");
       }
     } catch (error) {
       console.error("Error:", error);
