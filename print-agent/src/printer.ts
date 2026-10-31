@@ -13,7 +13,7 @@ const INVERT_ON = Buffer.from([GS, 0x42, 0x01]);
 /** Etiquetas cuya etiqueta se imprime en video inverso. */
 const EMPHASIZED_LABEL_PATTERN = /^(Tipo|Mesa):/;
 /** Etiquetas cuyo valor seleccionado se imprime en video inverso. */
-const SELECTED_VALUE_PATTERN = /^(\s*Salsa Louisiana:) (.+)$/;
+const SELECTED_VALUE_PATTERN = /^(\s*(?:\[ \] )?Salsa Louisiana:) (.+)$/;
 
 let logoWarningShown = false;
 
@@ -32,6 +32,24 @@ function ascii(value: unknown): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^\x20-\x7E\n]/g, '?');
+}
+
+/** Ajusta texto a 42 columnas; solo la primera linea lleva la casilla. */
+function ticketTextLines(value: string, prefix = ''): string[] {
+  const lines: string[] = [];
+  let currentPrefix = prefix;
+  for (const paragraph of ascii(value.replace(/\r\n?/g, '\n').replace(/\t/g, ' ')).split('\n')) {
+    let remaining = paragraph.trim();
+    while (remaining) {
+      const width = LINE_WIDTH - currentPrefix.length;
+      const space = remaining.length > width ? remaining.lastIndexOf(' ', width) : remaining.length;
+      const end = space > 0 ? space : width;
+      lines.push(currentPrefix + remaining.slice(0, end));
+      remaining = remaining.slice(end).trimStart();
+      currentPrefix = ' '.repeat(prefix.length);
+    }
+  }
+  return lines;
 }
 
 function centered(value: string): string {
@@ -146,7 +164,7 @@ function spiceLevelLabel(
   if (value === 'picante_1') return 'PICANTE 1';
   if (value === 'picante_2') return 'PICANTE 2';
   if (value === 'picante_3') return 'PICANTE 3';
-  return 'NATURAL';
+  return value === 'natural' ? 'NATURAL' : null;
 }
 
 function linesForPayload(payload: PrintJobPayload): string[] {
@@ -181,6 +199,7 @@ function linesForPayload(payload: PrintJobPayload): string[] {
     `${payload.jobType === 'AMENDMENT' ? 'Hora mod.' : 'Hora'}: ${new Date(
       payload.jobType === 'AMENDMENT' ? payload.generatedAt : order.createdAt,
     ).toLocaleString('es-EC')}`,
+    ...(payload.jobType === 'REPRINT' ? ['COPIA - NO PREPARAR DE NUEVO'] : []),
     '-'.repeat(LINE_WIDTH),
   ];
 
@@ -192,13 +211,17 @@ function linesForPayload(payload: PrintJobPayload): string[] {
       const quantityDelta = amendmentQuantityDelta(change);
       const amountDelta = amendmentAmountDelta(change);
       const prefix = quantityDelta > 0 ? '+' : '-';
-      lines.push(
-        `${prefix} ${Math.abs(quantityDelta)}x ${change.productName}${
-          change.complimentary ? ' [CORTESIA]' : ''
-        }`,
-      );
+      const removal = quantityDelta < 0;
+      const productText = `${prefix} ${Math.abs(quantityDelta)}x ${change.productName}${
+        change.complimentary ? ' [CORTESIA]' : ''
+      }`;
+      lines.push(...ticketTextLines(
+        removal ? `RETIRAR / NO PREPARAR:\n${productText}` : productText, '[ ] ',
+      ));
       const changeSpiceLevel = spiceLevelLabel(change.spiceLevel);
-      if (changeSpiceLevel) lines.push(`  Salsa Louisiana: ${changeSpiceLevel}`);
+      if (changeSpiceLevel) {
+        lines.push(`${removal ? '  ' : '  [ ] '}Salsa Louisiana: ${changeSpiceLevel}`);
+      }
       if (amountDelta !== null) {
         hasAmountDelta = true;
         totalDelta += amountDelta;
@@ -209,7 +232,9 @@ function linesForPayload(payload: PrintJobPayload): string[] {
         totalSurchargeDelta += surchargeDelta;
         lines.push(amountLine('  Envases:', surchargeDelta));
       }
-      if (change.observations) lines.push(`  Obs: ${change.observations}`);
+      if (change.observations?.trim()) {
+        lines.push(...ticketTextLines(`Obs: ${change.observations}`, removal ? '  ' : '  [ ] '));
+      }
     }
 
     lines.push(
@@ -229,22 +254,25 @@ function linesForPayload(payload: PrintJobPayload): string[] {
     }
   } else {
     for (const item of order.items) {
-      lines.push(`${item.quantity}x ${item.productName}${item.complimentary ? ' [CORTESIA]' : ''}`);
+      lines.push(...ticketTextLines(`${item.quantity}x ${item.productName}${item.complimentary ? ' [CORTESIA]' : ''}`, '[ ] '));
       const itemSpiceLevel = spiceLevelLabel(item.spiceLevel);
-      if (itemSpiceLevel) lines.push(`  Salsa Louisiana: ${itemSpiceLevel}`);
-      if (item.observations) lines.push(`  Obs: ${item.observations}`);
+      if (itemSpiceLevel) lines.push(`  [ ] Salsa Louisiana: ${itemSpiceLevel}`);
+      if (item.observations?.trim()) lines.push(...ticketTextLines(`Obs: ${item.observations}`, '  [ ] '));
     }
   }
 
   // Compatibilidad con payloads históricos sin picante por item.
   const hasItemSpice = order.items.some((item) => spiceLevelLabel(item.spiceLevel));
   const legacySpiceLevel = spiceLevelLabel(order.spiceLevel);
-  if (!hasItemSpice && legacySpiceLevel) {
-    lines.push('-'.repeat(LINE_WIDTH), `Salsa Louisiana: ${legacySpiceLevel}`);
+  if (payload.jobType !== 'AMENDMENT' && !hasItemSpice && legacySpiceLevel) {
+    lines.push('-'.repeat(LINE_WIDTH), `[ ] Salsa Louisiana: ${legacySpiceLevel}`);
   }
 
-  if (order.observations) {
-    lines.push('-'.repeat(LINE_WIDTH), 'OBSERVACIONES:', order.observations);
+  if (order.observations?.trim()) {
+    const label = payload.jobType === 'AMENDMENT' ? 'OBSERVACIONES (REFERENCIA):' : 'OBSERVACIONES:';
+    lines.push('-'.repeat(LINE_WIDTH), ...ticketTextLines(
+      `${label}\n${order.observations}`, payload.jobType === 'AMENDMENT' ? '' : '[ ] ',
+    ));
   }
   if (payload.reason) lines.push('-'.repeat(LINE_WIDTH), `Motivo: ${payload.reason}`);
   if (payload.requestedBy) lines.push(`Solicita: ${payload.requestedBy}`);
@@ -252,7 +280,7 @@ function linesForPayload(payload: PrintJobPayload): string[] {
     lines.push(...amountLinesForOrder(order));
   }
 
-  lines.push('='.repeat(LINE_WIDTH), '', '', '');
+  lines.push('-'.repeat(LINE_WIDTH), '', '', 'Responsable: ________________', '', '='.repeat(LINE_WIDTH), '', '', '');
   return lines.map(ascii);
 }
 

@@ -13,7 +13,7 @@ const SECTION_SEPARATOR = '-'.repeat(LINE_WIDTH);
 /** Etiquetas cuya etiqueta se imprime en video inverso. */
 const EMPHASIZED_LABEL_PATTERN = /^(Tipo|Mesa):/;
 /** Etiquetas cuyo valor seleccionado se imprime en video inverso. */
-const SELECTED_VALUE_PATTERN = /^(\s*Salsa Louisiana:) (.+)$/;
+const SELECTED_VALUE_PATTERN = /^(\s*(?:\[ \] )?Salsa Louisiana:) (.+)$/;
 const DEFAULT_LOGO_PATH = path.join(
   process.cwd(),
   'public',
@@ -28,6 +28,24 @@ function ascii(value: unknown): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^\x20-\x7E\n]/g, '?');
+}
+
+/** Ajusta texto a 42 columnas; solo la primera linea lleva la casilla. */
+function ticketTextLines(value: string, prefix = ''): string[] {
+  const lines: string[] = [];
+  let currentPrefix = prefix;
+  for (const paragraph of ascii(value.replace(/\r\n?/g, '\n').replace(/\t/g, ' ')).split('\n')) {
+    let remaining = paragraph.trim();
+    while (remaining) {
+      const width = LINE_WIDTH - currentPrefix.length;
+      const space = remaining.length > width ? remaining.lastIndexOf(' ', width) : remaining.length;
+      const end = space > 0 ? space : width;
+      lines.push(currentPrefix + remaining.slice(0, end));
+      remaining = remaining.slice(end).trimStart();
+      currentPrefix = ' '.repeat(prefix.length);
+    }
+  }
+  return lines;
 }
 
 function centered(value: string): string {
@@ -183,14 +201,14 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
 
   for (const item of orden.items) {
     lines.push(
-      `${item.cantidad}x ${item.producto.nombre}${item.esCortesia ? ' [CORTESIA]' : ''}`,
+      ...ticketTextLines(`${item.cantidad}x ${item.producto.nombre}${item.esCortesia ? ' [CORTESIA]' : ''}`, '[ ] '),
     );
     if (esNivelPicante(item.nivelPicante)) {
       lines.push(
-        `  Salsa Louisiana: ${obtenerEtiquetaNivelPicante(item.nivelPicante).toUpperCase()}`,
+        `  [ ] Salsa Louisiana: ${obtenerEtiquetaNivelPicante(item.nivelPicante).toUpperCase()}`,
       );
     }
-    if (item.observaciones) lines.push(`  Obs: ${item.observaciones}`);
+    if (item.observaciones?.trim()) lines.push(...ticketTextLines(`Obs: ${item.observaciones}`, '  [ ] '));
   }
 
   // Compatibilidad con comandas históricas, anteriores al picante por item.
@@ -200,12 +218,12 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
   ) {
     lines.push(
       SECTION_SEPARATOR,
-      `Salsa Louisiana: ${obtenerEtiquetaNivelPicante(orden.nivelPicante).toUpperCase()}`,
+      `[ ] Salsa Louisiana: ${obtenerEtiquetaNivelPicante(orden.nivelPicante).toUpperCase()}`,
     );
   }
 
-  if (orden.observaciones) {
-    lines.push(SECTION_SEPARATOR, 'OBSERVACIONES:', orden.observaciones);
+  if (orden.observaciones?.trim()) {
+    lines.push(SECTION_SEPARATOR, ...ticketTextLines(`OBSERVACIONES:\n${orden.observaciones}`, '[ ] '));
   }
 
   lines.push(
@@ -218,7 +236,7 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
     }),
   );
 
-  lines.push(STRONG_SEPARATOR, '', '', '');
+  lines.push(SECTION_SEPARATOR, '', '', 'Responsable: ________________', '', STRONG_SEPARATOR, '', '', '');
   return lines.map(ascii);
 }
 
