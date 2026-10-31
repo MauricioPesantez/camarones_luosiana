@@ -1,5 +1,5 @@
 # 📁 Estructura del Proyecto - Restaurant POS
-
+2SpyKu1O11MH5Gnnxi1Zp1qHj8a97QX6aiYV7ef8ZUk
 ```
 restaurant-pos/
 ├── app/
