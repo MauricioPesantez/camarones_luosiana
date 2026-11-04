@@ -29,7 +29,20 @@
     "test:liquidacion": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/liquidacion-domicilio.test.ts",
     "test:cobro-validaciones": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/order-payment-validaciones.test.ts",
     "test:payment-link": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/payment-link.test.ts",
-    "test:withdrawal-print": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/withdrawal-print.test.ts"
+    "test:withdrawal-print": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/withdrawal-print.test.ts",
+    "test:employee-account": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/employee-account.test.ts",
+    "test:employee-account-validation": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/employee-account-validation.test.ts",
+    "test:employee-consumption-validation": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/employee-consumption-validation.test.ts",
+    "test:employee-print": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/employee-print.test.ts",
+    "test:employee-consumption-service": "node lib/employee-consumption.service.test.cjs",
+    "test:employee-account-routes": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only lib/employee-account-routes.test.cjs",
+    "test:employee-sales-boundaries": "node lib/employee-sales-boundaries.test.cjs",
+    "test:employee-envio": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' components/empleados/envio.test.ts",
+    "test:employee-consumption-route": "node lib/employee-consumption-route.test.cjs",
+    "test:employee-receipts-server": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only lib/employee-receipts-server.test.cjs",
+    "test:employee-consumption-regularization": "node lib/employee-consumption-regularization.test.cjs",
+    "test:employee-consumption-regularization-route": "node lib/employee-consumption-regularization-route.test.cjs",
+    "test:employee-consumption-postgres": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/employee-consumption.postgres.test.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1102.0",

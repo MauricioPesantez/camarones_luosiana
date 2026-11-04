@@ -1,3 +1,4 @@
+import { PUBLIC_PRODUCT_SELECT } from '@/lib/product-select';
 import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 
@@ -160,7 +161,7 @@ export async function PATCH(
           include: {
             items: {
               include: {
-                producto: true,
+                producto: { select: PUBLIC_PRODUCT_SELECT },
               },
             },
           },
@@ -176,6 +177,8 @@ export async function PATCH(
             403,
           );
         }
+
+        if (order.tipoOperacion === 'CONSUMO_EMPLEADO') throw new ModificationRequestError('Utiliza la gestion de consumos de empleados', 409);
 
         if (order.anulada) {
           throw new ModificationRequestError(
@@ -496,7 +499,7 @@ export async function PATCH(
 
         const updatedItems = await tx.item.findMany({
           where: { ordenId: id },
-          include: { producto: true },
+          include: { producto: { select: PUBLIC_PRODUCT_SELECT } },
         });
         if (updatedItems.length === 0) {
           throw new ModificationRequestError(
@@ -595,7 +598,7 @@ export async function PATCH(
           include: {
             items: {
               include: {
-                producto: true,
+                producto: { select: PUBLIC_PRODUCT_SELECT },
               },
             },
           },

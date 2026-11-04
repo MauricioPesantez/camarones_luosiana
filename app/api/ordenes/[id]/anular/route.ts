@@ -58,6 +58,7 @@ export async function PATCH(
       where: { id },
       select: {
         id: true,
+        tipoOperacion: true,
         anulada: true,
         estado: true,
         cobrada: true,
@@ -69,6 +70,8 @@ export async function PATCH(
     if (!existente) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
+
+    if (existente.tipoOperacion === 'CONSUMO_EMPLEADO') return NextResponse.json({ error: 'Utiliza la gestion de consumos de empleados' }, { status: 409 });
 
     if (existente.anulada) {
       return NextResponse.json(

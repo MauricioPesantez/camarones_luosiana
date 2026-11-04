@@ -76,6 +76,7 @@ const SESION: SeccionNav = {
 
 const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
   mesero: [
+    { titulo: "Empleados", items: [{ id: "consumos-empleados", label: "Consumos de empleados", emoji: "🍽️", href: "/consumos-empleados" }] },
     {
       titulo: "Operación",
       items: [
@@ -118,6 +119,7 @@ const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
         },
       ],
     },
+    { titulo: "Mi cuenta", items: [{ id: "mis-descuentos", label: "Mis descuentos", emoji: "🧾", href: "/mis-descuentos" }] },
     SESION,
   ],
   digital: [
@@ -142,6 +144,7 @@ const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
         },
       ],
     },
+    { titulo: "Mi cuenta", items: [{ id: "mis-descuentos", label: "Mis descuentos", emoji: "🧾", href: "/mis-descuentos" }] },
     SESION,
   ],
   cocina: [
@@ -168,9 +171,11 @@ const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
         },
       ],
     },
+    { titulo: "Mi cuenta", items: [{ id: "mis-descuentos", label: "Mis descuentos", emoji: "🧾", href: "/mis-descuentos" }] },
     SESION,
   ],
   admin: [
+    { titulo: "Cuentas de empleados", items: [{ id: "cuentas-empleados", label: "Cuentas de empleados", emoji: "🧾", href: "/admin/empleados" }, { id: "consumos-empleados", label: "Consumos de empleados", emoji: "🍽️", href: "/consumos-empleados" }] },
     {
       titulo: "Cuadre",
       items: [
@@ -248,6 +253,7 @@ const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
         },
       ],
     },
+    { titulo: "Mi cuenta", items: [{ id: "mis-descuentos", label: "Mis descuentos", emoji: "🧾", href: "/mis-descuentos" }] },
     SESION,
   ],
 };

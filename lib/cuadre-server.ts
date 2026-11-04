@@ -1,3 +1,4 @@
+import { PUBLIC_PRODUCT_SELECT } from '@/lib/product-select';
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
@@ -24,9 +25,10 @@ export async function obtenerDatosCuadre(
   const rango = obtenerRangoEcuador(fecha);
   if (!rango) return null;
 
-  const [ordenes, usuarios, retiros, caja] = await Promise.all([
+  const [ordenes, usuarios, retiros, caja, consumosEmpleados] = await Promise.all([
     db.orden.findMany({
       where: {
+        tipoOperacion: 'VENTA_CLIENTE',
         OR: [
           { createdAt: { gte: rango.inicio, lt: rango.fin } },
           { fechaCobro: { gte: rango.inicio, lt: rango.fin } },
@@ -50,7 +52,7 @@ export async function obtenerDatosCuadre(
           },
         },
         creador: { select: { id: true, nombre: true, rol: true } },
-        items: { include: { producto: true } },
+        items: { include: { producto: { select: PUBLIC_PRODUCT_SELECT } } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -66,6 +68,7 @@ export async function obtenerDatosCuadre(
       where: { fecha },
       select: CAJA_SELECT,
     }),
+    db.orden.findMany({ where: { tipoOperacion: 'CONSUMO_EMPLEADO', createdAt: { gte: rango.inicio, lt: rango.fin } }, select: { id: true, empleadoNombre: true, estado: true, total: true, anulada: true }, orderBy: { createdAt: 'desc' } }),
   ]);
 
   const usuariosPorNombre = new Map(
@@ -117,6 +120,7 @@ export async function obtenerDatosCuadre(
   return {
     fecha,
     zonaHoraria: ZONA_HORARIA,
+    consumosEmpleados: consumosEmpleados.map(consumo => ({ ...consumo, total: Number(consumo.total) })),
     ordenes: ordenesConCreador,
     retiros: retiros.map(serializarRetiro),
     caja: caja ? serializarCaja(caja) : null,

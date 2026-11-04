@@ -36,6 +36,7 @@ export default async function CobrarOrdenPage({
     where: { cobroTokenHash: hashPaymentToken(token) },
     select: {
       id: true,
+      tipoOperacion: true,
       numeroDiario: true,
       fechaNumeroDiario: true,
       tipoOrden: true,
@@ -75,6 +76,7 @@ export default async function CobrarOrdenPage({
   // cobrar cierra el pago aunque la orden la haya creado otro usuario.
   if (orden.cobrada) redirect(roleOrdersHome(usuario.rol, 'ya_cobrada'));
   // El QR impreso sigue existiendo despues de anular: no debe abrir un cobro.
+  if (orden.tipoOperacion === 'CONSUMO_EMPLEADO') redirect(roleOrdersHome(usuario.rol, 'enlace_invalido'));
   if (orden.anulada) redirect(roleOrdersHome(usuario.rol, 'anulada'));
   if (orden.estado === 'cancelada') {
     redirect(roleOrdersHome(usuario.rol, 'cancelada'));

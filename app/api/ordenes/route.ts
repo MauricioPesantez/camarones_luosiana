@@ -1,3 +1,4 @@
+import { PUBLIC_PRODUCT_SELECT } from '@/lib/product-select';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { PrinterService } from '@/lib/printer';
@@ -36,7 +37,7 @@ import { ROL_ABRE_CAJA } from '@/types/caja';
 const ORDEN_INCLUDE = {
   items: {
     include: {
-      producto: true,
+      producto: { select: PUBLIC_PRODUCT_SELECT },
     },
   },
 } satisfies Prisma.OrdenInclude;
@@ -78,16 +79,14 @@ export async function GET(request: Request) {
     // Admin tiene su propia vista con filtro de fecha independiente.
     const hoyEcuador = obtenerFechaEcuador();
     const rangoHoy = obtenerRangoEcuador(hoyEcuador)!;
-    const fechaFiltro =
-      usuario.rol === 'admin'
-        ? {}
-        : { createdAt: { gte: rangoHoy.inicio, lt: rangoHoy.fin } };
+    const fechaFiltro = usuario.rol === 'admin' ? {} : { createdAt: { gte: rangoHoy.inicio, lt: rangoHoy.fin } };
 
     // Una orden anulada desaparece de la operacion: cocina no la prepara y el
     // mesero no la cobra. Solo el cuadre la sigue mostrando, tachada.
     const ordenes = await prisma.orden.findMany({
       where: {
         ...ORDENES_VIGENTES,
+        tipoOperacion: 'VENTA_CLIENTE',
         ...ownerFilter,
         ...(estadoFiltro ?? {}),
         ...fechaFiltro,
@@ -114,6 +113,7 @@ export async function POST(request: Request) {
     }
     const body: CrearOrdenRequest = await request.json();
 
+    if ('tipoOperacion' in body && body.tipoOperacion !== 'VENTA_CLIENTE') return NextResponse.json({ error: 'Utiliza el registro de consumos de empleados' }, { status: 400 });
     const tipoOrden: TipoOrden = body.tipoOrden ?? 'local';
 
     if (!Array.isArray(body.items) || body.items.length === 0) {

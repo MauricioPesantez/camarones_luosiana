@@ -1,3 +1,4 @@
+import { getAuthenticatedUser } from '@/lib/session';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { normalizarNombre, validarUsuarioParcial } from '@/lib/admin-validaciones';
@@ -8,6 +9,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const actor = await getAuthenticatedUser();
+    if (!actor) return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    if (actor.rol !== 'admin') return NextResponse.json({ error: 'Solo un administrador puede realizar esta operacion' }, { status: 403 });
     const { id } = await params;
     const usuario = await prisma.usuario.findUnique({
       where: { id },
@@ -43,6 +47,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const actor = await getAuthenticatedUser();
+    if (!actor) return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    if (actor.rol !== 'admin') return NextResponse.json({ error: 'Solo un administrador puede realizar esta operacion' }, { status: 403 });
     const { id } = await params;
     const validacion = validarUsuarioParcial(await request.json());
 

@@ -26,6 +26,8 @@ interface Item {
 }
 
 interface Orden {
+  tipoOperacion?: string;
+  empleadoNombre?: string | null;
   id: string;
   numeroDiario: number | null;
   fechaNumeroDiario: string | null;
@@ -209,6 +211,8 @@ export default function CocinaPage() {
         });
       }
     });
+
+    eventSource.addEventListener("orden-actualizada", () => { void cargarOrdenes(); });
 
     return () => {
       eventSource.close();

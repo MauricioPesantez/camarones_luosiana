@@ -47,6 +47,7 @@ async function run() {
   const jobs: Array<Prisma.PrintJobUncheckedCreateInput & { id: string }> = [];
   let insideTransaction = false;
   let failQueue = false;
+  const movements: Array<{ empleadoId: string; tipo: string; monto: Prisma.Decimal; origenClave: string; id: string }> = [];
   let user: { id: string; nombre: string; rol: string } | null = { id: 'mesero-1', nombre: 'Maria', rol: 'mesero' };
   const tx = {
     $queryRaw: async () => [],
@@ -63,6 +64,7 @@ async function run() {
         return { count: 1 };
       },
     },
+    movimientoCuentaEmpleado: { findUnique: async ({ where }: { where: { origenClave: string } }) => movements.find((m) => m.origenClave === where.origenClave) ?? null },
     printJob: {
       upsert: async (args: Prisma.PrintJobUpsertArgs) => {
         assert.ok(insideTransaction, 'El comprobante se guarda dentro de la transaccion del retiro');
@@ -87,9 +89,10 @@ async function run() {
     $transaction: async <T>(callback: (client: typeof tx) => Promise<T>) => {
       const before = stored;
       const jobCount = jobs.length;
+      const movementCount = movements.length;
       insideTransaction = true;
       try { return await callback(tx); }
-      catch (error) { stored = before; jobs.splice(jobCount); throw error; }
+      catch (error) { stored = before; jobs.splice(jobCount); movements.splice(movementCount); throw error; }
       finally { insideTransaction = false; }
     },
   };
@@ -104,6 +107,7 @@ async function run() {
       '@/lib/session': { getAuthenticatedUser: async () => user }, '@/types/retiro': retiroTypes,
       '@/types/caja': cajaTypes, '@/lib/withdrawal-print': withdrawalPrint,
       '@/lib/print-jobs': printJobs,
+      '@/lib/employee-account': { AccountError: class extends Error {}, lockEmployeeAccount: async () => { assert.ok(insideTransaction); }, appendEmployeeMovement: async (_tx: unknown, input: typeof movements[number]) => { assert.ok(insideTransaction); movements.push({ ...input, id: `movement-${movements.length}` }); } },
       '@/lib/printer': { PrinterService: class { constructor() { throw new Error('No se debe imprimir directo en modo cola'); } } },
     };
     const js = transpileModule(readFileSync(resolve(file), 'utf8'), { compilerOptions: { module: ModuleKind.CommonJS, target: ScriptTarget.ES2017 } }).outputText;
@@ -127,10 +131,17 @@ async function run() {
     }) });
     assert.equal((await post(request(), context)).status, 201);
     assert.equal(jobs.length, 1);
+    assert.equal(movements.length, 1);
+    assert.equal(movements[0].tipo, 'ADELANTO');
     assert.equal(jobs[0].retiroId, source.id);
     assert.equal(jobs[0].ordenId, undefined);
     assert.equal((await post(request(), context)).status, 200);
     assert.equal(jobs.length, 1, 'Reintentar el registro no imprime ni retira dos veces');
+    assert.equal(movements.length, 1, 'Reintentar tampoco duplica el cargo');
+    const changedRequest = new Request('http://localhost/api/retiros', { method: 'POST', body: JSON.stringify({ categoria: 'adelanto', motivo: 'Adelanto semanal', monto: 21, beneficiarioId: 'empleado-2', clientRequestId: 'request-1' }) });
+    assert.equal((await post(changedRequest, context)).status, 409);
+    assert.equal(movements.length, 1, 'Reutilizar la clave con datos distintos no crea cargo');
+    assert.equal(jobs.length, 1);
     const print = loadPost('app/api/retiros/[id]/imprimir/route.ts');
     assert.equal((await print(new Request('http://localhost'), context)).status, 200);
     assert.equal(jobs.length, 1, 'Si ya esta pendiente no crea otra copia');
@@ -153,6 +164,9 @@ async function run() {
     const cancel = loadPost('app/api/retiros/[id]/anular/route.ts', 'PATCH');
     assert.equal((await cancel(new Request('http://localhost', { method: 'PATCH', body: JSON.stringify({ razon: 'Registro incorrecto' }) }), context)).status, 200);
     assert.equal(jobs[1].status, 'DISCARDED');
+    assert.equal(movements.length, 2);
+    assert.equal(movements[1].tipo, 'REVERSO_ADELANTO');
+    assert.ok(movements[1].monto.equals(-20.5));
     stored = { ...initial, estado: 'anulado' };
     assert.equal((await print(new Request('http://localhost'), context)).status, 409);
     stored = null;
@@ -162,6 +176,7 @@ async function run() {
     assert.equal((await post(request(), context)).status, 500);
     assert.equal(stored, null, 'Un fallo al encolar revierte el registro del retiro');
     assert.equal(jobs.length, 0);
+    assert.equal(movements.length, 2, 'El cargo también revierte si falla la cola');
 
     failQueue = false;
     insideTransaction = true;
@@ -176,6 +191,11 @@ async function run() {
     assert.equal(directResponse.status, 201, 'Un fallo directo no devuelve error de registro financiero');
     assert.ok((await directResponse.json()).impresionError);
     assert.ok(stored, 'El retiro confirmado sobrevive al fallo de impresora');
+    stored = null;
+    const beforeExpense = movements.length;
+    const expenseRequest = new Request('http://localhost/api/retiros', { method: 'POST', body: JSON.stringify({ categoria: 'insumos', motivo: 'Compra', monto: 12, clientRequestId: 'request-2' }) });
+    assert.equal((await post(expenseRequest, context)).status, 201);
+    assert.equal(movements.length, beforeExpense, 'Un gasto del local no crea un cargo');
     process.env.DIRECT_PRINT_ENABLED = 'false';
     assert.equal(getWithdrawalPrintMode(new Date()), 'disabled');
   } finally {

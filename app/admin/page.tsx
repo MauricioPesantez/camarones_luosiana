@@ -118,6 +118,7 @@ export default function AdminPage() {
   const [ordenParaAprobar, setOrdenParaAprobar] =
     useState<OrdenPendienteAprobacion | null>(null);
   const [razonAprobacion, setRazonAprobacion] = useState("");
+  const [consumosEmpleados, setConsumosEmpleados] = useState<{ id: string; empleadoNombre: string; estado: string; total: number; anulada: boolean }[]>([]);
   const [retiros, setRetiros] = useState<RetiroCaja[]>([]);
   const [sesionCaja, setSesionCaja] = useState<SesionCaja | null>(null);
   const [montoCierre, setMontoCierre] = useState("");
@@ -144,6 +145,7 @@ export default function AdminPage() {
       }
       setOrdenes(data.ordenes || []);
       setRetiros(data.retiros || []);
+      setConsumosEmpleados(data.consumosEmpleados || []);
       setSesionCaja(data.caja ?? null);
     } catch (error) {
       console.error("Error al cargar órdenes:", error);
@@ -1059,6 +1061,13 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+
+        <section className="bg-white rounded-lg shadow mb-6 p-6">
+          <h2 className="text-xl font-bold text-gray-800">Consumos de empleados</h2>
+          <p className="text-sm text-gray-600">Registro informativo del día. Los importes se gestionan en la cuenta de cada empleado.</p>
+          {consumosEmpleados.length === 0 ? <p className="mt-3 text-gray-500">Sin consumos en esta fecha.</p> : <ul className="mt-3 divide-y">{consumosEmpleados.map(c => <li key={c.id} className="py-2 flex justify-between gap-3"><span>{c.empleadoNombre} · {c.anulada ? 'Anulado' : c.estado}</span><span>${c.total.toFixed(2)}</span></li>)}</ul>}
+          <a href="/admin/empleados" className="inline-block mt-3 text-blue-700 underline">Ver cuentas de empleados</a>
+        </section>
 
         {/* Retiros de caja */}
         <div className="bg-white rounded-lg shadow mb-6">

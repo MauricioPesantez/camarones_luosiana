@@ -8,6 +8,7 @@ import * as cajaTypes from '../types/caja';
 import * as cobroTypes from '../types/cobro';
 import * as fechas from './fecha-ecuador';
 import * as dailyNumber from './daily-order-number';
+import { PUBLIC_PRODUCT_SELECT } from './product-select';
 
 function loadModule<T>(file: string, dependencies: Record<string, unknown>): T {
   const js = transpileModule(readFileSync(resolve(file), 'utf8'), {
@@ -82,6 +83,7 @@ async function run() {
   });
   const { POST } = loadModule<{ POST: (request: Request) => Promise<Response> }>('app/api/ordenes/route.ts', {
     'next/server': { NextResponse: { json: Response.json } },
+    '@/lib/product-select': { PUBLIC_PRODUCT_SELECT },
     '@prisma/client': { Prisma }, '@/lib/db': { prisma }, '@/lib/caja': caja,
     '@/types/caja': cajaTypes, '@/types/orden': ordenTypes, '@/types/cobro': cobroTypes,
     '@/lib/fecha-ecuador': fechas, '@/lib/daily-order-number': dailyNumber,

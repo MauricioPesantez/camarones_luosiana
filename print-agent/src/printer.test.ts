@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import { encodeEscPosRaster } from './logo.js';
 import { buildEscPosTicket } from './printer.js';
-import type { PrintJobPayload, WithdrawalPrintPayload } from './types.js';
+import type { PrintJobPayload, WithdrawalPrintPayload, EmployeeReceiptPayload } from './types.js';
 
 function createPayload(
   type: PrintJobPayload['order']['type'],
@@ -362,6 +362,23 @@ function run(): void {
   for (const lines of [['X'.repeat(43)], ['Texto\x1b@'], []]) {
     assert.throws(() => buildEscPosTicket({ ...withdrawal, lines }), /Comprobante de retiro no valido/);
   }
+
+  const employeeReceipt: EmployeeReceiptPayload = {
+    payloadVersion: 1, jobType: 'EMPLOYEE_RECEIPT', documentId: 'liquidacion-1',
+    lines: ['DESCUENTO DE SUELDO', 'COPIA - NO REGISTRA OTRO DESCUENTO', 'Saldo pendiente: $12.50', 'Firma de quien recibe:'],
+  };
+  const employeeBytes = buildEscPosTicket(employeeReceipt);
+  assert.ok(employeeBytes.toString('ascii').includes(employeeReceipt.lines.join('\n')));
+  assert.equal(employeeBytes.includes(rasterCommand), false);
+  assert.equal(employeeBytes.includes(Buffer.from([0x1d, 0x28, 0x6b])), false, 'Un comprobante de empleado no contiene QR de cobro');
+  for (const lines of [['X'.repeat(43)], ['Texto\x1b@'], []]) {
+    assert.throws(() => buildEscPosTicket({ ...employeeReceipt, lines }));
+  }
+  const internalOrder = createPayload('para_llevar', null, { employeeConsumption: true, employeeName: 'Ana', paymentUrl: 'https://example.com/no-cobrar' });
+  const internalBytes = buildEscPosTicket(internalOrder);
+  assert.match(internalBytes.toString('ascii'), /EMPLEADO - A CUENTA/);
+  assert.match(internalBytes.toString('ascii'), /Empleado: Ana/);
+  assert.equal(internalBytes.includes(Buffer.from([0x1d, 0x28, 0x6b])), false, 'Una comanda interna no ofrece QR aunque llegue una URL por error');
 
   const oneBlackPixel = encodeEscPosRaster(
     8,

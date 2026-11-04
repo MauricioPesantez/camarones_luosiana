@@ -111,6 +111,14 @@ function run(): void {
   assert.match(errorDe(validarUsuarioParcial({})), /campos/i);
   assert.match(errorDe(validarUsuarioParcial({ rol: 'chef' })), /rol/i);
 
+  const empleado = datosDe(validarProductoNuevo({ nombre: 'Cola', categoria: 'Bebidas', precio: 1, precioEmpleado: 0.75, requierePreparacionEmpleado: false }));
+  assert.equal(empleado.precioEmpleado, 0.75);
+  assert.equal(empleado.requierePreparacionEmpleado, false);
+  assert.equal(datosDe(validarProductoNuevo({ nombre: 'Cola', categoria: 'Bebidas', precio: 1 })).precioEmpleado, null);
+  for (const precioEmpleado of [0, -1, 0.755, 2, '0.75', true]) assert.equal(validarProductoNuevo({ nombre: 'Cola', categoria: 'Bebidas', precio: 1, precioEmpleado }).ok, false);
+  assert.deepEqual(datosDe(validarProductoParcial({ precioEmpleado: null })), { precioEmpleado: null });
+  assert.equal(validarProductoParcial({ precio: 1, precioEmpleado: 2 }).ok, false);
+  assert.equal(validarProductoParcial({ requierePreparacionEmpleado: 'no' }).ok, false);
   console.log('admin-validaciones tests: ok');
 }
 

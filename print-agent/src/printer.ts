@@ -168,8 +168,8 @@ function spiceLevelLabel(
 }
 
 function linesForPayload(payload: AnyPrintJobPayload): string[] {
-  if (payload.jobType === 'CASH_WITHDRAWAL') {
-    if (payload.payloadVersion !== 1 || !payload.withdrawalId || !Array.isArray(payload.lines) ||
+  if (payload.jobType === 'CASH_WITHDRAWAL' || payload.jobType === 'EMPLOYEE_RECEIPT') {
+    if (payload.payloadVersion !== 1 || !(payload.jobType === 'CASH_WITHDRAWAL' ? payload.withdrawalId : payload.documentId) || !Array.isArray(payload.lines) ||
         payload.lines.length === 0 || payload.lines.some((line) => typeof line !== 'string' || line.length > LINE_WIDTH || /[^\x20-\x7E]/.test(line))) {
       throw new PrinterError('Comprobante de retiro no valido', 'INVALID_PAYLOAD');
     }
@@ -190,6 +190,7 @@ function linesForPayload(payload: AnyPrintJobPayload): string[] {
   const lines = [
     '='.repeat(LINE_WIDTH),
     ...titleLines,
+    ...(order.employeeConsumption ? ['EMPLEADO - A CUENTA', `Empleado: ${order.employeeName ?? ''}`] : []),
     '='.repeat(LINE_WIDTH),
     ...(order.type === 'local'
       ? []
@@ -355,13 +356,13 @@ export function encodeEscPosQr(data: string): Buffer {
 export function buildEscPosTicket(payload: AnyPrintJobPayload): Buffer {
   const text = encodeTicketLines(linesForPayload(payload));
   const paymentQr =
-    payload.jobType !== 'CASH_WITHDRAWAL' && payload.jobType !== 'AMENDMENT' && payload.order.paymentUrl
+    payload.jobType !== 'CASH_WITHDRAWAL' && payload.jobType !== 'EMPLOYEE_RECEIPT' && payload.jobType !== 'AMENDMENT' && !payload.order.employeeConsumption && payload.order.paymentUrl
       ? encodeEscPosQr(payload.order.paymentUrl)
       : Buffer.alloc(0);
   let logo: ReturnType<typeof loadLogoRaster> | null = null;
 
   try {
-    logo = payload.jobType === 'CASH_WITHDRAWAL' ? null : loadLogoRaster();
+    logo = (payload.jobType === 'CASH_WITHDRAWAL' || payload.jobType === 'EMPLOYEE_RECEIPT') ? null : loadLogoRaster();
   } catch (error) {
     if (!logoWarningShown) {
       logoWarningShown = true;

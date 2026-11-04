@@ -225,6 +225,24 @@ class TicketTests(unittest.TestCase):
                 with self.assertRaises(agent.PrinterError):
                     agent.build_esc_pos_ticket(value, logo_raster=b"")
 
+    def test_employee_receipt_and_internal_order_never_offer_payment_qr(self):
+        receipt = {"payloadVersion": 1, "jobType": "EMPLOYEE_RECEIPT", "documentId": "liquidacion-1",
+                   "lines": ["DESCUENTO DE SUELDO", "COPIA - NO REGISTRA OTRO DESCUENTO", "Saldo pendiente: $12.50", "Firma de quien recibe:"]}
+        ticket = agent.build_esc_pos_ticket(receipt, logo_raster=b"logo-must-not-print")
+        self.assertIn("\n".join(receipt["lines"]).encode("ascii"), ticket)
+        self.assertNotIn(b"logo-must-not-print", ticket)
+        self.assertNotIn(bytes([0x1d, 0x28, 0x6b]), ticket)
+        for lines in (["X" * 43], ["Texto\x1b@"], []):
+            with self.subTest(lines=lines):
+                with self.assertRaises(agent.PrinterError):
+                    agent.build_esc_pos_ticket(dict(receipt, lines=lines), logo_raster=b"")
+        internal = payload("para_llevar")
+        internal["order"].update({"employeeConsumption": True, "employeeName": "Ana", "paymentUrl": "https://example.com/no-cobrar"})
+        ticket = agent.build_esc_pos_ticket(internal, logo_raster=b"")
+        self.assertIn(b"EMPLEADO - A CUENTA", ticket)
+        self.assertIn(b"Empleado: Ana", ticket)
+        self.assertNotIn(bytes([0x1d, 0x28, 0x6b]), ticket)
+
     def test_raster_encoding(self):
         rgba = bytearray([0, 0, 0, 255, 255, 255, 255, 255])
         raster = agent.encode_esc_pos_raster(2, 1, rgba)

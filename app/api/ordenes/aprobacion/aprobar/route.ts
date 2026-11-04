@@ -1,3 +1,4 @@
+import { PUBLIC_PRODUCT_SELECT } from '@/lib/product-select';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { AprobarOrdenRequest } from '@/types/orden';
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       include: {
         items: {
           include: {
-            producto: true,
+            producto: { select: PUBLIC_PRODUCT_SELECT },
           },
         },
       },
@@ -53,6 +54,8 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    if (orden.tipoOperacion === 'CONSUMO_EMPLEADO') return NextResponse.json({ error: 'Utiliza la gestion de consumos de empleados' }, { status: 409 });
 
     if (orden.anulada) {
       return NextResponse.json(
@@ -127,7 +130,7 @@ export async function POST(request: NextRequest) {
         include: {
           items: {
             include: {
-              producto: true,
+              producto: { select: PUBLIC_PRODUCT_SELECT },
             },
           },
         },

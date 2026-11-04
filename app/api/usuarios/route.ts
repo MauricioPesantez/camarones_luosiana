@@ -1,3 +1,4 @@
+import { getAuthenticatedUser } from '@/lib/session';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { normalizarNombre, validarUsuarioNuevo } from '@/lib/admin-validaciones';
@@ -16,11 +17,16 @@ export async function GET(request: Request) {
           nombre: true,
           rol: true,
           activo: true,
+          password: true,
         },
         orderBy: { nombre: 'asc' },
       });
-      return NextResponse.json(usuarios);
+      return NextResponse.json(usuarios.map(({ password, ...usuario }) => ({ ...usuario, tienePassword: Boolean(password) })));
     }
+
+    const actor = await getAuthenticatedUser();
+    if (!actor) return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    if (actor.rol !== 'admin') return NextResponse.json({ error: 'Solo un administrador puede realizar esta operacion' }, { status: 403 });
 
     const usuarios = await prisma.usuario.findMany({
       select: {
@@ -49,6 +55,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const actor = await getAuthenticatedUser();
+    if (!actor) return NextResponse.json({ error: 'Sesion requerida' }, { status: 401 });
+    if (actor.rol !== 'admin') return NextResponse.json({ error: 'Solo un administrador puede realizar esta operacion' }, { status: 403 });
     const validacion = validarUsuarioNuevo(await request.json());
 
     if (!validacion.ok) {

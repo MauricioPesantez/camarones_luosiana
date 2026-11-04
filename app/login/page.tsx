@@ -8,6 +8,7 @@ interface Usuario {
   nombre: string;
   rol: string;
   activo: boolean;
+  tienePassword: boolean;
 }
 
 export default function LoginPage() {
@@ -15,7 +16,7 @@ export default function LoginPage() {
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState("");
   const [password, setPassword] = useState("");
   const [requiresPassword, setRequiresPassword] = useState(false);
-  const [loadingUsuario, setLoadingUsuario] = useState(false);
+  const loadingUsuario = false;
   const router = useRouter();
 
   useEffect(() => {
@@ -52,33 +53,10 @@ export default function LoginPage() {
     cargarUsuarios();
   }, []);
 
-  const handleUsuarioChange = async (usuarioId: string) => {
+  const handleUsuarioChange = (usuarioId: string) => {
     setUsuarioSeleccionado(usuarioId);
     setPassword("");
-    setLoadingUsuario(true);
-
-    if (usuarioId) {
-      try {
-        const res = await fetch(`/api/usuarios/${usuarioId}`);
-
-        if (!res.ok) {
-          console.error("Error al obtener usuario:", await res.text());
-          setRequiresPassword(false);
-          return;
-        }
-
-        const usuario = await res.json();
-        setRequiresPassword(!!usuario.password);
-      } catch (error) {
-        console.error("Error al cargar datos del usuario:", error);
-        setRequiresPassword(false);
-      } finally {
-        setLoadingUsuario(false);
-      }
-    } else {
-      setRequiresPassword(false);
-      setLoadingUsuario(false);
-    }
+    setRequiresPassword(Boolean(usuarios.find(usuario => usuario.id === usuarioId)?.tienePassword));
   };
 
   const handleLogin = async () => {
