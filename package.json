@@ -42,6 +42,7 @@
     "test:employee-receipts-server": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only lib/employee-receipts-server.test.cjs",
     "test:employee-consumption-regularization": "node lib/employee-consumption-regularization.test.cjs",
     "test:employee-consumption-regularization-route": "node lib/employee-consumption-regularization-route.test.cjs",
+    "test:whatsapp-ensayo": "node --test whatsapp-agent/ensayo/ensayo.test.mjs",
     "test:employee-consumption-postgres": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/employee-consumption.postgres.test.ts"
   },
   "dependencies": {
