@@ -435,12 +435,12 @@ Salida: evidencia del circuito técnico funcionando sin crear ventas reales; con
 
 #### Fase 1. Proteger y extraer la creación existente
 
-- [ ] Ejecutar `test:order-creation` y `test:employee-sales-boundaries` como línea base.
-- [ ] Extraer `lib/order-creation.ts`, conservando actor, validación, transacción y respuesta.
-- [ ] Validar stock por suma de producto y devolver un error definitivo con los productos afectados.
-- [ ] Mantener la ruta humana con sus permisos y errores existentes.
-- [ ] Separar errores posteriores al commit del resultado comercial.
-- [ ] Probar roles, caja, pagos, stock concurrente, numeración e impresión en cola.
+- [x] Ejecutar `test:order-creation` y `test:employee-sales-boundaries` como línea base.
+- [x] Extraer `lib/order-creation.ts`, conservando actor, validación, transacción y respuesta.
+- [x] Validar stock por suma de producto y devolver un error definitivo con los productos afectados.
+- [x] Mantener la ruta humana con sus permisos y errores existentes.
+- [x] Separar errores posteriores al commit del resultado comercial.
+- [x] Probar roles, caja, pagos, stock concurrente, numeración e impresión en cola. La carrera de stock se probó con un doble en memoria; la concurrencia real sobre PostgreSQL queda en la Fase 4.
 
 Salida: la creación web tiene el mismo comportamiento comprobado. No activar todavía WhatsApp.
 
