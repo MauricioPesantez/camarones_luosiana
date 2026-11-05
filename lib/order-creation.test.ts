@@ -8,6 +8,7 @@ import * as cajaTypes from '../types/caja';
 import * as cobroTypes from '../types/cobro';
 import * as fechas from './fecha-ecuador';
 import * as dailyNumber from './daily-order-number';
+import * as deliveryLocation from './delivery-location';
 import { PUBLIC_PRODUCT_SELECT } from './product-select';
 
 function loadModule<T>(file: string, dependencies: Record<string, unknown>): T {
@@ -110,7 +111,7 @@ async function run() {
     '@prisma/client': { Prisma }, '@/lib/db': { prisma }, '@/lib/caja': caja,
     '@/types/caja': cajaTypes, '@/types/orden': ordenTypes, '@/types/cobro': cobroTypes,
     '@/lib/fecha-ecuador': fechas, '@/lib/daily-order-number': dailyNumber,
-    '@/lib/ordenes-anulacion': {}, '@/lib/sse': { notificarClientes: (evento: string) => {
+    '@/lib/ordenes-anulacion': {}, '@/lib/delivery-location': deliveryLocation, '@/lib/sse': { notificarClientes: (evento: string) => {
       if (fallaSse) throw new Error('sse caido');
       eventos.push(evento);
     } },
@@ -326,6 +327,28 @@ async function run() {
   assert.equal(sinAviso.status, 200);
   assert.deepEqual((await sinAviso.json()).notificacion, { success: false, error: 'sse caido' });
   fallaSse = false;
+
+  // Ubicación opcional: solo en domicilio, validada y sin descargar el enlace.
+  producto.stock = 20;
+  const conUbicacion = await (await enviar({
+    ...domicilio, ubicacionUrl: ' https://maps.app.goo.gl/AbC ', referenciaEntrega: ' Casa azul ',
+  })).json();
+  assert.equal(conUbicacion.orden.ubicacionUrl, 'https://maps.app.goo.gl/AbC');
+  assert.equal(conUbicacion.orden.referenciaEntrega, 'Casa azul');
+  const sinUbicacion = await (await enviar(domicilio)).json();
+  assert.equal(sinUbicacion.orden.ubicacionUrl, null);
+  assert.equal(sinUbicacion.orden.referenciaEntrega, null);
+  const llevarConUbicacion = await (await enviar({
+    ...paraLlevar, ubicacionUrl: 'https://maps.app.goo.gl/AbC', referenciaEntrega: 'Casa azul',
+  })).json();
+  assert.equal(llevarConUbicacion.orden.ubicacionUrl, null);
+  assert.equal(llevarConUbicacion.orden.referenciaEntrega, null);
+  const enlaceInvalido = await enviar({ ...domicilio, ubicacionUrl: 'http://evil.test' });
+  assert.equal(enlaceInvalido.status, 400);
+  assert.match((await enlaceInvalido.json()).error, /Google Maps/);
+  const referenciaLarga = await enviar({ ...domicilio, referenciaEntrega: 'a'.repeat(501) });
+  assert.equal(referenciaLarga.status, 400);
+  assert.match((await referenciaLarga.json()).error, /referencia/i);
 
   // El servicio recibe el actor del llamador, sin cookie, e ignora el del cuerpo.
   producto.stock = 10;

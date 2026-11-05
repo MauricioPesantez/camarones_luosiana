@@ -28,6 +28,7 @@ import type { AuthenticatedUser } from '@/lib/session';
 import { calcularMovimientosPago } from '@/types/cobro';
 import { bloquearCajaAbierta, exigirCajaAbierta } from '@/lib/caja';
 import { ROL_ABRE_CAJA } from '@/types/caja';
+import { UbicacionInvalidaError, parsearUbicacionEntrega } from '@/lib/delivery-location';
 
 export const ORDEN_INCLUDE = {
   items: {
@@ -103,6 +104,16 @@ export async function prepararOrden(
     body.transferenciaConfirmada !== true
   ) {
     throw new OrdenInvalidaError('Debe confirmar que la transferencia ya fue recibida');
+  }
+
+  let ubicacion = { ubicacionUrl: null as string | null, referenciaEntrega: null as string | null };
+  if (tipoOrden === 'domicilio') {
+    try {
+      ubicacion = parsearUbicacionEntrega(body);
+    } catch (error) {
+      if (error instanceof UbicacionInvalidaError) throw new OrdenInvalidaError(error.message);
+      throw error;
+    }
   }
 
   // La modalidad de pago se acuerda al crear solo en domicilio: define si el local
@@ -269,6 +280,7 @@ export async function prepararOrden(
     tipoOrden,
     metodoPagoPrevisto,
     costoEnvio,
+    ubicacion,
     recargo,
     itemsSinStock,
     solicitarAprobacion,
@@ -292,6 +304,7 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
     tipoOrden,
     metodoPagoPrevisto,
     costoEnvio,
+    ubicacion,
     recargo,
     itemsSinStock,
     solicitarAprobacion,
@@ -323,6 +336,7 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
         tipoOrden !== 'local' ? body.nombreCliente?.trim() || null : null,
       telefonoCliente:
         tipoOrden === 'domicilio' ? body.telefonoCliente?.trim() : null,
+      ...ubicacion,
       recargo: recargo > 0 ? recargo : null,
       costoEnvio: costoEnvio > 0 ? costoEnvio : null,
       metodoPagoPrevisto,

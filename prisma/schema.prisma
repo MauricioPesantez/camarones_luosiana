@@ -59,6 +59,9 @@ model Orden {
   numeroMesa                     Int? // Solo para tipo "local"
   nombreCliente                  String? // Obligatorio para "para_llevar", opcional para "domicilio"
   telefonoCliente                String? // Solo para "domicilio"
+  ubicacionUrl                   String? // Enlace de Google Maps validado o generado por el POS
+  referenciaEntrega              String? // Indicaciones complementarias de entrega
+  deliverySolicitadoAt           DateTime? // Alguien pidió motorizado; el autor queda en historial. No implica entrega ni pago
   recargo                        Decimal?                   @db.Decimal(10, 2) // $1.25 por cada combo para "para_llevar" y "domicilio"
   costoEnvio                     Decimal?                   @db.Decimal(10, 2) // Solo para "domicilio"
   metodoPago                     String? // "efectivo" | "transferencia" — como se cobro realmente
@@ -102,14 +105,16 @@ model Orden {
   razonAnulacion   String?
   anuladaAt        DateTime?
 
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  items         Item[]
-  historial     HistorialOrden[]
-  impresa       Boolean          @default(false)
-  printRevision Int              @default(0)
-  printJobs     PrintJob[]
-  pagos         Cobro[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  items            Item[]
+  historial        HistorialOrden[]
+  impresa          Boolean           @default(false)
+  printRevision    Int               @default(0)
+  printJobs        PrintJob[]
+  pagos            Cobro[]
+  whatsappEntradas WhatsappEntrada[]
+  whatsappSalidas  WhatsappSalida[]
 
   @@unique([fechaNumeroDiario, numeroDiario])
   @@index([creadorId])
@@ -251,6 +256,7 @@ model Usuario {
   retirosAnulados     RetiroCaja[]               @relation("RetirosAnulados")
   cajasAbiertas       SesionCaja[]               @relation("CajasAbiertas")
   cajasCerradas       SesionCaja[]               @relation("CajasCerradas")
+  whatsappEntradas    WhatsappEntrada[]
 }
 
 model SesionUsuario {
@@ -421,4 +427,62 @@ model HistorialOrden {
 
   @@index([ordenId])
   @@index([createdAt])
+}
+
+/// Mensaje recibido del número del local. Una por (sessionId, messageId): los
+/// reintentos del gateway no repiten ventas.
+model WhatsappEntrada {
+  id                String           @id @default(cuid())
+  tipo              String // "PEDIDO" | "UBICACION"
+  sessionId         String
+  messageId         String
+  claveEntrega      String? // Clave de entrega del webhook; defensa adicional, no identidad del pedido
+  remitente         String
+  usuarioId         String?
+  usuario           Usuario?         @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  enviadoAt         DateTime // Timestamp original del mensaje
+  recibidaAt        DateTime         @default(now())
+  texto             String? // Limitado; nunca el cuerpo bruto del gateway
+  datosNormalizados Json?
+  /// Hash del pedido normalizado. Vive aquí y no en Orden para que ninguna respuesta de orden pueda exponerlo.
+  requestHash       String?
+  estado            String // "CREADA" | "INVALIDA" | "IGNORADA" | "REQUIERE_REVISION" | "UBICACION_DISPONIBLE" | "UBICACION_USADA"
+  ordenId           String?
+  orden             Orden?           @relation(fields: [ordenId], references: [id], onDelete: Restrict)
+  error             String?
+  salidas           WhatsappSalida[]
+
+  @@unique([sessionId, messageId])
+  @@index([requestHash, recibidaAt])
+  @@index([remitente, tipo, estado, recibidaAt])
+  @@index([ordenId])
+  @@index([usuarioId])
+}
+
+/// Trabajo de envío. `texto` no cambia una vez intentado con la misma `clave`.
+model WhatsappSalida {
+  id              String           @id @default(cuid())
+  sessionId       String
+  ordenId         String?
+  orden           Orden?           @relation(fields: [ordenId], references: [id], onDelete: Restrict)
+  entradaId       String?
+  entrada         WhatsappEntrada? @relation(fields: [entradaId], references: [id], onDelete: Restrict)
+  tipo            String // "RESPUESTA_EMPLEADO" | "PUBLICACION_GRUPO" | "ACTUALIZACION_GRUPO" | "RECORDATORIO_DELIVERY"
+  destino         String
+  texto           String
+  clave           String           @unique
+  disponibleAt    DateTime         @default(now())
+  venceAt         DateTime?
+  estado          String           @default("PENDIENTE") // "PENDIENTE" | "PROCESANDO" | "REINTENTO" | "ENVIADA" | "CANCELADA" | "REQUIERE_REVISION"
+  intentos        Int              @default(0)
+  reservaToken    String?
+  reservaExpiraAt DateTime?
+  mensajeId       String? // Identificador devuelto por OpenWA
+  ultimoError     String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([estado, disponibleAt])
+  @@index([ordenId])
+  @@index([entradaId])
 }

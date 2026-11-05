@@ -42,6 +42,11 @@
     "test:employee-receipts-server": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only lib/employee-receipts-server.test.cjs",
     "test:employee-consumption-regularization": "node lib/employee-consumption-regularization.test.cjs",
     "test:employee-consumption-regularization-route": "node lib/employee-consumption-regularization-route.test.cjs",
+    "test:delivery-location": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/delivery-location.test.ts",
+    "test:order-delivery-routes": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/order-delivery-routes.test.ts",
+    "test:whatsapp-pedido": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/whatsapp-pedido.test.ts",
+    "test:whatsapp-webhook": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/whatsapp-webhook.test.ts",
+    "test:whatsapp-ingreso": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/whatsapp-ingreso.test.ts",
     "test:whatsapp-ensayo": "node --test whatsapp-agent/ensayo/ensayo.test.mjs",
     "test:employee-consumption-postgres": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/employee-consumption.postgres.test.ts"
   },

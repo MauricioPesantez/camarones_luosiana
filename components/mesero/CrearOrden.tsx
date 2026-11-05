@@ -49,6 +49,8 @@ export default function CrearOrden() {
   const [numeroMesa, setNumeroMesa] = useState("");
   const [nombreCliente, setNombreCliente] = useState("");
   const [telefonoCliente, setTelefonoCliente] = useState("");
+  const [ubicacionUrl, setUbicacionUrl] = useState("");
+  const [referenciaEntrega, setReferenciaEntrega] = useState("");
   const [costoEnvio, setCostoEnvio] = useState("");
   // Solo domicilio: define si al motorizado se le cobra o se le entrega dinero.
   const [metodoPagoPrevisto, setMetodoPagoPrevisto] = useState<MetodoPago | "">(
@@ -362,6 +364,9 @@ export default function CrearOrden() {
               : undefined,
           telefonoCliente:
             tipoOrden === "domicilio" ? telefonoCliente.trim() : undefined,
+          ubicacionUrl: tipoOrden === "domicilio" ? ubicacionUrl : undefined,
+          referenciaEntrega:
+            tipoOrden === "domicilio" ? referenciaEntrega : undefined,
           costoEnvio:
             tipoOrden === "domicilio" ? parseFloat(costoEnvio) : undefined,
           metodoPagoPrevisto:
@@ -396,6 +401,8 @@ export default function CrearOrden() {
         setNumeroMesa("");
         setNombreCliente("");
         setTelefonoCliente("");
+        setUbicacionUrl("");
+        setReferenciaEntrega("");
         setCostoEnvio("");
         setMetodoPagoPrevisto("");
         setTransferenciaConfirmada(false);
@@ -463,6 +470,8 @@ export default function CrearOrden() {
                         setTipoOrden(tipo);
                         setNombreCliente("");
                         setTelefonoCliente("");
+        setUbicacionUrl("");
+        setReferenciaEntrega("");
                         setCostoEnvio("");
                         setMetodoPagoPrevisto("");
                         setTransferenciaConfirmada(false);
@@ -544,6 +553,33 @@ export default function CrearOrden() {
                     onChange={(e) => setCostoEnvio(e.target.value)}
                     className="w-full border rounded-lg px-4 py-2 text-black"
                     placeholder="Ej: 1.50"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="ubicacion-url" className="block text-sm font-medium mb-2 text-gray-800">
+                    Enlace de Google Maps
+                  </label>
+                  <input
+                    id="ubicacion-url"
+                    type="url"
+                    value={ubicacionUrl}
+                    onChange={(e) => setUbicacionUrl(e.target.value)}
+                    className="w-full border rounded-lg px-4 py-2 text-black"
+                    placeholder="https://maps.app.goo.gl/..."
+                  />
+                </div>
+                <div>
+                  <label htmlFor="referencia-entrega" className="block text-sm font-medium mb-2 text-gray-800">
+                    Referencia de entrega
+                  </label>
+                  <input
+                    id="referencia-entrega"
+                    type="text"
+                    value={referenciaEntrega}
+                    onChange={(e) => setReferenciaEntrega(e.target.value)}
+                    maxLength={500}
+                    className="w-full border rounded-lg px-4 py-2 text-black"
+                    placeholder="Ej: casa azul, junto a la farmacia"
                   />
                 </div>
               </div>

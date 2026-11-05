@@ -71,6 +71,10 @@ export default function HistorialOrdenTimeline({ ordenId }: HistorialOrdenTimeli
         return '🎉';
       case 'orden_anulada':
         return '🚫';
+      case 'ubicacion_actualizada':
+        return '📍';
+      case 'delivery_solicitado':
+        return '🛵';
       default:
         return '📌';
     }
@@ -109,6 +113,10 @@ export default function HistorialOrdenTimeline({ ordenId }: HistorialOrdenTimeli
         return 'Orden Completada';
       case 'orden_anulada':
         return 'Orden Anulada';
+      case 'ubicacion_actualizada':
+        return 'Ubicación Actualizada';
+      case 'delivery_solicitado':
+        return 'Delivery Solicitado';
       default:
         return tipoAccion;
     }

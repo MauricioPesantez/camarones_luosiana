@@ -181,7 +181,6 @@ Los nombres siguientes son propuestos; no constituyen una migración aplicada.
 |---|---|
 | `ubicacionUrl String?` | Enlace de entrega validado o generado por el POS desde un pin. |
 | `referenciaEntrega String?` | Indicaciones complementarias. |
-| `whatsappRequestHash String?` | Hash del pedido normalizado para reconocer reenvíos dentro de la ventana; con índice junto a `createdAt`. |
 | `deliverySolicitadoAt DateTime?` | Confirmación operativa de que alguien pidió motorizado. Autor registrado en historial. |
 
 El hash de contenido incluye los datos comerciales de la plantilla normalizada, conservando los nombres escritos normalizados; excluye precios recalculados, timestamps e ID del nuevo mensaje. Los IDs de productos resueltos se guardan con el resultado, pero no obligan a consultar de nuevo el catálogo para reconocer un reenvío.
@@ -192,7 +191,9 @@ Los campos son opcionales para datos históricos. La línea `Ubicación` será o
 
 #### 9.2 `WhatsappEntrada`
 
-Guardar: ID interno, tipo (`PEDIDO` o `UBICACION`), sesión, ID del mensaje original, clave de entrega del gateway, identidad de remitente, usuario resuelto, timestamp original, recepción, texto limitado, datos normalizados, estado, orden asociada y error resumido.
+Guardar: ID interno, tipo (`PEDIDO` o `UBICACION`), sesión, ID del mensaje original, clave de entrega del gateway, identidad de remitente, usuario resuelto, timestamp original, recepción, texto limitado, datos normalizados, `requestHash`, estado, orden asociada y error resumido.
+
+`requestHash` es el hash del pedido normalizado para reconocer reenvíos dentro de la ventana, con índice junto a `recibidaAt`. Vive en la entrada y no en `Orden`: la orden se alcanza por `ordenId` y ninguna respuesta de orden puede exponer el hash.
 
 Restricciones y comportamiento:
 
@@ -446,25 +447,27 @@ Salida: la creación web tiene el mismo comportamiento comprobado. No activar to
 
 #### Fase 2. Migración aditiva y ubicación
 
-- [ ] Agregar campos opcionales de orden, entradas, salidas, restricciones e índices.
-- [ ] Preparar migración y revisar su SQL sin reinicializar ni borrar datos.
-- [ ] Extender tipos y serializers sin exponer hashes o metadatos internos innecesarios al cliente.
-- [ ] Incorporar ubicación/referencia en formulario, detalle y mutación auditada.
-- [ ] Incorporar registro de delivery solicitado independiente del pago.
-- [ ] Probar sobre PostgreSQL aislado que filas históricas y agentes existentes continúan operando.
+- [x] Agregar campos opcionales de orden, entradas, salidas, restricciones e índices.
+- [x] Preparar migración y revisar su SQL sin reinicializar ni borrar datos.
+- [x] Extender tipos y serializers sin exponer hashes o metadatos internos innecesarios al cliente.
+- [x] Incorporar ubicación/referencia en formulario, detalle y mutación auditada.
+- [x] Incorporar registro de delivery solicitado independiente del pago. La ruta existe; el botón y la cancelación de recordatorios quedan en la Fase 6.
+- [x] Probar sobre PostgreSQL aislado que filas históricas continúan operando. Se aplicaron las migraciones en PGlite (PostgreSQL 18 WASM); los agentes de impresión no se ejecutaron: no leen columnas nuevas y el snapshot no cambió.
 
 Salida: compatibilidad con órdenes antiguas y datos nuevos disponibles con la integración apagada.
 
 #### Fase 3. Parser, identidad e ingreso durable
 
-- [ ] Implementar normalización y validación de la plantilla con fixtures.
-- [ ] Implementar HMAC, límites de cuerpo y validación del sobre de OpenWA.
-- [ ] Implementar la identidad del número del local y su vinculación con usuario activo.
-- [ ] Guardar entradas y deduplicar por mensaje; tratar eventos antiguos y no relevantes.
-- [ ] Recibir pin, validar coordenadas, conservar el último vigente y responder al operador.
-- [ ] Probar que ninguna entrada inválida o no autorizada escribe ventas, cobros o stock.
+- [x] Implementar normalización y validación de la plantilla con fixtures.
+- [x] Implementar HMAC, límites de cuerpo y validación del sobre de OpenWA.
+- [x] Implementar la identidad del número del local y su vinculación con usuario activo.
+- [x] Guardar entradas y deduplicar por mensaje; tratar eventos antiguos y no relevantes.
+- [x] Recibir pin, validar coordenadas, conservar el último vigente y responder al operador.
+- [x] Probar que ninguna entrada inválida o no autorizada escribe ventas, cobros o stock.
 
 Salida: recepción verificable y respuestas de error persistidas, aún en entorno de ensayo.
+
+Pendiente de la Fase 0: las pruebas usan el contrato leído del código de OpenWA 0.27.1 y pedidos de ejemplo. Antes de activar, contrastar con muestras reales del webhook, la forma `@c.us` o `@lid` del número del local y pedidos reales anonimizados.
 
 #### Fase 4. Creación idempotente y salidas transaccionales
 
