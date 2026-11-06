@@ -1,164 +1,197 @@
 import assert from 'node:assert/strict';
-import { hashPedido, interpretarPlantilla, resolverProductos } from './whatsapp-pedido';
+import { hashPedido, interpretarPedido, resolverProductos } from './whatsapp-pedido';
 
-const domicilio = `PEDIDO
-Tipo: domicilio
-Cliente: Ana
-Teléfono: +593 99 123 4567
-Productos:
-2 x Combo Duo | natural
-1 x Combo Duo | picante 1 | sin cebolla
-1 x 3 Cangrejos
-Pago: transferencia confirmada
-Envío: 2.75
-Ubicación: pin
-Referencia de entrega: portón negro; llamar al llegar
-Solicitar aprobación de stock: no
-Observaciones: entregar los cubiertos aparte`;
-
-const paraLlevar = `PEDIDO
-Tipo: para llevar
-Cliente: Luis
-Productos:
-1 x Combo Duo | leve`;
+const TEL = '+593 99 000 0000';
 
 function pedidoDe(texto: string) {
-  const resultado = interpretarPlantilla(texto);
-  assert.ok(resultado.ok, JSON.stringify(resultado));
+  const resultado = interpretarPedido(texto);
+  assert.ok(resultado.ok, `${texto}\n${JSON.stringify(resultado)}`);
   return resultado.pedido;
 }
 function erroresDe(texto: string) {
-  const resultado = interpretarPlantilla(texto);
+  const resultado = interpretarPedido(texto);
   assert.equal(resultado.ok, false, texto);
   return resultado.ok ? '' : resultado.errores.join('\n');
 }
-const cambiar = (texto: string, de: string, a: string) => {
-  assert.ok(texto.includes(de), de);
-  return texto.replace(de, a);
-};
 
-// Plantilla completa.
-assert.deepEqual(pedidoDe(domicilio), {
-  tipoOrden: 'domicilio',
-  cliente: 'Ana',
-  telefono: '+593991234567',
-  pago: 'transferencia_confirmada',
-  envio: 2.75,
-  ubicacion: { tipo: 'pin' },
-  referencia: 'portón negro; llamar al llegar',
-  solicitarAprobacion: false,
-  nuevoPedido: false,
-  observaciones: 'entregar los cubiertos aparte',
-  items: [
-    { cantidad: 2, producto: 'Combo Duo', nivelPicante: 'natural', observaciones: null },
-    { cantidad: 1, producto: 'Combo Duo', nivelPicante: 'picante_1', observaciones: 'sin cebolla' },
-    { cantidad: 1, producto: '3 Cangrejos', nivelPicante: null, observaciones: null },
-  ],
+const producto = (nombre: string, categoria = 'Extras', disponible = true) => ({
+  id: nombre, nombre, categoria, disponible,
 });
-assert.deepEqual(pedidoDe(paraLlevar), {
-  tipoOrden: 'para_llevar', cliente: 'Luis', telefono: null, pago: null, envio: null, ubicacion: null,
-  referencia: null, solicitarAprobacion: false, nuevoPedido: false, observaciones: null,
-  items: [{ cantidad: 1, producto: 'Combo Duo', nivelPicante: 'leve', observaciones: null }],
-});
-
-// Variaciones de etiquetas, espacios, mayúsculas y tildes.
-const variado = pedidoDe(`  pedido
-TIPO:   Domicilio
-telefono: 0991234567
-  PRODUCTOS :
-1 X Combo Duo | Picante 2
-pago: Efectivo
-ENVIO: 1,50
-UBICACIÓN: pendiente
-Nuevo pedido: SÍ
-Solicitar aprobacion de stock: si`);
-assert.equal(variado.telefono, '+593991234567');
-assert.equal(variado.pago, 'efectivo');
-assert.equal(variado.envio, 1.5);
-assert.deepEqual(variado.ubicacion, { tipo: 'pendiente' });
-assert.equal(variado.nuevoPedido, true);
-assert.equal(variado.solicitarAprobacion, true);
-assert.equal(variado.items[0].nivelPicante, 'picante_2');
-assert.deepEqual(pedidoDe(cambiar(domicilio, 'Ubicación: pin', 'Ubicación: https://maps.app.goo.gl/AbC')).ubicacion,
-  { tipo: 'enlace', url: 'https://maps.app.goo.gl/AbC' });
-
-// Errores concretos; se devuelven todos juntos.
-const casos: Array<[string, RegExp]> = [
-  ['hola', /PEDIDO/],
-  [cambiar(domicilio, 'Tipo: domicilio', 'Tipo: mesa'), /Tipo/],
-  [cambiar(domicilio, 'Tipo: domicilio\n', ''), /Tipo/],
-  [cambiar(domicilio, 'Teléfono: +593 99 123 4567\n', ''), /Teléfono/],
-  [cambiar(domicilio, '+593 99 123 4567', '12345'), /Teléfono/],
-  [cambiar(domicilio, 'Pago: transferencia confirmada\n', ''), /Pago/],
-  [cambiar(domicilio, 'transferencia confirmada', 'transferencia pendiente'), /transferencia confirmada/],
-  [cambiar(domicilio, 'transferencia confirmada', 'trans'), /transferencia confirmada/],
-  [cambiar(domicilio, 'Envío: 2.75\n', ''), /Envío/],
-  [cambiar(domicilio, 'Envío: 2.75', 'Envío: 2.755'), /Envío/],
-  [cambiar(domicilio, 'Envío: 2.75', 'Envío: -1'), /Envío/],
-  [cambiar(domicilio, 'Ubicación: pin\n', ''), /Ubicación/],
-  [cambiar(domicilio, 'Ubicación: pin', 'Ubicación: http://evil.test'), /Ubicación/],
-  [cambiar(domicilio, 'Solicitar aprobación de stock: no', 'Solicitar aprobación de stock: tal vez'), /aprobación/],
-  [cambiar(domicilio, 'Productos:\n2 x Combo Duo | natural\n1 x Combo Duo | picante 1 | sin cebolla\n1 x 3 Cangrejos\n', 'Productos:\n'), /producto/i],
-  [cambiar(domicilio, '2 x Combo Duo', '0 x Combo Duo'), /línea/i],
-  [cambiar(domicilio, '2 x Combo Duo', '1.5 x Combo Duo'), /línea/i],
-  [cambiar(domicilio, '2 x Combo Duo', '100 x Combo Duo'), /cantidad/i],
-  [cambiar(domicilio, '1 x 3 Cangrejos', '3 Cangrejos'), /línea/i],
-  [cambiar(domicilio, '| natural', '| picante'), /picante/i],
-  [cambiar(domicilio, '| natural', '| picante 4'), /picante/i],
-  [cambiar(domicilio, 'Cliente: Ana', 'Clienta: Ana'), /Clienta/],
-  [`${domicilio}\nEnvío: 3`, /Envío.*repetid/i],
-  [cambiar(paraLlevar, 'Cliente: Luis\n', ''), /Cliente/],
-  [`${paraLlevar}\nEnvío: 2`, /para llevar/i],
-  [`${paraLlevar}\nUbicación: pin`, /para llevar/i],
-  [`${paraLlevar}\nPago: efectivo`, /para llevar/i],
-  [`PEDIDO\nTipo: domicilio\nProductos:\n${'1 x Cola\n'.repeat(31)}`, /líneas/i],
-  [`${domicilio}\nObservaciones: ${'a'.repeat(4000)}`, /largo/i],
-];
-for (const [texto, patron] of casos) assert.match(erroresDe(texto), patron, texto.slice(0, 60));
-const varios = interpretarPlantilla('PEDIDO\nTipo: domicilio');
-assert.equal(varios.ok, false);
-assert.ok(!varios.ok && varios.errores.length >= 5, 'Lista todo lo que falta de una vez');
-
-// Campo repetido sin contradicción: se acepta.
-assert.equal(pedidoDe(`${domicilio}\nEnvío: 2.75`).envio, 2.75);
-
-// Catálogo: coincidencia exacta normalizada, sin adivinar.
 const catalogo = [
-  { id: 'c1', nombre: 'Combo Dúo', categoria: 'Combos', disponible: true },
-  { id: 'k1', nombre: '3 Cangrejos', categoria: 'Mariscos', disponible: true },
-  { id: 'r1', nombre: 'Repetido', categoria: 'Mariscos', disponible: true },
-  { id: 'r2', nombre: 'repetido', categoria: 'Mariscos', disponible: true },
-  { id: 'n1', nombre: 'Agotado', categoria: 'Mariscos', disponible: false },
+  ...['Combo Simple', 'Combo Duo', 'Combo Triple', 'Combo Mixto Small', 'Combo Mixto Duo', 'Combo Mixto Triple']
+    .map((nombre) => producto(nombre, 'Combos')),
+  ...['1/2 Libra Langostinos', 'Libra de Langostinos', '1/2 Libra Camarón', 'Libra de Camarón', '3 Cangrejos', 'Cangrejo', 'Arroz', 'Calamar 120 Gramos',
+    'Papas Fritas', 'Patacones', 'Tentaculos 120 Gramos'].map((nombre) => producto(nombre)),
 ];
-const resuelto = resolverProductos(pedidoDe(domicilio).items, catalogo);
-assert.ok(resuelto.ok);
-assert.deepEqual(resuelto.items.map((i) => i.productoId), ['c1', 'c1', 'k1']);
-const conLineas = (...lineas: string[]) => pedidoDe(`PEDIDO\nTipo: para llevar\nCliente: A\nProductos:\n${lineas.join('\n')}`).items;
-const fallo = (...lineas: string[]) => {
-  const r = resolverProductos(conLineas(...lineas), catalogo);
-  assert.equal(r.ok, false);
+const resumen = (texto: string) => {
+  const r = resolverProductos(pedidoDe(texto).items, catalogo);
+  assert.ok(r.ok, `${texto}\n${JSON.stringify(r)}`);
+  return r.items.map((i) => `${i.cantidad} ${i.productoId} ${i.nivelPicante ?? '-'}${i.observaciones ? ` (${i.observaciones})` : ''}`);
+};
+const fallaProducto = (texto: string) => {
+  const r = resolverProductos(pedidoDe(texto).items, catalogo);
+  assert.equal(r.ok, false, texto);
   return r.ok ? '' : r.errores.join('\n');
 };
-assert.match(fallo('1 x Comb Duo | natural'), /no encontrado.*Comb Duo/i);
-assert.match(fallo('1 x Repetido'), /ambiguo.*Repetido/i);
-assert.match(fallo('1 x Agotado'), /no está disponible.*Agotado/i);
-assert.match(fallo('1 x Combo Duo'), /picante.*Combo Dúo/i);
+
+// Pedidos reales anonimizados, con el envío que ahora siempre se exige.
+assert.deepEqual(pedidoDe(`Domiclio
+Cliente Uno
+${TEL}
+Combo simple
+Natural
+efectivo $2`), {
+  tipoOrden: 'domicilio', cliente: 'Cliente Uno', telefono: '+593990000000', pago: 'efectivo', envio: 2,
+  ubicacionUrl: null, esperaMotoMin: null, solicitarAprobacion: false, nuevoPedido: false, observaciones: null,
+  items: [{ texto: 'Combo simple', cantidad: 1, nivelPicante: 'natural', observaciones: null }],
+});
+
+assert.deepEqual(resumen(`Domicilio
+Combo mixto small
+${TEL}
+1 cangrejo
+1 patacones
+120 gr calamar
+Salsa Natural
+Efectivo $2.50`), ['1 Combo Mixto Small natural', '1 Cangrejo -', '1 Patacones -', '1 Calamar 120 Gramos -']);
+
+const transferencia = pedidoDe(`Domicilio
+${TEL}
+Combo mixto small / picante 1
+1 tentáculos
+1 calamar
+Trans $3,25`);
+assert.equal(transferencia.pago, 'transferencia_confirmada');
+assert.equal(transferencia.envio, 3.25);
+assert.equal(transferencia.items[0].nivelPicante, 'picante_1');
+
+// El picante y el pago pueden ir en cualquier orden.
+assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo mixto small\n2 cangrejos\ntrans $3.50\npicante 1`),
+  ['1 Combo Mixto Small picante_1', '2 Cangrejo -']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo mixto small\ncangrejo 1\nextra de patacones\ntrans $2.75\nnatural`),
+  ['1 Combo Mixto Small natural', '1 Cangrejo -', '1 Patacones -']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo simple\nporción extra de arroz\ntrans $3.75\npicante 1`),
+  ['1 Combo Simple picante_1', '1 Arroz -']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo simple\npicante leve\nefectivo $2`), ['1 Combo Simple leve']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo mixto dúo\npicante 2\nefectivo $2`), ['1 Combo Mixto Duo picante_2']);
+
+// Todo en una línea.
+const unaLinea = pedidoDe(`Para retirar Cliente\n${TEL}\ncombo simple natural efectivo`);
+assert.equal(unaLinea.tipoOrden, 'para_llevar');
+assert.equal(unaLinea.cliente, 'Cliente');
+assert.equal(unaLinea.telefono, null, 'Para retirar no guarda teléfono');
+assert.equal(unaLinea.pago, null, 'Efectivo se cobra al retirar');
+assert.equal(unaLinea.envio, null);
+const retiroPagado = pedidoDe(`Para retirar Cliente\ncombo simple natural\ntrans`);
+assert.equal(retiroPagado.pago, 'transferencia_confirmada');
+assert.equal(retiroPagado.envio, null, 'Retirar no paga envío');
+assert.equal(pedidoDe(`Para retirar Cliente\ncombo simple natural\ntrans $2`).envio, null);
+assert.equal(pedidoDe(`Para retirar Cliente\ncombo simple natural`).pago, null, 'Se puede pagar al llegar');
+assert.equal(pedidoDe(`Para retirar Cliente\ncombo simple natural\nhttps://maps.app.goo.gl/AbC`).ubicacionUrl, null);
+assert.equal(unaLinea.items[0].nivelPicante, 'natural');
+assert.equal(pedidoDe(`Domicilio\n${TEL}\ncombo simple natural efectivo $2.50`).envio, 2.5);
+assert.equal(pedidoDe(`Domicilio\n${TEL}\ncombo simple natural\nefectivo\nEnvío: 2`).envio, 2);
+
+// Notas entre paréntesis: del producto anterior o del pedido.
+assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo mixto triple\n(MANDAR 3 Langostinos )\npicante 1\nefectivo $3`),
+  ['1 Combo Mixto Triple picante_1 (MANDAR 3 Langostinos)']);
+assert.equal(pedidoDe(`Para retirar Cliente\ncombo mixto small\npicante 1\nefectivo\n(para las 6pm que esté listo)`).observaciones,
+  'para las 6pm que esté listo');
+assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo simple natural (sin cebolla)\nefectivo $2`),
+  ['1 Combo Simple natural (sin cebolla)']);
+
+// Varios combos.
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n2 combo mixto small\nNatural y picante 1\ncalamar\npatacones\nefectivo $2`),
+  ['1 Combo Mixto Small natural', '1 Combo Mixto Small picante_1', '1 Calamar 120 Gramos -', '1 Patacones -']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n2 combo mixto small\npicante 1\nefectivo $2`), ['2 Combo Mixto Small picante_1']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo simple natural\ncombo simple natural\ncombo simple picante 1\nefectivo $2`),
+  ['1 Combo Simple natural', '1 Combo Simple natural', '1 Combo Simple picante_1']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n3 Combo Simples natural\nefectivo $2`), ['3 Combo Simple natural']);
+
+// Camarón y langostinos son productos distintos; el camarón exige tamaño.
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n1/2 camarones extra\n1 lb de camarón extra\nefectivo $2`),
+  ['1 1/2 Libra Camarón -', '1 Libra de Camarón -']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n1/2 de camaron\n1lb camarones\nefectivo $2`),
+  ['1 1/2 Libra Camarón -', '1 Libra de Camarón -']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n1/2 langostinos\n1 lb de langostinos\nefectivo $2`),
+  ['1 1/2 Libra Langostinos -', '1 Libra de Langostinos -']);
+assert.match(fallaProducto(`Domiclio\n${TEL}\nextra camarones\nefectivo $2`), /1\/2 o 1 lb/);
+const sinCamaron = resolverProductos(pedidoDe(`Domiclio\n${TEL}\n1 lb de camarón extra\nefectivo $2`).items,
+  [producto('Libra de Langostinos')]);
+assert.match(sinCamaron.ok ? '' : sinCamaron.errores[0], /no encontrado/i, 'Nunca cae en Langostinos');
+
+// Cangrejos: el nombre exacto del catálogo gana; otra cantidad usa la unidad.
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n3 cangrejos\nefectivo $2`), ['1 3 Cangrejos -']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n4 cangrejos\nefectivo $2`), ['4 Cangrejo -']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n3 papas fritas\nefectivo $2`), ['3 Papas Fritas -']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n2 x cangrejo\nefectivo $2`), ['2 Cangrejo -']);
+
+// Enlace escrito en el pedido.
+assert.equal(pedidoDe(`Domicilio\n${TEL}\ncombo simple natural\nefectivo $2\nhttps://maps.app.goo.gl/AbC`).ubicacionUrl,
+  'https://maps.app.goo.gl/AbC');
+
+// Enlace copiado de un pin y espera de la moto, al final del mensaje.
+const conMoto = pedidoDe(`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2\nhttps://maps.google.com/?q=-2.17,-79.92\nmoto 25`);
+assert.equal(conMoto.ubicacionUrl, 'https://maps.google.com/?q=-2.17,-79.92');
+assert.equal(conMoto.esperaMotoMin, 25);
+assert.equal(pedidoDe(`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2\nMoto 5 min`).esperaMotoMin, 5);
+assert.equal(pedidoDe(`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2\nmoto 0`).esperaMotoMin, 0, 'Cero es pedirla ya');
+assert.equal(pedidoDe(`Para retirar Cliente\ncombo simple natural\nmoto 10`).esperaMotoMin, null);
+assert.match(erroresDe(`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2\nmoto 121`), /Moto: máximo 120 minutos/);
+
+// Líneas de control.
+assert.equal(pedidoDe(`Domicilio\n${TEL}\ncombo simple natural\nefectivo $2\nNuevo pedido`).nuevoPedido, true);
+assert.equal(pedidoDe(`Domicilio\n${TEL}\ncombo simple natural\nefectivo $2\nSolicitar aprobación`).solicitarAprobacion, true);
+
+// Rechazos concretos: nunca adivina dinero ni tipo.
+const casos: Array<[string, RegExp]> = [
+  ['hola', /Domicilio o Para retirar/],
+  [`Para servirse en 15 minutos llegan\n${TEL}\ncombo mixto small\npicante 1`, /POS/],
+  [`Domiclio\ncombo simple natural\nefectivo $2`, /Teléfono/],
+  [`Domiclio\n12345\ncombo simple natural\nefectivo $2`, /Teléfono/],
+  [`Domiclio\n${TEL}\ncombo simple natural`, /Pago/],
+  [`Domiclio\n${TEL}\ncombo simple natural\nefectivo`, /envío/i],
+  [`Domiclio\n${TEL}\ncombo simple natural\ntrans`, /envío/i],
+  [`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2.755`, /no reconocida|Pago/i],
+  [`Domiclio\n${TEL}\nefectivo $2`, /producto/i],
+  [`Domiclio\n${TEL}\ncombo simple\nnatural\npicante 1\nefectivo $2`, /picante/i],
+  [`Domiclio\n${TEL}\n1 cangrejo\nnatural\nefectivo $2`, /picante/i],
+  [`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2\ntrans $3`, /Pago/],
+  [`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2\nhttp://evil.test`, /Google Maps/],
+  [`Para retirar\ncombo simple natural`, /nombre/i],
+  [`Domiclio\n${TEL}\n${'1 cangrejo\n'.repeat(31)}efectivo $2`, /líneas/i],
+  [`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2\n(${'a'.repeat(4000)})`, /largo/i],
+];
+for (const [texto, patron] of casos) assert.match(erroresDe(texto), patron, texto.slice(0, 60));
+
+// Catálogo: sin coincidencia exacta o alias confirmado, no adivina.
+assert.match(fallaProducto(`Domiclio\n${TEL}\nCola de 1LT\nefectivo $2`), /no encontrado.*Cola de 1LT/i);
+assert.match(fallaProducto(`Domiclio\n${TEL}\n1 michelada maracuya\nefectivo $2`), /no encontrado.*michelada/i);
+assert.match(fallaProducto(`Domiclio\n${TEL}\nExtra salsa picante 2\nefectivo $2`), /no encontrado.*salsa picante 2/i);
+assert.match(fallaProducto(`Domiclio\n${TEL}\ncombo mixto small\n4 cangrejos\ntrans $3.75`), /Falta picante.*Combo Mixto Small/);
+assert.match(fallaProducto(`Domiclio\n${TEL}\n3 Combo Simples (2 en natural y el otro en picante 1)\nefectivo $2`), /Falta picante/);
+assert.match(fallaProducto(`Domiclio\n${TEL}\n100 cangrejos\nefectivo $2`), /Cantidad máxima/);
+const dobles = resolverProductos(pedidoDe(`Domiclio\n${TEL}\nRepetido\nefectivo $2`).items,
+  [producto('Repetido'), { ...producto('repetido'), id: 'otro' }]);
+assert.match(dobles.ok ? '' : dobles.errores[0], /ambiguo/i);
+const agotado = resolverProductos(pedidoDe(`Domiclio\n${TEL}\nAgotado\nefectivo $2`).items, [producto('Agotado', 'Extras', false)]);
+assert.match(agotado.ok ? '' : agotado.errores[0], /no está disponible/);
+// Una salsa agregada al catálogo funciona sin cambiar código.
+const conSalsa = resolverProductos(pedidoDe(`Domiclio\n${TEL}\nExtra salsa picante 2\nefectivo $2`).items, [producto('Salsa Picante 2')]);
+assert.ok(conSalsa.ok);
 
 // Hash: reconoce el reenvío aunque cambie el formato, no el contenido.
-const hash = hashPedido(pedidoDe(domicilio));
+const base = `Domiclio\n${TEL}\ncombo simple natural\n1 cangrejo\nefectivo $2`;
+const hash = hashPedido(pedidoDe(base));
 assert.match(hash, /^[0-9a-f]{64}$/);
-assert.equal(hashPedido(pedidoDe(domicilio.toUpperCase()
-  .replace('MAPS', 'maps').replace('PIN', 'pin').replace('X COMBO', 'x combo').replace('X 3', 'x 3'))), hash);
-assert.equal(hashPedido(pedidoDe(cambiar(domicilio, 'Teléfono: +593 99 123 4567', 'Teléfono: 0991234567'))), hash);
-assert.equal(hashPedido(pedidoDe(cambiar(domicilio, '2 x Combo Duo | natural\n1 x Combo Duo | picante 1 | sin cebolla',
-  '1 x Combo Duo | picante 1 | sin cebolla\n2 x Combo Duo | natural'))), hash);
+assert.equal(hashPedido(pedidoDe(base.toUpperCase().replace('X', 'x'))), hash);
+assert.equal(hashPedido(pedidoDe(base.replace('+593 99 000 0000', '0990000000'))), hash);
+assert.equal(hashPedido(pedidoDe(`Domicilio\n1 cangrejo\n${TEL}\nefectivo $2\ncombo simple natural`)), hash);
 for (const [de, a] of [
-  ['2 x Combo Duo', '3 x Combo Duo'], ['| natural', '| leve'], ['Envío: 2.75', 'Envío: 3'],
-  ['Ubicación: pin', 'Ubicación: pendiente'], ['transferencia confirmada', 'efectivo'],
-  ['Observaciones: entregar', 'Observaciones: dejar'],
+  ['1 cangrejo', '2 cangrejos'], ['natural', 'leve'], ['efectivo $2', 'efectivo $3'], ['efectivo $2', 'trans $2'],
 ]) {
-  assert.notEqual(hashPedido(pedidoDe(cambiar(domicilio, de, a))), hash, de);
+  assert.notEqual(hashPedido(pedidoDe(base.replace(de, a))), hash, de);
 }
-assert.notEqual(hashPedido(pedidoDe(`${domicilio}\nNuevo pedido: sí`)), hash);
+assert.notEqual(hashPedido(pedidoDe(`${base}\nNuevo pedido`)), hash);
 
 console.log('whatsapp-pedido tests: ok');

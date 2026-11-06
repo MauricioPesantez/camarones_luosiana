@@ -1,26 +1,23 @@
 import { createHash } from 'node:crypto';
 
-import { MAX_REFERENCIA_ENTREGA, normalizarUbicacionUrl } from './delivery-location';
+import { normalizarUbicacionUrl } from './delivery-location';
 import { NIVELES_PICANTE, NivelPicante, esCategoriaCombo } from '../types/orden';
 
 const MAX_TEXTO = 4000;
-const MAX_LINEAS = 30;
+const MAX_ITEMS = 30;
 const MAX_CANTIDAD = 99;
 const MAX_CLIENTE = 100;
 const MAX_OBSERVACIONES = 500;
 const MAX_ENVIO = 999.99;
+const MAX_ESPERA_MOTO = 120;
 
 export interface ItemPedido {
-  cantidad: number;
-  producto: string;
+  /** Como lo escribió el operador; el catálogo decide producto y cantidad. */
+  texto: string;
+  cantidad: number | null;
   nivelPicante: NivelPicante | null;
   observaciones: string | null;
 }
-
-export type UbicacionPedido =
-  | { tipo: 'pin' }
-  | { tipo: 'pendiente' }
-  | { tipo: 'enlace'; url: string };
 
 export interface PedidoWhatsapp {
   tipoOrden: 'domicilio' | 'para_llevar';
@@ -28,32 +25,18 @@ export interface PedidoWhatsapp {
   telefono: string | null;
   pago: 'efectivo' | 'transferencia_confirmada' | null;
   envio: number | null;
-  ubicacion: UbicacionPedido | null;
-  referencia: string | null;
+  ubicacionUrl: string | null;
+  /** Minutos para pedir la moto; `null` usa la espera normal. */
+  esperaMotoMin: number | null;
   solicitarAprobacion: boolean;
   nuevoPedido: boolean;
   observaciones: string | null;
   items: ItemPedido[];
 }
 
-export type ResultadoPlantilla =
+export type ResultadoPedido =
   | { ok: true; pedido: PedidoWhatsapp }
   | { ok: false; errores: string[] };
-
-const CAMPOS = {
-  tipo: 'Tipo',
-  cliente: 'Cliente',
-  telefono: 'Teléfono',
-  productos: 'Productos',
-  pago: 'Pago',
-  envio: 'Envío',
-  ubicacion: 'Ubicación',
-  'referencia de entrega': 'Referencia de entrega',
-  'solicitar aprobacion de stock': 'Solicitar aprobación de stock',
-  'nuevo pedido': 'Nuevo pedido',
-  observaciones: 'Observaciones',
-} as const;
-type Campo = keyof typeof CAMPOS;
 
 function normalizar(texto: string): string {
   return texto
@@ -64,42 +47,28 @@ function normalizar(texto: string): string {
     .trim();
 }
 
-const NIVEL_POR_ETIQUETA = new Map<string, NivelPicante>(
-  NIVELES_PICANTE.map((nivel) => [normalizar(nivel.label), nivel.value]),
-);
+const NIVEL_POR_TEXTO = new Map<string, NivelPicante>([
+  ...NIVELES_PICANTE.map((nivel) => [normalizar(nivel.label), nivel.value] as const),
+  ['picante leve', 'leve'],
+  ['salsa natural', 'natural'],
+]);
 
-function esCampo(etiqueta: string): etiqueta is Campo {
-  return Object.hasOwn(CAMPOS, etiqueta);
-}
+const MONTO = '\\$?(\\d+(?:[.,]\\d{1,2})?)';
+const PAGO = new RegExp(`^(efectivo|trans|transferencia)(?: confirmada)?(?: ${MONTO})?$`);
+const ENVIO = new RegExp(`^envio:? ${MONTO}$`);
+const MOTO = /^moto (\d+)(?: min(?:utos)?)?$/;
 
-function leerLineaProducto(linea: string, errores: string[]): ItemPedido | null {
-  const formato = linea.match(/^(\d+)\s+x\s+(.+)$/i);
-  const cantidad = formato ? Number(formato[1]) : 0;
-  if (!formato || cantidad < 1) {
-    errores.push(`Línea de producto inválida: "${linea}". Usa: 2 x Nombre del producto`);
-    return null;
+/** Separa del final de la línea las palabras que cumplan `coincide`. */
+function quitarCola<T>(
+  linea: string,
+  coincide: (cola: string) => T | undefined,
+): { resto: string; valor: T } | null {
+  const palabras = linea.split(/\s+/);
+  for (let cantidad = Math.min(3, palabras.length - 1); cantidad >= 1; cantidad--) {
+    const valor = coincide(normalizar(palabras.slice(-cantidad).join(' ')));
+    if (valor !== undefined) return { resto: palabras.slice(0, -cantidad).join(' '), valor };
   }
-  if (cantidad > MAX_CANTIDAD) {
-    errores.push(`Cantidad máxima ${MAX_CANTIDAD} por línea: "${linea}"`);
-    return null;
-  }
-
-  const [producto, ...extras] = formato[2].split('|').map((parte) => parte.trim());
-  let nivelPicante: NivelPicante | null = null;
-  const segundo = extras[0] ? normalizar(extras[0]) : '';
-  if (NIVEL_POR_ETIQUETA.has(segundo)) {
-    nivelPicante = NIVEL_POR_ETIQUETA.get(segundo)!;
-    extras.shift();
-  } else if (segundo.startsWith('picante')) {
-    errores.push(`Picante no válido en "${linea}". Usa natural, leve, picante 1, picante 2 o picante 3`);
-    return null;
-  }
-  if (!producto || extras.length > 1) {
-    errores.push(`Línea de producto inválida: "${linea}". Usa: 1 x Nombre | picante 1 | observación`);
-    return null;
-  }
-
-  return { cantidad, producto, nivelPicante, observaciones: extras[0] || null };
+  return null;
 }
 
 function leerTelefono(valor: string): string | null {
@@ -108,136 +77,217 @@ function leerTelefono(valor: string): string | null {
   return digitos ? `+593${digitos}` : null;
 }
 
-function leerSiNo(valor: string): boolean | null {
-  const texto = normalizar(valor);
-  if (texto === 'si') return true;
-  return texto === 'no' ? false : null;
+function leerTipo(linea: string, errores: string[]) {
+  const texto = normalizar(linea);
+  if (texto === 'domicilio' || texto === 'domiclio') {
+    return { tipoOrden: 'domicilio' as const, cliente: null };
+  }
+  const retiro = linea.trim().match(/^para retirar\b\s*(.*)$/i);
+  if (retiro) return { tipoOrden: 'para_llevar' as const, cliente: retiro[1].trim() || null };
+
+  errores.push(
+    texto.startsWith('para servirse')
+      ? 'Para servirse: regístralo en el POS'
+      : 'La primera línea debe ser Domicilio o Para retirar y el nombre',
+  );
+  return null;
 }
 
-function leerUbicacion(valor: string): UbicacionPedido | null {
-  const texto = normalizar(valor);
-  if (texto === 'pin' || texto === 'pendiente') return { tipo: texto };
-  const url = normalizarUbicacionUrl(valor);
-  return url ? { tipo: 'enlace', url } : null;
-}
-
-/** Convierte el texto en un pedido o en la lista completa de correcciones. No consulta el catálogo. */
-export function interpretarPlantilla(texto: string): ResultadoPlantilla {
+/** Convierte el mensaje en un pedido o en la lista completa de correcciones. No consulta el catálogo. */
+export function interpretarPedido(texto: string): ResultadoPedido {
   if (texto.length > MAX_TEXTO) {
     return { ok: false, errores: [`Mensaje demasiado largo: máximo ${MAX_TEXTO} caracteres`] };
   }
 
-  const lineas = texto.split(/\r?\n/).map((linea) => linea.trim()).filter(Boolean);
-  if (normalizar(lineas[0] ?? '') !== 'pedido') {
-    return { ok: false, errores: ['El mensaje debe empezar con la línea PEDIDO'] };
-  }
-
   const errores: string[] = [];
-  const valores = new Map<Campo, string>();
-  const lineasProducto: string[] = [];
-  let enProductos = false;
+  const lineas = texto.split(/\r?\n/).map((linea) => linea.trim()).filter(Boolean);
+  const tipo = leerTipo(lineas[0] ?? '', errores);
+  if (!tipo) return { ok: false, errores };
 
-  for (const linea of lineas.slice(1)) {
-    const separador = linea.indexOf(':');
-    const etiqueta = separador > 0 ? normalizar(linea.slice(0, separador)) : '';
-    const valor = separador > 0 ? linea.slice(separador + 1).trim() : '';
-
-    if (esCampo(etiqueta)) {
-      enProductos = etiqueta === 'productos';
-      if (enProductos) {
-        if (valor) lineasProducto.push(valor);
-        continue;
-      }
-      const anterior = valores.get(etiqueta);
-      if (anterior !== undefined && normalizar(anterior) !== normalizar(valor)) {
-        errores.push(`${CAMPOS[etiqueta]} repetido con valores distintos`);
-      }
-      valores.set(etiqueta, valor);
-    } else if (enProductos) {
-      lineasProducto.push(linea);
-    } else {
-      errores.push(`Campo no reconocido: "${linea.slice(0, 60)}"`);
-    }
-  }
-
-  const tipo = normalizar(valores.get('tipo') ?? '').replace('_', ' ');
-  const tipoOrden = tipo === 'domicilio' ? 'domicilio' : tipo === 'para llevar' ? 'para_llevar' : null;
-  if (!tipoOrden) errores.push('Tipo es requerido: domicilio o para llevar');
-
-  const cliente = valores.get('cliente') || null;
-  if (cliente && cliente.length > MAX_CLIENTE) errores.push('Cliente demasiado largo');
-  if (tipoOrden === 'para_llevar' && !cliente) errores.push('Cliente es requerido para llevar');
-
-  const referencia = valores.get('referencia de entrega') || null;
-  if (referencia && referencia.length > MAX_REFERENCIA_ENTREGA) {
-    errores.push('Referencia de entrega demasiado larga');
-  }
-  const observaciones = valores.get('observaciones') || null;
-  if (observaciones && observaciones.length > MAX_OBSERVACIONES) {
-    errores.push('Observaciones demasiado largas');
-  }
-
+  const { tipoOrden } = tipo;
+  const domicilio = tipoOrden === 'domicilio';
+  let cliente = tipo.cliente;
   let telefono: string | null = null;
-  let pago: PedidoWhatsapp['pago'] = null;
+  let telefonoEscrito = false;
+  let metodo: string | null = null;
   let envio: number | null = null;
-  let ubicacion: UbicacionPedido | null = null;
-
-  if (tipoOrden === 'domicilio') {
-    const valorTelefono = valores.get('telefono');
-    telefono = valorTelefono ? leerTelefono(valorTelefono) : null;
-    if (!telefono) errores.push('Teléfono es requerido con formato +593XXXXXXXXX o 09XXXXXXXX');
-
-    const valorPago = normalizar(valores.get('pago') ?? '');
-    if (valorPago === 'efectivo') pago = 'efectivo';
-    else if (valorPago === 'transferencia confirmada') pago = 'transferencia_confirmada';
-    else errores.push('Pago es requerido: efectivo o transferencia confirmada');
-
-    const valorEnvio = valores.get('envio')?.replace(/^\$/, '').replace(',', '.') ?? '';
-    if (/^\d+(\.\d{1,2})?$/.test(valorEnvio) && Number(valorEnvio) <= MAX_ENVIO) {
-      envio = Number(valorEnvio);
-    } else {
-      errores.push('Envío es requerido, como 2.75');
-    }
-
-    ubicacion = leerUbicacion(valores.get('ubicacion') ?? '');
-    if (!ubicacion) errores.push('Ubicación es requerida: pin, pendiente o enlace HTTPS de Google Maps');
-  } else if (tipoOrden === 'para_llevar') {
-    for (const campo of ['pago', 'envio', 'ubicacion', 'referencia de entrega'] as const) {
-      if (valores.has(campo)) errores.push(`Para llevar no usa ${CAMPOS[campo]}`);
-    }
-  }
-
-  const solicitarAprobacion = leerSiNo(valores.get('solicitar aprobacion de stock') ?? 'no');
-  if (solicitarAprobacion === null) errores.push('Solicitar aprobación de stock admite sí o no');
-  const nuevoPedido = leerSiNo(valores.get('nuevo pedido') ?? 'no');
-  if (nuevoPedido === null) errores.push('Nuevo pedido admite sí o no');
-
+  let ubicacionUrl: string | null = null;
+  let esperaMotoMin: number | null = null;
+  let solicitarAprobacion = false;
+  let nuevoPedido = false;
+  const notas: string[] = [];
   const items: ItemPedido[] = [];
-  if (lineasProducto.length === 0) errores.push('Productos es requerido: al menos una línea');
-  if (lineasProducto.length > MAX_LINEAS) {
-    errores.push(`Máximo ${MAX_LINEAS} líneas de producto`);
-  } else {
-    for (const linea of lineasProducto) {
-      const item = leerLineaProducto(linea, errores);
-      if (item) items.push(item);
+  const nivelesSueltos: NivelPicante[] = [];
+  let ultimoEsProducto = false;
+
+  const anotarPago = (palabra: string, monto: string | undefined) => {
+    const leido = palabra === 'efectivo' ? 'efectivo' : 'transferencia';
+    if (metodo && metodo !== leido) errores.push('Pago repetido con valores distintos');
+    metodo = leido;
+    if (monto) envio = Number(monto.replace(',', '.'));
+  };
+
+  const agregarProducto = (linea: string, nota: string | null) => {
+    const combo = linea.match(/^(?:(\d+)\s+)?(combo\b.*)$/i);
+    if (!combo) {
+      items.push({ texto: linea, cantidad: null, nivelPicante: null, observaciones: nota });
+      return;
+    }
+    const sinBarra = combo[2].replace(/\s*\/\s*/g, ' ');
+    const nivel = quitarCola(sinBarra, (cola) => NIVEL_POR_TEXTO.get(cola));
+    items.push({
+      texto: nivel?.resto ?? sinBarra,
+      cantidad: Number(combo[1] ?? 1),
+      nivelPicante: nivel?.valor ?? null,
+      observaciones: nota,
+    });
+  };
+
+  for (const [indice, linea] of lineas.entries()) {
+    if (indice === 0) continue;
+    const normal = normalizar(linea);
+
+    if (/^\+?[\d\s()-]{7,}$/.test(linea)) {
+      telefonoEscrito = true;
+      telefono = leerTelefono(linea);
+      ultimoEsProducto = false;
+      continue;
+    }
+    if (/^https?:/i.test(linea)) {
+      ubicacionUrl = normalizarUbicacionUrl(linea);
+      if (!ubicacionUrl) errores.push('Ubicación: el enlace debe ser HTTPS de Google Maps');
+      ultimoEsProducto = false;
+      continue;
+    }
+    if (normal === 'nuevo pedido' || normal === 'nuevo pedido: si') {
+      nuevoPedido = true;
+      continue;
+    }
+    if (normal === 'solicitar aprobacion' || normal === 'solicitar aprobacion de stock') {
+      solicitarAprobacion = true;
+      continue;
+    }
+    const conEtiqueta = linea.match(/^cliente:\s*(.+)$/i);
+    if (conEtiqueta) {
+      cliente = conEtiqueta[1].trim();
+      continue;
+    }
+
+    const nota = linea.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
+    const principal = nota ? nota[1] : linea;
+    const textoNota = nota?.[2].trim() || null;
+    if (!principal) {
+      if (textoNota && ultimoEsProducto) {
+        const anterior = items[items.length - 1];
+        anterior.observaciones = [anterior.observaciones, textoNota].filter(Boolean).join('; ');
+      } else if (textoNota) {
+        notas.push(textoNota);
+      }
+      continue;
+    }
+
+    const normalPrincipal = normalizar(principal);
+    const envioLinea = normalPrincipal.match(ENVIO);
+    if (envioLinea) {
+      envio = Number(envioLinea[1].replace(',', '.'));
+      ultimoEsProducto = false;
+      continue;
+    }
+
+    const motoLinea = normalPrincipal.match(MOTO);
+    if (motoLinea) {
+      esperaMotoMin = Number(motoLinea[1]);
+      if (esperaMotoMin > MAX_ESPERA_MOTO) errores.push(`Moto: máximo ${MAX_ESPERA_MOTO} minutos`);
+      ultimoEsProducto = false;
+      continue;
+    }
+
+    const pagoLinea = normalPrincipal.match(PAGO);
+    if (pagoLinea) {
+      anotarPago(pagoLinea[1], pagoLinea[2]);
+      ultimoEsProducto = false;
+      continue;
+    }
+    const nivelLinea = NIVEL_POR_TEXTO.get(normalPrincipal);
+    if (nivelLinea) {
+      nivelesSueltos.push(nivelLinea);
+      continue;
+    }
+    const dosNiveles = normalPrincipal.split(' y ').map((parte) => NIVEL_POR_TEXTO.get(parte));
+    if (dosNiveles.length > 1 && dosNiveles.every(Boolean)) {
+      nivelesSueltos.push(...(dosNiveles as NivelPicante[]));
+      continue;
+    }
+
+    // `combo simple natural efectivo $2`: el pago también puede cerrar la línea.
+    const pagoAlFinal = quitarCola(principal, (cola) => cola.match(PAGO) ?? undefined);
+    if (pagoAlFinal) anotarPago(pagoAlFinal.valor[1], pagoAlFinal.valor[2]);
+    agregarProducto(pagoAlFinal?.resto ?? principal, textoNota);
+    ultimoEsProducto = true;
+  }
+
+  // Línea entre el tipo y el teléfono: es el nombre del cliente, no un producto.
+  const candidato = lineas[1];
+  if (
+    domicilio && !cliente && candidato && lineas[2] && /^\+?[\d\s()-]{7,}$/.test(lineas[2]) &&
+    /^[\p{L} .'-]+$/u.test(candidato) && !/^combo\b/i.test(candidato)
+  ) {
+    const posicion = items.findIndex((item) => item.texto === candidato);
+    if (posicion >= 0) {
+      items.splice(posicion, 1);
+      cliente = candidato;
     }
   }
 
-  if (errores.length > 0 || !tipoOrden) return { ok: false, errores };
+  // El nivel suelto corresponde a los combos que aún no lo tienen, en orden.
+  const expandidos: ItemPedido[] = [];
+  for (const item of items) {
+    const esCombo = /^combo\b/i.test(item.texto);
+    if (!esCombo || item.nivelPicante || nivelesSueltos.length === 0) {
+      expandidos.push(item);
+    } else if ((item.cantidad ?? 1) > 1 && nivelesSueltos.length >= (item.cantidad ?? 1)) {
+      for (let unidad = 0; unidad < (item.cantidad ?? 1); unidad++) {
+        expandidos.push({ ...item, cantidad: 1, nivelPicante: nivelesSueltos.shift()! });
+      }
+    } else {
+      expandidos.push({ ...item, nivelPicante: nivelesSueltos.shift()! });
+    }
+  }
+  if (nivelesSueltos.length > 0) errores.push('Hay un picante sin combo: revisa las líneas de picante');
+
+  if (domicilio) {
+    if (!telefono) {
+      errores.push(telefonoEscrito ? 'Teléfono no válido: usa +593XXXXXXXXX o 09XXXXXXXX' : 'Teléfono es requerido en domicilio');
+    }
+    if (!metodo) errores.push('Pago es requerido: efectivo $2.50 o trans $2.50');
+    else if (envio === null) errores.push('Falta el valor del envío: escribe efectivo $2.50 o trans $2.50');
+    else if (envio > MAX_ENVIO) errores.push('El valor del envío es demasiado alto');
+  } else {
+    if (!cliente) errores.push('Para retirar requiere el nombre del cliente');
+  }
+
+  if (cliente && cliente.length > MAX_CLIENTE) errores.push('Cliente demasiado largo');
+  const observaciones = notas.join('; ') || null;
+  if (observaciones && observaciones.length > MAX_OBSERVACIONES) errores.push('Notas demasiado largas');
+  if (expandidos.length === 0) errores.push('Falta al menos un producto');
+  if (expandidos.length > MAX_ITEMS) errores.push(`Máximo ${MAX_ITEMS} líneas de producto`);
+
+  if (errores.length > 0) return { ok: false, errores };
   return {
     ok: true,
     pedido: {
       tipoOrden,
       cliente,
-      telefono,
-      pago,
-      envio,
-      ubicacion,
-      referencia,
-      solicitarAprobacion: solicitarAprobacion!,
-      nuevoPedido: nuevoPedido!,
+      telefono: domicilio ? telefono : null,
+      // Para retirar sin transferencia se cobra al llegar; no paga envío ni usa ubicación.
+      pago: metodo === 'transferencia' ? 'transferencia_confirmada' : domicilio ? 'efectivo' : null,
+      envio: domicilio ? envio : null,
+      ubicacionUrl: domicilio ? ubicacionUrl : null,
+      esperaMotoMin: domicilio ? esperaMotoMin : null,
+      solicitarAprobacion,
+      nuevoPedido,
       observaciones,
-      items,
+      items: expandidos,
     },
   };
 }
@@ -249,13 +299,69 @@ interface ProductoCatalogo {
   disponible: boolean;
 }
 
-export type ItemResuelto = ItemPedido & { productoId: string };
+export type ItemResuelto = Omit<ItemPedido, 'cantidad'> & { cantidad: number; productoId: string };
 
 export type ResultadoProductos =
   | { ok: true; items: ItemResuelto[] }
   | { ok: false; errores: string[] };
 
-/** Coincidencia exacta normalizada: si no hay un único producto disponible, no adivina. */
+/** Solo formas confirmadas con pedidos reales. Un nombre nuevo se agrega aquí o en el catálogo. */
+const ALIAS_PRODUCTOS = new Map<string, string>([
+  ['calamar', 'Calamar 120 Gramos'],
+  ['120 gramos calamar', 'Calamar 120 Gramos'],
+  ['tentaculos', 'Tentaculos 120 Gramos'],
+]);
+
+function limpiarNombre(texto: string): string {
+  return normalizar(texto)
+    .replace(/^\+\s*/, '')
+    .replace(/(\d)(lb|gr)\b/g, '$1 $2')
+    .replace(/\b(extra|porcion|de)\b/g, ' ')
+    .replace(/\b(lb|libras)\b/g, 'libra')
+    .replace(/\bgr\b/g, 'gramos')
+    .replace(/\s+/g, ' ')
+    .trim()
+    // `1/2 camarón` y `1 lb de camarón` se comparan como `1/2 libra camaron` y `libra camaron`.
+    .replace(/^1\/2 (?!libra\b)/, '1/2 libra ')
+    .replace(/^1 libra /, 'libra ');
+}
+
+function buscarProducto(texto: string, catalogo: ProductoCatalogo[]): ProductoCatalogo[] {
+  const exacto = normalizar(texto);
+  const limpio = limpiarNombre(texto);
+  const alias = ALIAS_PRODUCTOS.get(limpio);
+  const iguales = (buscado: string) => catalogo.filter((p) => normalizar(p.nombre) === buscado);
+  const limpios = (buscado: string) => catalogo.filter((p) => limpiarNombre(p.nombre) === buscado);
+
+  for (const encontrados of [
+    iguales(exacto),
+    alias ? iguales(normalizar(alias)) : [],
+    limpios(limpio),
+    limpios(limpio.replace(/s$/, '')),
+    limpios(limpio.replace(/es$/, '')),
+  ]) {
+    if (encontrados.length > 0) return encontrados;
+  }
+  return [];
+}
+
+/** El nombre completo manda: `3 cangrejos` es ese producto si existe; si no, 3 de `cangrejo`. */
+function identificarLinea(item: ItemPedido, catalogo: ProductoCatalogo[]) {
+  if (item.cantidad !== null) {
+    return { cantidad: item.cantidad, encontrados: buscarProducto(item.texto, catalogo) };
+  }
+
+  const completos = buscarProducto(item.texto, catalogo);
+  if (completos.length > 0) return { cantidad: 1, encontrados: completos };
+
+  const antes = item.texto.match(/^(\d+)(?:\s*x)?\s+(.+)$/i);
+  if (antes) return { cantidad: Number(antes[1]), encontrados: buscarProducto(antes[2], catalogo) };
+  const despues = item.texto.match(/^(.+?)\s+(\d+)$/);
+  if (despues) return { cantidad: Number(despues[2]), encontrados: buscarProducto(despues[1], catalogo) };
+  return { cantidad: 1, encontrados: [] };
+}
+
+/** Si no hay un único producto disponible, no adivina. */
 export function resolverProductos(
   items: ItemPedido[],
   catalogo: ProductoCatalogo[],
@@ -264,19 +370,24 @@ export function resolverProductos(
   const resueltos: ItemResuelto[] = [];
 
   for (const item of items) {
-    const buscado = normalizar(item.producto);
-    const coincidencias = catalogo.filter((producto) => normalizar(producto.nombre) === buscado);
-    const producto = coincidencias[0];
+    const { cantidad, encontrados } = identificarLinea(item, catalogo);
+    const producto = encontrados[0];
     if (!producto) {
-      errores.add(`Producto no encontrado: ${item.producto}`);
-    } else if (coincidencias.length > 1) {
-      errores.add(`Producto ambiguo en el catálogo: ${item.producto}`);
+      errores.add(
+        /camar/.test(normalizar(item.texto)) && !/1\/2|libra|lb/.test(limpiarNombre(item.texto))
+          ? `Camarón: indica 1/2 o 1 lb en "${item.texto}"`
+          : `Producto no encontrado: ${item.texto}`,
+      );
+    } else if (encontrados.length > 1) {
+      errores.add(`Producto ambiguo en el catálogo: ${item.texto}`);
     } else if (!producto.disponible) {
       errores.add(`Producto no está disponible: ${producto.nombre}`);
+    } else if (cantidad < 1 || cantidad > MAX_CANTIDAD) {
+      errores.add(`Cantidad máxima ${MAX_CANTIDAD} por línea: ${item.texto}`);
     } else if (esCategoriaCombo(producto.categoria) && !item.nivelPicante) {
       errores.add(`Falta picante para ${producto.nombre}`);
     } else {
-      resueltos.push({ ...item, productoId: producto.id });
+      resueltos.push({ ...item, cantidad, productoId: producto.id });
     }
   }
 
@@ -288,7 +399,7 @@ export function hashPedido(pedido: PedidoWhatsapp): string {
   const items = pedido.items
     .map((item) => [
       item.cantidad,
-      normalizar(item.producto),
+      normalizar(item.texto),
       item.nivelPicante,
       normalizar(item.observaciones ?? ''),
     ])
@@ -300,8 +411,8 @@ export function hashPedido(pedido: PedidoWhatsapp): string {
     pedido.telefono,
     pedido.pago,
     pedido.envio,
-    pedido.ubicacion,
-    normalizar(pedido.referencia ?? ''),
+    pedido.ubicacionUrl,
+    pedido.esperaMotoMin,
     pedido.solicitarAprobacion,
     pedido.nuevoPedido,
     normalizar(pedido.observaciones ?? ''),

@@ -1,6 +1,6 @@
 # Ensayo de OpenWA en Windows
 
-Fase 0 del plan `docs/superpowers/plans/2026-11-04-whatsapp-openwa.md`. Este ensayo no se conecta al POS, a Neon ni a la impresora.
+Fase 0 del plan `docs/superpowers/plans/2026-11-04-whatsapp-openwa.md`. Solo se conecta a un POS si completas las secciones 5 y 6.
 
 Usa solo datos de prueba. Las muestras enmascaran identidades y nombres, pero conservan el texto y las coordenadas: revísalas antes de compartirlas.
 
@@ -72,7 +72,7 @@ Abre otra ventana de PowerShell para los comandos y define `$S` otra vez. Númer
 |---|---|---|---|
 | 8 | Texto y firma | Escribe `PEDIDO prueba` al ejecutor | Evento `message.received` con `type` de texto |
 | 9 | Pin | Reenvía al ejecutor un pin tuyo | `type: location` con latitud y longitud |
-| 9 | Filtro | Ejecuta `webhook $S --filtros` y repite el pin | El pin sigue llegando; un mensaje propio no |
+| 9 | Filtro | Ejecuta `webhook $S --filtros` y repite el pin | El pin sigue llegando; un mensaje propio, de grupo o sticker no |
 | 10 | Tiempo real | Intenta reenviar una ubicación en tiempo real | Anota si WhatsApp lo permite y qué llega |
 | 11 | Envío | Usa `enviar` a tu número y al grupo | Mensaje recibido en ambos |
 | 11 | Duplicado | Repite `enviar` con el mismo texto y clave | Un solo mensaje; respuesta repetida |
@@ -96,6 +96,38 @@ docker compose exec receptor node ensayo.mjs reenviar $S
 docker stats --no-stream
 ```
 
-## 5. Terminar
+## 5. Conectar al POS de desarrollo
+
+Solo para pruebas con base de desarrollo. Agrega la IP del equipo del POS a `.env`, aplica el cambio y apunta el webhook:
+
+```powershell
+Add-Content -Encoding ascii .env "SSRF_ALLOWED_HOSTS=receptor,IP_DEL_POS"
+docker compose up -d
+docker compose exec receptor node ensayo.mjs webhook $S --filtros --url http://IP_DEL_POS:3000/api/integraciones/whatsapp/webhook
+```
+
+Para volver al receptor, ejecuta `webhook $S --filtros` sin `--url`.
+
+## 6. Enviar respuestas desde el POS
+
+`agente.mjs` entrega las salidas pendientes del POS. Agrega a `.env`:
+
+```text
+POS_URL=http://IP_DEL_POS:3000
+WHATSAPP_AGENT_TOKEN=MISMO_TOKEN_DEL_POS
+WHATSAPP_SESSION_ID=ID_DE_LA_SESION
+HORARIO=10-22
+```
+
+`HORARIO` es opcional y usa la hora de Ecuador; sin él, el agente trabaja todo el día. Luego ejecuta:
+
+```powershell
+docker compose up -d
+docker compose logs -f agente
+```
+
+Si la sesión no está `ready`, no reserva mensajes. Las salidas sin enviar por más de 30 minutos pasan a `REQUIERE_REVISION`, igual que los resultados inciertos. El agente nunca los reenvía por su cuenta.
+
+## 7. Terminar
 
 `docker compose down` detiene el ensayo y conserva la sesión. `docker compose down -v` borra la sesión y sus datos, y obliga a escanear otro QR.

@@ -59,6 +59,7 @@ export async function prepararOrden(
   actor: AuthenticatedUser,
   body: CrearOrdenRequest,
   requestUrl: string,
+  db: Pick<Prisma.TransactionClient, 'producto'> = prisma,
 ) {
   if ('tipoOperacion' in body && body.tipoOperacion !== 'VENTA_CLIENTE') {
     throw new OrdenInvalidaError('Utiliza el registro de consumos de empleados');
@@ -128,7 +129,7 @@ export async function prepararOrden(
 
   // Obtener productos con sus tiempos de preparación y stock
   const productosIds = body.items.map((item: { productoId: string }) => item.productoId);
-  const productos = await prisma.producto.findMany({
+  const productos = await db.producto.findMany({
     where: { id: { in: productosIds } },
     select: {
       id: true,
@@ -257,12 +258,12 @@ export async function prepararOrden(
     ? 'pendiente_aprobacion_stock'
     : 'pendiente';
   const paymentLink = createPaymentLink(requestUrl);
-  // Una transferencia de domicilio confirmada nace pagada, incluso si requiere
+  // Una transferencia confirmada nace pagada, en domicilio o para llevar, incluso si requiere
   // aprobacion de stock. Si el admin la rechaza, el cobro queda como reembolso
   // pendiente y no desaparece del cuadre.
   const cobradaAlCrear =
-    tipoOrden === 'domicilio' &&
-    metodoPagoPrevisto === 'transferencia' &&
+    tipoOrden !== 'local' &&
+    body.metodoPagoPrevisto === 'transferencia' &&
     body.transferenciaConfirmada === true;
 
   const requiereCajaAbierta = actor.rol === ROL_ABRE_CAJA;
@@ -319,6 +320,7 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
     requiereCajaAbierta,
   } = preparada;
   const creadorNombre = creador.nombre;
+  const origenCobroAlCrear = `creacion_${tipoOrden}_transferencia`;
 
   if (requiereCajaAbierta) {
     await bloquearCajaAbierta(tx);
@@ -340,19 +342,14 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
       recargo: recargo > 0 ? recargo : null,
       costoEnvio: costoEnvio > 0 ? costoEnvio : null,
       metodoPagoPrevisto,
-      transferenciaConfirmadaAlCrear:
-        tipoOrden === 'domicilio' &&
-        metodoPagoPrevisto === 'transferencia' &&
-        body.transferenciaConfirmada === true,
+      transferenciaConfirmadaAlCrear: cobradaAlCrear,
       metodoPago: cobradaAlCrear ? 'transferencia' : null,
       montoPagado: cobradaAlCrear ? totalFinal : 0,
       cobrada: cobradaAlCrear,
       fechaCobro: cobradaAlCrear ? createdAt : null,
       cobradaPor: cobradaAlCrear ? creadorNombre : null,
       cobradaPorId: cobradaAlCrear ? creador.id : null,
-      origenCobro: cobradaAlCrear
-        ? 'creacion_domicilio_transferencia'
-        : null,
+      origenCobro: cobradaAlCrear ? origenCobroAlCrear : null,
       cobroTokenHash: paymentLink.tokenHash,
       cobroUrl: paymentLink.url,
       mesero: creadorNombre,
@@ -449,7 +446,7 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
         cobradoPorId: creador.id,
         cobradoPorNombre: creador.nombre,
         cobradoPorRol: creador.rol,
-        origen: 'creacion_domicilio_transferencia',
+        origen: origenCobroAlCrear,
         idempotencyKey: `auto_${nuevaOrden.id}`,
       },
     });
@@ -457,7 +454,7 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
       data: {
         ordenId: nuevaOrden.id,
         tipoAccion: 'orden_cobrada_automaticamente',
-        descripcion: 'Domicilio pagado por transferencia al crear la orden',
+        descripcion: `${tipoOrden === 'domicilio' ? 'Domicilio' : 'Para llevar'} pagado por transferencia al crear la orden`,
         datosDespues: {
           metodoPago: 'transferencia',
           total: Number(totalFinal),
@@ -486,6 +483,24 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
   return { orden: nuevaOrden, printJobQueued: queued };
 }
 
+/** Aviso a cocina en tiempo real; quien lo llama decide qué hacer si falla. */
+export function notificarNuevaOrden(orden: OrdenRegistrada['orden']): void {
+  notificarClientes('nueva-orden', {
+    id: orden.id,
+    numeroDiario: orden.numeroDiario,
+    fechaNumeroDiario: orden.fechaNumeroDiario,
+    revision: orden.printRevision,
+    tipoOrden: orden.tipoOrden,
+    numeroMesa: orden.numeroMesa,
+    nombreCliente: orden.nombreCliente,
+    telefonoCliente: orden.telefonoCliente,
+    mesero: orden.mesero,
+    tiempoEstimado: orden.tiempoEstimado,
+    itemsCount: orden.items.length,
+    createdAt: orden.createdAt,
+  });
+}
+
 function mensajeDeError(error: unknown): string {
   return error instanceof Error ? error.message : 'Error desconocido';
 }
@@ -495,7 +510,7 @@ export async function ejecutarEfectosPosteriores(
   preparada: OrdenPreparada,
   { orden, printJobQueued }: OrdenRegistrada,
 ) {
-  const { estadoInicial, tipoOrden } = preparada;
+  const { estadoInicial } = preparada;
 
   // Solo imprimir comanda si la orden no está pendiente de aprobación
   let resultadoImpresion: { success: boolean; data?: unknown; error?: string } = {
@@ -542,20 +557,7 @@ export async function ejecutarEfectosPosteriores(
   let notificacion: { success: boolean; error?: string } = { success: true };
   if (estadoInicial === 'pendiente') {
     try {
-      notificarClientes('nueva-orden', {
-        id: orden.id,
-        numeroDiario: orden.numeroDiario,
-        fechaNumeroDiario: orden.fechaNumeroDiario,
-        revision: orden.printRevision,
-        tipoOrden,
-        numeroMesa: orden.numeroMesa,
-        nombreCliente: orden.nombreCliente,
-        telefonoCliente: orden.telefonoCliente,
-        mesero: orden.mesero,
-        tiempoEstimado: orden.tiempoEstimado,
-        itemsCount: orden.items.length,
-        createdAt: orden.createdAt,
-      });
+      notificarNuevaOrden(orden);
     } catch (error) {
       console.error('Error al notificar nueva orden:', error);
       notificacion = { success: false, error: mensajeDeError(error) };

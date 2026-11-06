@@ -19,7 +19,7 @@ export function authenticatePrintAgent(
     return {
       ok: false,
       status: 503,
-      error: 'La credencial del agente de impresion no esta configurada',
+      error: 'La credencial del agente no esta configurada',
     };
   }
 

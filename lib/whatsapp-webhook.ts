@@ -9,6 +9,8 @@ export interface ConfiguracionWhatsapp {
   sessionId: string;
   operadores: Set<string>;
   usuarioOperadorId: string;
+  grupoChatId: string;
+  localChatId: string;
   habilitado: boolean;
 }
 
@@ -34,10 +36,19 @@ export function leerConfiguracion(
   const secreto = entorno.WHATSAPP_WEBHOOK_SECRET?.trim() ?? '';
   const sessionId = entorno.WHATSAPP_SESSION_ID?.trim() ?? '';
   const usuarioOperadorId = entorno.WHATSAPP_OPERATOR_USER_ID?.trim() ?? '';
+  const grupoChatId = entorno.WHATSAPP_GROUP_CHAT_ID?.trim() ?? '';
+  const localChatId = entorno.WHATSAPP_LOCAL_CHAT_ID?.trim() ?? '';
   const operadores = new Set(
     (entorno.WHATSAPP_OPERATOR_IDS ?? '').split(',').map((id) => id.trim()).filter(Boolean),
   );
-  if (secreto.length < MIN_SECRETO || !sessionId || !usuarioOperadorId || operadores.size === 0) {
+  if (
+    secreto.length < MIN_SECRETO ||
+    !sessionId ||
+    !usuarioOperadorId ||
+    !grupoChatId ||
+    !localChatId ||
+    operadores.size === 0
+  ) {
     return null;
   }
   return {
@@ -45,6 +56,8 @@ export function leerConfiguracion(
     sessionId,
     operadores,
     usuarioOperadorId,
+    grupoChatId,
+    localChatId,
     habilitado: entorno.WHATSAPP_ENABLED === 'true',
   };
 }
@@ -131,7 +144,8 @@ export function clasificarMensaje(evento: unknown, config: ConfiguracionWhatsapp
     chatId,
     enviadoAt: new Date(marcaDeTiempoMs(timestamp)),
   };
-  if (type === 'text' && /^\s*pedido\b/i.test(body as string)) {
+  // En su chat privado con el ejecutor, todo texto del operador se interpreta como pedido.
+  if (type === 'text' && (body as string).trim()) {
     return {
       relevante: true,
       mensaje: { ...base, tipo: 'PEDIDO', texto: body as string, location: mensaje.location },

@@ -20,6 +20,7 @@ for (const encabezado of [null, '', 'sha256=corta', firmar(bytes).replace('sha25
 const entorno = {
   WHATSAPP_WEBHOOK_SECRET: secreto, WHATSAPP_SESSION_ID: 'sesion-1',
   WHATSAPP_OPERATOR_IDS: ' 593991234567@c.us, 123456789@lid ,', WHATSAPP_OPERATOR_USER_ID: 'usuario-digital',
+  WHATSAPP_GROUP_CHAT_ID: 'grupo@g.us', WHATSAPP_LOCAL_CHAT_ID: 'local@c.us',
 };
 const config = leerConfiguracion(entorno)!;
 assert.deepEqual([...config.operadores], ['593991234567@c.us', '123456789@lid']);
@@ -29,6 +30,7 @@ assert.equal(leerConfiguracion({ ...entorno, WHATSAPP_ENABLED: '1' })!.habilitad
 for (const cambio of [
   { WHATSAPP_WEBHOOK_SECRET: 'corto' }, { WHATSAPP_SESSION_ID: ' ' },
   { WHATSAPP_OPERATOR_IDS: ' , ' }, { WHATSAPP_OPERATOR_USER_ID: undefined },
+  { WHATSAPP_GROUP_CHAT_ID: '' }, { WHATSAPP_LOCAL_CHAT_ID: undefined },
 ]) {
   assert.equal(leerConfiguracion({ ...entorno, ...cambio }), null);
 }
@@ -75,6 +77,33 @@ assert.equal(pin.relevante && pin.mensaje.texto, null, 'No guarda el cuerpo de u
 assert.deepEqual(pin.relevante && pin.mensaje.location, { latitude: -2.1, longitude: -79.9 });
 assert.ok(clasificarMensaje({ ...sobre, data: { ...data, from: '123456789@lid', chatId: '123456789@lid' } }, config).relevante);
 
+// Muestras reales anonimizadas de OpenWA 0.27.1 con whatsapp-web.js.
+const lid = '138000000080@lid';
+const real = leerConfiguracion({ ...entorno, WHATSAPP_SESSION_ID: 'ae20097a', WHATSAPP_OPERATOR_IDS: lid })!;
+const sobreReal = (data: object) => ({
+  event: 'message.received', timestamp: '2026-11-05T21:18:38.229Z', sessionId: 'ae20097a',
+  idempotencyKey: `msg_ae20097a_false_${lid}_3AD614E103A145520E0F_4fb43c30`, deliveryId: 'dlv_41d63e08',
+  data: {
+    id: `false_${lid}_3AD614E103A145520E0F`, from: lid, to: '593000000049@c.us', chatId: lid, timestamp: 1793913517,
+    fromMe: false, isGroup: false, kind: 'individual', isStatusBroadcast: false, isLidSender: true,
+    contact: { pushName: '***', name: '***' }, ...data,
+  },
+});
+const pinReal = clasificarMensaje(sobreReal({
+  body: 'miniatura-en-base64', type: 'location',
+  location: { latitude: -2.9052374362945557, longitude: -78.99651336669922 },
+}), real);
+assert.ok(pinReal.relevante);
+assert.equal(pinReal.relevante && pinReal.mensaje.tipo, 'UBICACION');
+assert.equal(pinReal.relevante && pinReal.mensaje.texto, null);
+assert.equal(pinReal.relevante && pinReal.mensaje.chatId, lid);
+assert.equal(pinReal.relevante && pinReal.mensaje.enviadoAt.toISOString(), '2026-11-05T21:18:37.000Z');
+assert.deepEqual(pinReal.relevante && leerCoordenadas(pinReal.mensaje.location), {
+  latitud: -2.9052374362945557, longitud: -78.99651336669922,
+});
+const textoReal = clasificarMensaje(sobreReal({ body: 'PEDIDO prueba', type: 'text' }), real);
+assert.equal(textoReal.relevante && textoReal.mensaje.tipo, 'PEDIDO');
+
 const irrelevantes: Array<[string, unknown]> = [
   ['evento', { ...sobre, event: 'message.edited' }],
   ['revocado', { ...sobre, event: 'message.revoked' }],
@@ -85,8 +114,7 @@ const irrelevantes: Array<[string, unknown]> = [
   ['grupo por chat', { ...sobre, data: { ...data, chatId: '1@g.us' } }],
   ['estado', { ...sobre, data: { ...data, isStatusBroadcast: true } }],
   ['desconocido', { ...sobre, data: { ...data, from: '593000000000@c.us' } }],
-  ['otro texto', { ...sobre, data: { ...data, body: 'hola' } }],
-  ['prefijo parecido', { ...sobre, data: { ...data, body: 'PEDIDOS de hoy' } }],
+  ['texto vacío', { ...sobre, data: { ...data, body: '  ' } }],
   ['imagen', { ...sobre, data: { ...data, type: 'image' } }],
   ['revocado por tipo', { ...sobre, data: { ...data, type: 'revoked' } }],
 ];

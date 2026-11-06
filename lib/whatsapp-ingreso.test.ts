@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Prisma } from '@prisma/client';
 import { transpileModule, ModuleKind, ScriptTarget } from 'typescript';
+import * as mensajes from './whatsapp-mensajes';
 import * as pedido from './whatsapp-pedido';
 import * as webhook from './whatsapp-webhook';
 
@@ -21,26 +22,31 @@ function loadModule<T>(file: string, dependencies: Record<string, unknown>): T {
 
 type Fila = Record<string, unknown>;
 const secreto = 's'.repeat(32);
-const operador = '593991234567@c.us';
+const operador = '13000000000000@lid';
 const CONFIG = {
   WHATSAPP_WEBHOOK_SECRET: secreto, WHATSAPP_SESSION_ID: 'sesion-1', WHATSAPP_OPERATOR_IDS: operador,
   WHATSAPP_OPERATOR_USER_ID: 'digital-1', WHATSAPP_ENABLED: 'true',
+  WHATSAPP_GROUP_CHAT_ID: 'grupo@g.us', WHATSAPP_LOCAL_CHAT_ID: 'local@c.us',
 };
 
+// La creación y el pin completos se prueban en PostgreSQL; aquí, la decisión y sus respuestas.
 async function run() {
   let entradas: Fila[] = [];
   let salidas: Fila[] = [];
   let usuario: Fila | null = { id: 'digital-1', rol: 'digital', activo: true };
   let falloTransitorio = false;
   let bloqueos = 0;
+  let ordenesCreadas = 0;
+  let stockInsuficiente = false;
+  let ordenDelCliente: Fila | null = null;
   Object.assign(process.env, CONFIG);
 
-  // Sin orden, cobro ni escritura de producto: tocarlos fallaría la prueba.
   const tx = {
     $executeRaw: async () => { bloqueos++; return 0; },
-    usuario: { findUnique: async () => usuario },
+    usuario: { findUnique: async () => usuario && { nombre: 'Digital', ...usuario } },
+    orden: { findFirst: async () => ordenDelCliente },
     producto: {
-      findMany: async () => [{ id: 'c1', nombre: 'Combo Duo', categoria: 'Combos', disponible: true }],
+      findMany: async () => [{ id: 'c1', nombre: 'Combo Mixto Small', categoria: 'Combos', disponible: true }],
     },
     whatsappEntrada: {
       create: async ({ data }: { data: Fila }) => {
@@ -52,18 +58,15 @@ async function run() {
         entradas.push(fila);
         return fila;
       },
-      updateMany: async ({ where, data }: { where: Fila; data: Fila }) => {
-        entradas = entradas.map((e) => (
-          e.remitente === where.remitente && e.tipo === where.tipo && e.estado === where.estado ? { ...e, ...data } : e
-        ));
-        return { count: 1 };
-      },
-      findFirst: async ({ where }: { where: { remitente: string; tipo: string; estado: string; enviadoAt: { gte: Date } } }) => (
-        entradas.filter((e) => e.remitente === where.remitente && e.tipo === where.tipo && e.estado === where.estado
-          && (e.enviadoAt as Date) >= where.enviadoAt.gte).at(-1) ?? null
+      findUnique: async ({ where }: { where: { sessionId_messageId: { messageId: string } } }) => (
+        entradas.find((e) => e.messageId === where.sessionId_messageId.messageId) ?? null
       ),
+      findFirst: async ({ where }: { where: { requestHash: string } }) => (
+        entradas.some((e) => e.requestHash === where.requestHash && e.ordenId) ? { orden: ordenGuardada } : null
+      ),
+      findMany: async () => [],
     },
-    whatsappSalida: { create: async ({ data }: { data: Fila }) => { salidas.push(data); return data; } },
+    whatsappSalida: { createMany: async ({ data }: { data: Fila[] }) => { salidas.push(...data); } },
   };
   const prisma = {
     $transaction: async <T>(callback: (client: typeof tx) => Promise<T>) => {
@@ -77,7 +80,28 @@ async function run() {
       }
     },
   };
+  class OrdenInvalidaError extends Error {}
+  class StockInsuficienteError extends Error {}
+  const ordenGuardada = {
+    id: 'orden-1', numeroDiario: 7, fechaNumeroDiario: '2026-11-04', tipoOrden: 'domicilio', estado: 'pendiente',
+    anulada: false, nombreCliente: 'Ana', telefonoCliente: '+593990000000', ubicacionUrl: null, referenciaEntrega: null,
+    observaciones: null, total: 10, metodoPagoPrevisto: 'efectivo', cobrada: false, mesero: 'Digital', items: [],
+  };
   const dependencias = {
+    '@/lib/order-creation': {
+      OrdenInvalidaError, StockInsuficienteError,
+      notificarNuevaOrden: () => { throw new Error('sse caido'); },
+      prepararOrden: async () => {
+        if (stockInsuficiente) throw new StockInsuficienteError('Stock insuficiente: Combo Mixto Small (pedido 1, disponible 0)');
+        return {};
+      },
+      registrarOrden: async () => { ordenesCreadas++; return { orden: ordenGuardada, printJobQueued: true }; },
+    },
+    '@/lib/whatsapp-mensajes': mensajes,
+    '@/lib/whatsapp-salidas': {
+      avisoDeDelivery: () => null,
+      salidasDeOrdenAceptada: (orden: { id: string }) => [{ tipo: 'PUBLICACION_GRUPO', clave: `publicacion:${orden.id}` }],
+    },
     'next/server': { NextResponse: { json: Response.json } },
     '@prisma/client': { Prisma }, '@/lib/db': { prisma },
     '@/lib/whatsapp-pedido': pedido, '@/lib/whatsapp-webhook': webhook,
@@ -110,16 +134,7 @@ async function run() {
   const ultima = () => entradas.at(-1) as Fila;
   const respuesta = () => String(salidas.at(-1)?.texto);
 
-  const valido = `PEDIDO
-Tipo: domicilio
-Cliente: Ana
-Teléfono: 0991234567
-Productos:
-1 x Combo Duo | natural
-Pago: efectivo
-Envío: 2
-Ubicación: pendiente`;
-  const conPin = valido.replace('Ubicación: pendiente', 'Ubicación: pin');
+  const valido = 'Domiclio\n+593 99 000 0000\ncombo mixto small\npicante 1\nefectivo $2';
 
   // Rechazos antes de confiar en la entrada.
   assert.equal((await enviarCrudo('{}', 'sha256=mala')).status, 401);
@@ -132,45 +147,79 @@ Ubicación: pendiente`;
   assert.equal(entradas.length, 0);
 
   // Irrelevantes: se reconocen sin guardar nada.
-  assert.equal((await texto('hola')).status, 200);
   assert.equal((await texto(valido, { from: '593000000000@c.us', chatId: '593000000000@c.us' })).status, 200);
   assert.equal((await texto(valido, { fromMe: true })).status, 200);
   assert.equal((await texto(valido, { isGroup: true, chatId: '1@g.us' })).status, 200);
   assert.deepEqual([entradas.length, salidas.length], [0, 0]);
 
-  // Pedido inválido: terminal, con correcciones, sin reintento HTTP.
-  assert.equal((await texto('PEDIDO\nTipo: domicilio')).status, 200);
+  // Pedido inválido: no crea nada y responde qué corregir, sin reintento HTTP.
+  assert.equal((await texto('Domiclio\ncombo mixto small')).status, 200);
   assert.equal(ultima().estado, 'INVALIDA');
   assert.equal(ultima().usuarioId, 'digital-1');
+  assert.match(respuesta(), /^Pedido no registrado\. Corrige:/);
   assert.match(respuesta(), /Teléfono/);
   assert.equal(salidas.at(-1)?.tipo, 'RESPUESTA_EMPLEADO');
   assert.equal(salidas.at(-1)?.destino, operador);
   assert.equal(salidas.at(-1)?.entradaId, ultima().id);
   assert.equal(salidas.at(-1)?.clave, `respuesta:${ultima().id}`);
   assert.equal(salidas.at(-1)?.sessionId, 'sesion-1');
-  await texto(valido.replace('Combo Duo', 'Pizza'));
+  await texto(`${valido}\nPizza`);
   assert.equal(ultima().estado, 'INVALIDA');
   assert.match(respuesta(), /no encontrado.*Pizza/i);
+  await texto('hola');
+  assert.match(respuesta(), /primera línea/);
+  await texto(valido.replace('picante 1\n', ''));
+  assert.match(respuesta(), /Falta picante/);
+  assert.equal(ordenesCreadas, 0);
 
-  // Pedido válido: queda en revisión; esta fase no crea órdenes.
+  // Pedido válido: crea, enlaza la entrada y guarda sus salidas.
   limpiar();
   await texto(valido);
-  assert.equal(ultima().estado, 'REQUIERE_REVISION');
-  assert.equal(ultima().error, 'CREACION_PENDIENTE');
-  assert.equal(ultima().requestHash, pedido.hashPedido((pedido.interpretarPlantilla(valido) as { pedido: pedido.PedidoWhatsapp }).pedido));
+  assert.equal(ultima().estado, 'CREADA');
+  assert.equal(ultima().ordenId, 'orden-1');
+  assert.equal(ordenesCreadas, 1);
+  assert.deepEqual(salidas.map((s) => s.tipo), ['PUBLICACION_GRUPO', 'RESPUESTA_EMPLEADO']);
+  assert.equal(salidas[0].entradaId, ultima().id);
+  const interpretado = pedido.interpretarPedido(valido) as { pedido: pedido.PedidoWhatsapp };
+  assert.equal(ultima().requestHash, pedido.hashPedido(interpretado.pedido));
   assert.equal(ultima().texto, valido);
   assert.equal(ultima().claveEntrega, `k-m${siguiente}`);
   assert.deepEqual((ultima().datosNormalizados as { items: Fila[] }).items.map((i) => i.productoId), ['c1']);
-  assert.match(respuesta(), /POS/);
+  assert.match(respuesta(), /Orden #7 registrada/);
   assert.equal(bloqueos > 0, true, 'Serializa por operador');
+
+  // El mismo contenido en otro mensaje devuelve la orden existente, sin crear otra.
+  await texto(valido);
+  assert.equal(ordenesCreadas, 1);
+  assert.equal(ultima().estado, 'IGNORADA');
+  assert.equal(ultima().error, 'REENVIO');
+  assert.match(respuesta(), /ya está registrado/);
+
+  // Otro contenido del mismo cliente: conflicto visible hasta confirmar.
+  limpiar();
+  ordenDelCliente = { numeroDiario: 7, fechaNumeroDiario: '2026-11-04' };
+  await texto(valido);
+  assert.equal(ultima().error, 'CONFLICTO_CLIENTE');
+  assert.equal(ordenesCreadas, 1);
+  assert.match(respuesta(), /Nuevo pedido/);
+  await texto(`${valido}\nNuevo pedido`);
+  assert.equal(ultima().estado, 'CREADA');
+  ordenDelCliente = null;
+
+  // Falta de stock: rechazo definitivo, no error reintentable.
+  limpiar();
+  stockInsuficiente = true;
+  assert.equal((await texto(valido)).status, 200);
+  assert.equal(ultima().estado, 'INVALIDA');
+  assert.match(respuesta(), /Combo Mixto Small/);
+  stockInsuficiente = false;
 
   // Mismo mensaje entregado otra vez: sin efectos nuevos.
   const repetido = mensaje({ body: valido });
   limpiar();
   await enviar(repetido);
-  const duplicado = await enviar(repetido);
-  assert.equal(duplicado.status, 200);
-  assert.deepEqual([entradas.length, salidas.length], [1, 1]);
+  assert.equal((await enviar(repetido)).status, 200);
+  assert.deepEqual([entradas.length, salidas.length], [1, 2]);
 
   // Fallo transitorio: nada queda guardado y el gateway puede reintentar.
   limpiar();
@@ -219,39 +268,19 @@ Ubicación: pendiente`;
   await pin({ timestamp: antigua });
   assert.equal(ultima().estado, 'IGNORADA');
   assert.equal(ultima().error, 'ENTRADA_ANTIGUA');
-  assert.match(respuesta(), /Reenvía/);
+  assert.match(respuesta(), /POS/);
 
-  // Pin: conserva coordenadas, no el cuerpo; gana el último.
+  // Pin: no guarda el cuerpo y explica por qué no se usó.
   limpiar();
   await pin();
-  assert.equal(ultima().estado, 'UBICACION_DISPONIBLE');
+  assert.equal(ultima().estado, 'IGNORADA');
+  assert.equal(ultima().error, 'SIN_ORDEN_PENDIENTE');
   assert.equal(ultima().texto, null);
-  assert.deepEqual(ultima().datosNormalizados, { latitud: -2.17, longitud: -79.92 });
-  assert.equal(respuesta(), 'Ubicación recibida. Se usará en el próximo PEDIDO.');
-  await pin({ location: { latitude: -2.2, longitude: -79.9 } });
-  assert.deepEqual(entradas.map((e) => e.estado), ['IGNORADA', 'UBICACION_DISPONIBLE']);
+  assert.match(respuesta(), /después del pedido/);
   await pin({ location: { latitude: 0, longitude: 0 } });
   assert.equal(ultima().estado, 'INVALIDA');
   assert.equal(ultima().error, 'COORDENADAS_INVALIDAS');
-  assert.equal(entradas[1].estado, 'UBICACION_DISPONIBLE', 'Un pin malo no borra el bueno');
-
-  // `Ubicación: pin` exige uno vigente; un pedido inválido no lo consume.
-  await texto(`${conPin}\nCampo raro`);
-  assert.equal(ultima().estado, 'INVALIDA');
-  await texto(conPin);
-  assert.equal(ultima().estado, 'REQUIERE_REVISION');
-  assert.equal(entradas[1].estado, 'UBICACION_DISPONIBLE');
-  limpiar();
-  await texto(conPin);
-  assert.equal(ultima().estado, 'INVALIDA');
-  assert.equal(ultima().error, 'SIN_PIN_VIGENTE');
-  assert.match(respuesta(), /pin/i);
-  entradas.push({
-    id: 'viejo', tipo: 'UBICACION', remitente: operador, estado: 'UBICACION_DISPONIBLE',
-    enviadoAt: new Date(Date.now() - 16 * 60 * 1000),
-  });
-  await texto(conPin);
-  assert.equal(ultima().error, 'SIN_PIN_VIGENTE', 'Un pin vencido no sirve');
+  assert.match(respuesta(), /Reenvía el pin/);
 
   console.log('whatsapp-ingreso tests: ok');
 }

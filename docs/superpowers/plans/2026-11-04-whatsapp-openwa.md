@@ -48,7 +48,7 @@ Quedan fuera de esta entrega: conversar automáticamente con clientes, aceptar p
 
 - Solo se envía al ejecutor un pedido acordado con el cliente. “Transferencia confirmada” significa que el empleado autorizado comprobó el ingreso; OpenWA no consulta el banco.
 - El mensaje debe incluir el teléfono del cliente: no se deduce del número del empleado ni del encabezado de un reenvío.
-- El pin del cliente se reenvía al ejecutor antes del `PEDIDO`. Se usa el último pin sin usar de los últimos quince minutos; ese umbral se valida en la Fase 0.
+- El pin del cliente se reenvía al ejecutor como mensaje siguiente al pedido. Se guarda en la única orden de domicilio sin ubicación de los últimos quince minutos; si hay varias, no se adivina y se completa desde el POS.
 - Un pedido se considera registrado solo cuando el operador recibe la confirmación. Sin confirmación, se consulta el POS antes de reenviarlo o registrarlo manualmente.
 - El empleado no numera pedidos. El POS reconoce un reenvío por el mensaje de WhatsApp y por el contenido normalizado dentro de una ventana inicial de treinta minutos.
 - Si el pedido es inválido, no se crea nada. Se devuelve una lista concreta de datos que faltan o deben corregirse.
@@ -60,6 +60,32 @@ Quedan fuera de esta entrega: conversar automáticamente con clientes, aceptar p
 Estas son decisiones de diseño propuestas para el piloto. La ventana de duplicados, el horario y el vocabulario se validarán con ejemplos del empleado antes de activar ventas reales.
 
 ### 5. Ejemplo de experiencia del empleado
+
+**Formato acordado el 2026-11-05 tras revisar 25 pedidos reales. Reemplaza la plantilla con etiquetas de esta sección.** El operador sigue escribiendo en texto natural, en su chat privado con el ejecutor, y el parser acepta el orden libre de las líneas:
+
+```text
+Domiclio
+Nombre del cliente (opcional, entre el tipo y el teléfono)
++593 9X XXX XXXX
+combo mixto small
+picante 1
+1 cangrejo
+efectivo $2.50
+(notas para las personas, entre paréntesis)
+https://maps.google.com/?q=... (opcional, enlace copiado del pin)
+moto 10 (opcional, minutos para pedir la moto)
+```
+
+Actualizado el 2026-11-06 tras probar en desarrollo: la ubicación va como enlace de Google Maps en el mismo mensaje, porque un pin aparte queda ambiguo si otra orden reciente sigue sin ubicación. Sin enlace, la orden se crea con ubicación pendiente y se completa en el POS. El pin sigue aceptado como respaldo.
+
+`moto N` fija cuántos minutos esperar antes del aviso, entre 0 y 120, y cuenta desde que el POS acepta la orden. Sin esa línea son 10 minutos. Si hay aprobación de stock, se conserva en la entrada y cuenta desde la aprobación. El tiempo lo decide el operador según cocina y clientes en el local; no se calcula automáticamente.
+
+- Primera línea: `Domicilio` o `Domiclio`, o `Para retirar Nombre`. `Para servirse` se registra en el POS.
+- Domicilio exige teléfono y valor del envío: `efectivo $2.50` o `trans $2.50`. `trans` significa transferencia recibida y su valor es lo que se paga al delivery.
+- Para retirar no lleva envío ni ubicación. `trans` la deja pagada al crear; `efectivo` o nada la deja por cobrar en el local.
+- Combos con picantes distintos van en líneas separadas o con `Natural y picante 1` después de `2 combo ...`.
+- `Nuevo pedido` y `Solicitar aprobación` son líneas propias. El total lo calcula el POS.
+- Los alias de productos solo incluyen formas confirmadas. `3 cangrejos` es el producto `3 Cangrejos` y otra cantidad usa `Cangrejo`. Camarón exige tamaño (1/2 o 1 lb) y es distinto de Langostinos. Camarón, salsas, michelada y cola se agregan al catálogo con el nombre que usa el operador.
 
 Plantilla inicial; los productos entre corchetes se sustituyen por nombres del catálogo:
 
@@ -225,7 +251,7 @@ Ruta nueva propuesta: `POST /api/integraciones/whatsapp/webhook`.
 
 Secuencia:
 
-1. Limitar el cuerpo a un tamaño definido para texto y ubicación. Configurar en OpenWA `events` y `filters` para excluir `fromMe` y medios que esta integración no procesa, verificando con una muestra real que el filtro no descarte ubicaciones.
+1. Limitar el cuerpo a un tamaño definido para texto y ubicación. Configurar en OpenWA `events` y `filters` con `fromMe = false`, `isGroup = false` y `type` en `text` o `location`, verificando con una muestra real que el filtro no descarte ubicaciones. Muestra de la Fase 0 con `whatsapp-web.js`: un pin pesó 4,772 bytes y un sticker de grupo 932,961 bytes, por `data.media`. Sin este filtro esos eventos reciben `413` y consumen reintentos.
 2. Leer bytes originales y verificar HMAC-SHA256 con comparación constante. Validar firma antes de confiar en los campos.
 3. Validar sesión configurada, evento, identificador, timestamp y estructura del mensaje de la versión fijada de OpenWA.
 4. Aceptar solamente mensajes privados entrantes del número del local: texto con prefijo `PEDIDO` o mensaje de tipo `location`. Ignorar mensajes propios, del grupo y eventos de edición/revocación para evitar bucles.
@@ -239,7 +265,7 @@ Los reintentos del gateway cubren cortes breves, no una caída larga: la configu
 
 Un evento válido pero irrelevante se reconoce sin crear trabajo. Un remitente desconocido no recibe información del negocio. Una firma inválida se rechaza. Un formato de pedido incorrecto de un empleado autorizado genera una respuesta de corrección mediante la cola, no una tormenta de reintentos HTTP.
 
-El contrato de `rmyndharis/OpenWA` utiliza un sobre con `event`, `sessionId`, `timestamp` y `data`. Se capturará una muestra anonimizada del motor y versión elegidos para fijar los nombres internos del mensaje; no se copiará el formato de `payload.message` del otro proyecto OpenWA.
+El contrato de `rmyndharis/OpenWA` utiliza un sobre con `event`, `sessionId`, `timestamp` y `data`. Muestra real de `whatsapp-web.js` en OpenWA 0.27.1: `data` trae `id`, `from`, `to`, `chatId`, `body`, `type`, `timestamp` en segundos, `fromMe`, `isGroup`, `kind`, `isLidSender` y, en un pin, `location.latitude` y `location.longitude`; el `body` de un pin es su miniatura. El remitente y el chat privados pueden llegar como `@lid`. No se copiará el formato de `payload.message` del otro proyecto OpenWA.
 
 ### 11. Interpretación sin IA
 
@@ -254,7 +280,7 @@ Reglas:
 - Dinero con máximo dos decimales y envío no negativo; nunca interpretar el importe de envío como monto de la transferencia.
 - Teléfono normalizado al formato internacional acordado para la operación; errores se corrigen antes de crear la orden.
 - Picante contra los niveles existentes, obligatorio donde corresponde; no deducir intensidad.
-- Domicilio con teléfono y `Ubicación` con valor `pin`, enlace HTTPS permitido o `pendiente`. Para llevar con nombre; sin programar delivery.
+- Domicilio con teléfono y envío; la ubicación llega como pin en el mensaje siguiente o como enlace HTTPS permitido en el pedido. Para llevar con nombre; sin programar delivery.
 - Transferencia requiere la expresión explícita `transferencia confirmada`. `Transferencia pendiente` o `trans` sin confirmación no autoriza registrar dinero recibido.
 - Ubicación como enlace de Google Maps en hosts expresamente permitidos, incluido `maps.app.goo.gl`, sin credenciales ni esquemas alternativos. Guardar el enlace sin descargarlo, seguir redirecciones ni geocodificarlo. Validar la forma del enlace no demuestra que el punto sea correcto: el operador lo revisa.
 - Pin: leer `location.latitude` y `location.longitude`, validar rangos y rechazar `0,0`, porque el motor Baileys usa `0` cuando falta una coordenada. Generar el enlace en el POS; no usar `location.url` ni el texto recibido. `quotedMessage` solo trae `id` y `body`, por lo que citar un pin no aporta coordenadas.
@@ -424,7 +450,7 @@ Cada fase termina con una condición verificable. La escritura de este plan no e
 - [ ] Verificar edición de Windows, virtualización, memoria y conectividad hacia el POS.
 - [ ] Comparar `whatsapp-web.js` y Baileys, incluido qué ocurre con mensajes enviados durante un corte; fijar motor y digest de OpenWA según el resultado.
 - [ ] Registrar muestras anonimizadas de webhook: texto, pin reenviado y remitente del número del local, para confirmar `@c.us` o `@lid`.
-- [ ] Confirmar que el filtro de medios no descarte ubicaciones y comprobar si una ubicación en tiempo real se puede reenviar. Si no se puede, pedir pin normal o usar `pendiente`.
+- [ ] Confirmar que el filtro por tipo no descarte ubicaciones y comprobar si una ubicación en tiempo real se puede reenviar. Si no se puede, pedir pin normal o usar `pendiente`.
 - [ ] Probar con número y grupo de ensayo recepción, envío, HMAC, repetición con misma clave, reinicio y autoconexión.
 - [ ] Reiniciar Windows y simular corte de energía: OpenWA debe volver sin iniciar sesión manualmente ni escanear QR.
 - [ ] Mantener el ejecutor activo siete días en este equipo y registrar sesión, memoria y reinicios.
@@ -467,27 +493,27 @@ Salida: compatibilidad con órdenes antiguas y datos nuevos disponibles con la i
 
 Salida: recepción verificable y respuestas de error persistidas, aún en entorno de ensayo.
 
-Pendiente de la Fase 0: las pruebas usan el contrato leído del código de OpenWA 0.27.1 y pedidos de ejemplo. Antes de activar, contrastar con muestras reales del webhook, la forma `@c.us` o `@lid` del número del local y pedidos reales anonimizados.
+Contrastado el 2026-11-05 con muestras reales del webhook y 25 pedidos anonimizados; el número del local llega como `@lid`.
 
 #### Fase 4. Creación idempotente y salidas transaccionales
 
-- [ ] Integrar parser con servicio compartido dentro de la transacción del webhook, con bloqueo por operador y detección de reenvíos.
-- [ ] Consumir el pin vigente dentro de la transacción y generar `ubicacionUrl`.
-- [ ] Escribir entrada procesada, orden, efectos comerciales y salidas en la misma transacción.
-- [ ] Conectar aprobación/rechazo con publicaciones y programación diferida.
-- [ ] Construir plantillas del grupo desde snapshots guardados.
-- [ ] Probar concurrencia real, pérdida de respuesta y rollback con PostgreSQL aislado.
+- [x] Integrar parser con servicio compartido dentro de la transacción del webhook, con bloqueo por operador y detección de reenvíos.
+- [x] Consumir el pin vigente dentro de la transacción y generar `ubicacionUrl`.
+- [x] Escribir entrada procesada, orden, efectos comerciales y salidas en la misma transacción.
+- [x] Conectar aprobación/rechazo con publicaciones y programación diferida.
+- [x] Construir plantillas del grupo desde snapshots guardados.
+- [x] Probar concurrencia real, pérdida de respuesta y rollback con PostgreSQL aislado.
 
 Salida: un pedido produce una sola venta, un solo efecto de stock y los cobros previstos, aunque se repita.
 
 #### Fase 5. Agente y envío recuperable
 
-- [ ] Implementar reserva atómica, token por reserva y recuperación de expirados.
-- [ ] Implementar agente y rutas internas de trabajo/resultado.
-- [ ] Usar claves estables del gateway, clasificar resultados desconocidos y conservar cuerpos inmutables.
-- [ ] Respetar orden de publicaciones por pedido y permitir avanzar otros pedidos.
-- [ ] Configurar reinicio, sondeo con espera progresiva, horario y salud visible.
-- [ ] Probar caídas antes/después del envío y antes/después de confirmar al POS.
+- [x] Implementar reserva atómica, token por reserva y recuperación de expirados.
+- [x] Implementar agente y rutas internas de trabajo/resultado.
+- [x] Usar claves estables del gateway, clasificar resultados desconocidos y conservar cuerpos inmutables.
+- [x] Respetar orden de publicaciones por pedido y permitir avanzar otros pedidos.
+- [ ] Configurar reinicio, sondeo con espera progresiva, horario y salud visible. Hecho salvo la vista en el POS: la salud queda en `PrintAgent` con id `whatsapp-agent` y se muestra en la lista de revisión de Fase 6.
+- [x] Probar caídas antes/después del envío y antes/después de confirmar al POS.
 
 Salida: reiniciar no pierde trabajos ni reenvía ciegamente mensajes inciertos.
 

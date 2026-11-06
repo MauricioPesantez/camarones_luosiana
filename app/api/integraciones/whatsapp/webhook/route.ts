@@ -40,7 +40,7 @@ export async function POST(request: Request) {
         : NextResponse.json({ ok: true });
     }
 
-    await procesarMensaje(clasificacion.mensaje, config);
+    await procesarMensaje(clasificacion.mensaje, config, request.url);
     return NextResponse.json({ ok: true });
   } catch (error) {
     // Solo el tipo: el error de base puede citar el texto del cliente.

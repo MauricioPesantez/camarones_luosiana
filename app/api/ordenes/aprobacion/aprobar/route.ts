@@ -14,6 +14,7 @@ import {
   CajaNoDisponibleError,
   exigirCajaAbierta,
 } from '@/lib/caja';
+import { registrarAprobacionWhatsapp } from '@/lib/whatsapp-salidas';
 
 class ApprovalConflictError extends Error {}
 
@@ -196,6 +197,8 @@ export async function POST(request: NextRequest) {
         });
         queued = true;
       }
+
+      await registrarAprobacionWhatsapp(tx, ordenActualizada, queued, new Date());
 
       return { ordenAprobada: ordenActualizada, printJobQueued: queued };
     });

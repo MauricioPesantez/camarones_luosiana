@@ -1,4 +1,4 @@
-# Ensayo de Fase 0. No se conecta al POS ni a Neon.
+# Ensayo con OpenWA. El agente envía al WhatsApp las salidas del POS configurado en .env.
 name: openwa-ensayo
 
 services:
@@ -35,7 +35,7 @@ services:
       ENGINE_TYPE: ${ENGINE_TYPE:-whatsapp-web.js}
       AUTO_START_SESSIONS: 'true'
       WWEBJS_AUTH_TIMEOUT_MS: '120000'
-      SSRF_ALLOWED_HOSTS: receptor
+      SSRF_ALLOWED_HOSTS: ${SSRF_ALLOWED_HOSTS:-receptor}
       WEBHOOK_FAILURE_PAYLOAD_RETENTION_HOURS: '24'
     volumes:
       - openwa-data:/app/data
@@ -52,6 +52,20 @@ services:
       - ./receptor.mjs:/app/receptor.mjs:ro
       - ./ensayo.mjs:/app/ensayo.mjs:ro
       - ./muestras:/muestras
+
+  agente:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: node agente.mjs
+    environment:
+      POS_URL: ${POS_URL:?falta_en_env}
+      WHATSAPP_AGENT_TOKEN: ${WHATSAPP_AGENT_TOKEN:?falta_en_env}
+      WHATSAPP_SESSION_ID: ${WHATSAPP_SESSION_ID:?falta_en_env}
+      OPENWA_API_KEY: ${OPENWA_API_KEY:?falta_en_env}
+      HORARIO: ${HORARIO:-}
+    volumes:
+      - ./agente.mjs:/app/agente.mjs:ro
 
 volumes:
   openwa-data:

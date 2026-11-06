@@ -350,6 +350,22 @@ async function run() {
   assert.equal(referenciaLarga.status, 400);
   assert.match((await referenciaLarga.json()).error, /referencia/i);
 
+  // Para llevar: transferencia confirmada nace pagada; sin ella se cobra al retirar.
+  producto.stock = 20;
+  const pagosRetiro = pagos.length;
+  const retiroPagado = await (await enviar({
+    ...paraLlevar, metodoPagoPrevisto: 'transferencia', transferenciaConfirmada: true,
+  })).json();
+  assert.equal(retiroPagado.orden.cobrada, true);
+  assert.equal(retiroPagado.orden.metodoPago, 'transferencia');
+  assert.equal(retiroPagado.orden.metodoPagoPrevisto, null);
+  assert.equal(retiroPagado.orden.costoEnvio, null);
+  assert.equal(retiroPagado.orden.origenCobro, 'creacion_para_llevar_transferencia');
+  assert.equal(pagos.length, pagosRetiro + 1);
+  assert.equal(pagos.at(-1)?.origen, 'creacion_para_llevar_transferencia');
+  assert.equal((await (await enviar(paraLlevar)).json()).orden.cobrada, false);
+  assert.equal((await (await enviar({ ...paraLlevar, transferenciaConfirmada: true })).json()).orden.cobrada, false);
+
   // El servicio recibe el actor del llamador, sin cookie, e ignora el del cuerpo.
   producto.stock = 10;
   const actor = { id: 'operador', nombre: 'Digital', rol: 'digital' };

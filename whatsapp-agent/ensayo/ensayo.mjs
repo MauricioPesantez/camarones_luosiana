@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url';
 
 const USO = `Uso:
-  node ensayo.mjs webhook <sesion> [--filtros]
+  node ensayo.mjs webhook <sesion> [--filtros] [--url <destino>]
   node ensayo.mjs enviar <sesion> <chatId> <texto> [clave]
   node ensayo.mjs fallos <sesion>
   node ensayo.mjs reenviar <sesion>
@@ -11,7 +11,8 @@ const USO = `Uso:
 const FILTROS = {
   conditions: [
     { field: 'fromMe', operator: 'is', value: false },
-    { field: 'hasMedia', operator: 'is', value: false },
+    { field: 'isGroup', operator: 'is', value: false },
+    { field: 'type', operator: 'is', value: ['text', 'location'] },
   ],
 };
 
@@ -51,7 +52,7 @@ export async function ejecutar(args, entorno, solicitar = fetch) {
       return llamar(`/sessions/${id}/webhooks`, {
         method: 'POST',
         body: {
-          url: 'http://receptor:8080/webhook',
+          url: resto.includes('--url') ? resto[resto.indexOf('--url') + 1] : 'http://receptor:8080/webhook',
           events: ['message.received', 'session.status'],
           secret: entorno.WEBHOOK_SECRET,
           retryCount: 5,
