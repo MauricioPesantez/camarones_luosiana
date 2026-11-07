@@ -61,9 +61,9 @@ export default function DeliverySolicitado({
         disabled={guardando}
         className="text-sm font-semibold px-3 py-1.5 rounded-lg border border-purple-300 text-purple-700 hover:bg-purple-50 disabled:opacity-50"
       >
-        {guardando ? "Guardando..." : "🛵 Ya pedí el delivery"}
+        {guardando ? "Guardando..." : "🛵 Ya pedí la moto"}
       </button>
-      <p className="text-xs text-gray-500 mt-1">Registra que lo pediste y cancela el aviso de WhatsApp.</p>
+      <p className="text-xs text-gray-500 mt-1">Registra que ya la pediste; el POS no la pedirá al grupo Motos.</p>
       {error && (
         <p role="alert" className="text-sm text-red-700 mt-1">
           {error}

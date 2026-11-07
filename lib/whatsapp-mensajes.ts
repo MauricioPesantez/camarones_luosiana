@@ -1,4 +1,11 @@
-import { NivelPicante, esNivelPicante, obtenerEtiquetaNivelPicante } from '../types/orden';
+import {
+  NivelPicante,
+  calcularLiquidacionDomicilio,
+  calcularSaldo,
+  esNivelPicante,
+  obtenerCostoEnvio,
+  obtenerEtiquetaNivelPicante,
+} from '../types/orden';
 
 /** Datos ya guardados: el mensaje refleja la orden, no el texto recibido. */
 export interface OrdenPublicable {
@@ -13,6 +20,8 @@ export interface OrdenPublicable {
   referenciaEntrega: string | null;
   observaciones: string | null;
   total: unknown;
+  costoEnvio: unknown;
+  montoPagado: unknown;
   metodoPagoPrevisto: string | null;
   cobrada: boolean;
   mesero: string;
@@ -103,7 +112,7 @@ export function textoConfirmacion(
     `Total: ${dinero(orden.total)}`,
     'Publicación al grupo: pendiente',
     `Impresión: ${impresionEnCola ? 'en cola' : 'no está en cola; revisa el POS'}`,
-    ...(avisoDelivery ? [`Aviso para pedir delivery: ${horaLocal(avisoDelivery)}`] : []),
+    ...(avisoDelivery ? [`Moto se pedirá al grupo: ${horaLocal(avisoDelivery)}`] : []),
   ].join('\n');
 }
 
@@ -123,15 +132,56 @@ export function textoRechazo(orden: Encabezado, razon: string | null | undefined
   ].join('\n');
 }
 
-type Recordable = Encabezado & Pick<OrdenPublicable, 'nombreCliente' | 'ubicacionUrl'>;
+export type PedidoMoto = Encabezado & Pick<
+  OrdenPublicable,
+  'nombreCliente' | 'telefonoCliente' | 'ubicacionUrl' | 'referenciaEntrega' | 'total' | 'costoEnvio' | 'montoPagado'
+>;
 
-export function textoRecordatorio(orden: Recordable): string {
+/**
+ * Dos acciones del motorizado, en sus palabras: qué cobra al cliente y qué pasa en el local.
+ * Misma regla que el cuadre (`calcularLiquidacionDomicilio`): el envío (carrera) es suyo.
+ */
+function lineasCobroMoto(orden: PedidoMoto): string[] {
+  const envio = obtenerCostoEnvio({ tipoOrden: 'domicilio', costoEnvio: Number(orden.costoEnvio) });
+  const cobra = calcularSaldo({ total: Number(orden.total), montoPagado: Number(orden.montoPagado ?? 0) });
+  const { entregaElLocal, entregaElMotorizado } = calcularLiquidacionDomicilio(
+    { tipoOrden: 'domicilio', costoEnvio: envio },
+    cobra,
+  )!;
+  if (cobra === 0) {
+    return ['Cobras al cliente: nada, transferencia.', ...(envio > 0 ? [`Cobrar carrera: ${dinero(envio)}`] : [])];
+  }
+  // Efectivo sin pagos previos: cobra el total, así que pedido + carrera cuadra solo.
+  if (Math.round(Number(orden.montoPagado ?? 0) * 100) === 0) {
+    return [
+      `Total pedido: ${dinero(entregaElMotorizado)}`,
+      `Carrera: ${dinero(envio)}`,
+      `Total a cobrar: ${dinero(cobra)}`,
+    ];
+  }
+  // Mixto: parte ya pagada por transferencia; solo lo que hace con el resto.
   return [
-    `Pedir delivery para orden ${numero(orden)} · ${fecha(orden)}`,
-    'Verifica el estado en el POS antes de contratar el motorizado.',
-    ...(orden.nombreCliente ? [`Cliente: ${orden.nombreCliente}`] : []),
+    `Total a cobrar: ${dinero(cobra)}`,
+    ...(entregaElMotorizado > 0 ? [`Pagas en el local: ${dinero(entregaElMotorizado)}`] : []),
+    ...(entregaElLocal > 0 ? [`Cobrar carrera: ${dinero(entregaElLocal)}`] : []),
+  ];
+}
+
+/** Va al grupo de motorizados: pide la moto y deja claro el dinero de ese viaje. */
+export function textoRecordatorio(orden: PedidoMoto): string {
+  const cliente = [orden.nombreCliente, orden.telefonoCliente].filter(Boolean).join(' · ');
+  return [
+    `MOTO para orden ${numero(orden)} · ${fecha(orden)}`,
+    ...(cliente ? [`Cliente: ${cliente}`] : []),
     lineaUbicacion(orden),
+    ...(orden.referenciaEntrega ? [`Referencia: ${orden.referenciaEntrega}`] : []),
+    ...lineasCobroMoto(orden),
   ].join('\n');
+}
+
+/** Tras pedir la moto, un cambio de productos solo le importa por el dinero. */
+export function textoActualizacionMoto(orden: PedidoMoto): string {
+  return [`ACTUALIZACIÓN orden ${numero(orden)} · ${fecha(orden)}`, ...lineasCobroMoto(orden)].join('\n');
 }
 
 export function textoReenvio(orden: OrdenPublicable): string {

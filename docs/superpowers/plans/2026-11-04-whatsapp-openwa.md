@@ -135,6 +135,8 @@ La confirmación distingue “guardada”, “publicada” e “impresa”. Una 
 
 ### 6. Cómo funciona el aviso de delivery
 
+> **Decisión del 2026-11-07, reemplaza lo que contradiga esta sección y la 14:** el aviso ya no va al número del local. Al vencer la espera, el POS escribe directamente en el grupo **Motos** (`WHATSAPP_MOTOS_CHAT_ID`) con orden, cliente y teléfono, ubicación, referencia y el dinero en dos líneas, desde el lado del motorizado (misma regla que `calcularLiquidacionDomicilio` del cuadre). Efectivo: `Total pedido` (lo que deja en el local), `Carrera` y `Total a cobrar`. Transferencia: `Cobras al cliente: nada, transferencia.` y `Cobrar carrera: $envío`. Ese envío **es** el pedido de la moto: al confirmarlo OpenWA, la orden queda con `deliverySolicitadoAt` y un historial a nombre de `Agente WhatsApp`. El botón “Ya pedí la moto” sirve para cuando una persona la pidió antes. Si la moto ya se pidió, cambios de ubicación, productos y la anulación también se envían a Motos. Las publicaciones van al grupo de pedidos (`WHATSAPP_GROUP_CHAT_ID`).
+
 Propuesta inicial: el vencimiento es diez minutos después de que el POS acepta la orden para preparación. En una orden normal es la creación; si necesita aprobación de stock, es la aprobación administrativa. No se cuenta desde el primer mensaje del cliente ni desde la recepción de un mensaje inválido.
 
 Al vencer, se envía al número del local el número de orden, tiempo transcurrido, estado actual, ubicación o aviso de `ubicación pendiente`, y acceso al pedido. El aviso solicita que una persona pida motorizado; no afirma que el pedido está listo.
@@ -392,7 +394,7 @@ Configuración propuesta del POS:
 - Ambas banderas sirven como estado de despliegue, no como pausa de emergencia: `amplify.yml` escribe `.env.production` durante el build y cambiarlas exige un redeploy. La pausa inmediata consiste en detener el gateway y el agente.
 - `WHATSAPP_WEBHOOK_SECRET`: verificación del gateway; independiente del token del agente.
 - `WHATSAPP_AGENT_TOKEN`: credencial larga del agente; comparación segura siguiendo el patrón existente.
-- `WHATSAPP_SESSION_ID`, `WHATSAPP_GROUP_CHAT_ID`, `WHATSAPP_LOCAL_CHAT_ID`.
+- `WHATSAPP_SESSION_ID`, `WHATSAPP_GROUP_CHAT_ID`, `WHATSAPP_MOTOS_CHAT_ID`.
 - `WHATSAPP_OPERATOR_IDS`: identidades canónicas del número del local, separadas por coma.
 - `WHATSAPP_OPERATOR_USER_ID`: ID del usuario `digital` que crea las órdenes. No se acepta un rol declarado por el mensaje.
 - `NEXT_PUBLIC_APP_URL`: revisar el uso actual para generar enlaces con el origen canónico; una variable pública nunca contiene claves.
@@ -529,10 +531,10 @@ Salida: el operador puede coordinar delivery sin depender de que la aplicación 
 
 #### Fase 7. Ensayo completo y documentación
 
-- [ ] Completar matriz de aceptación con número, grupo y base de ensayo.
-- [ ] Verificar interfaz móvil, enlaces, mensajes extensos y privacidad de logs.
-- [ ] Ejecutar checks pertinentes y build de aplicación/agente.
-- [ ] Documentar instalación, configuración, recuperación, revisión y respaldo manual.
+- [x] Completar matriz de aceptación con número, grupo y base de ensayo. Ver 19.1; quedan 5 pruebas pendientes en Windows o con sesión del dueño.
+- [ ] Verificar interfaz móvil, enlaces, mensajes extensos y privacidad de logs. Logs del POS y agente solo guardan códigos e IDs internos, y Docker rota logs a 30 MB. Falta revisar pantallas en celular y logs propios de OpenWA.
+- [x] Ejecutar checks pertinentes y build de aplicación/agente.
+- [x] Documentar instalación, configuración, recuperación, revisión y respaldo manual. `whatsapp-agent/README.md`; agente movido desde `ensayo/` sin receptor.
 - [ ] Probar restauración del volumen del gateway y revisar que no aparezcan pendientes duplicados.
 
 Salida: evidencia revisable, procedimiento de operación y lista de limitaciones conocidas.
@@ -595,6 +597,49 @@ Salida: operación real supervisada, sin creaciones faltantes o duplicadas. La a
 Las pruebas de parser, autenticación y reloj usan funciones puras y reloj inyectado. Las pruebas de dinero/stock, unicidad y reservas deben incluir PostgreSQL real aislado, reutilizando el arnés de `lib/employee-consumption.postgres.test.ts`; un mock no demuestra atomicidad ni bloqueos. Las pruebas de WhatsApp y papel requieren equipos de ensayo y evidencia separada.
 
 Checks existentes pertinentes: `npm run test:order-creation`, `test:employee-sales-boundaries`, `test:daily-order-number`, `test:caja-validaciones`, `test:print-jobs`, `test:print-agent`, `test:printer`, `test:cobro`, `test:monto-caja`, `test:liquidacion`, `test:cobro-validaciones`, `test:cuadre` y `test:payment-link`. Adaptar la prueba de creación al servicio extraído sin perder sus escenarios. Añadir pruebas focalizadas de WhatsApp y ejecutar lint/build según los archivos modificados; registrar fallos previos por separado.
+
+#### 19.1 Resultado al 2026-11-07
+
+Evidencia: **PG** = `test:whatsapp-postgres` sobre PostgreSQL aislado; **U** = pruebas unitarias (`test:whatsapp-pedido`, `-ingreso`, `-webhook`, `-mensajes`, `-agente`); **Real** = probado por el dueño con OpenWA, número del local y POS de desarrollo.
+
+| Prueba | Estado | Evidencia o motivo |
+|---|---|---|
+| Domicilio efectivo completo | ✅ | PG, Real (orden #6 con grupo y moto) |
+| Domicilio transferencia confirmada | ✅ | PG |
+| Transferencia sin confirmar | Ya no aplica | `trans $X` significa dinero recibido; sin monto se rechaza por falta de envío (U) |
+| Para llevar | ✅ | PG (con y sin pago) |
+| Producto ambiguo, faltante o no disponible | ✅ | U |
+| Cantidad, picante, teléfono, URL o monto inválido | ✅ | U, Real (`hola` respondió `Pedido no registrado`) |
+| Pin y `Ubicación: pin` | Cambió | La ubicación va como URL en el pedido (U, Real); el pin después del pedido sigue como respaldo (PG) |
+| Pin sin orden pendiente / dos órdenes sin ubicación | ✅ | PG: no adivina la orden |
+| Pin con `0,0` o fuera de rango | ✅ | U |
+| `Ubicación: pendiente` | ✅ | U; se completa desde el POS con aviso al grupo (PG) |
+| Enlace `maps.app.goo.gl` | ✅ | U: se acepta sin seguirlo |
+| Mismo producto con distinto picante | ✅ | PG: stock por la suma |
+| Falta de stock sin / con aprobación | ✅ | PG |
+| Mensaje duplicado o dos consumidores | ✅ | PG: cinco entregas simultáneas, una venta |
+| Reenvío dentro de la ventana | ✅ | PG, aunque cambie catálogo y stock |
+| Mismo cliente, otro pedido / `Nuevo pedido` | ✅ | PG |
+| Corrección de un mensaje inválido | ✅ | Real: tras `hola` inválido, el pedido corregido se creó |
+| Usuario desactivado o número desconocido | ✅ | U |
+| Firma inválida, JSON malformado o cuerpo excesivo | ✅ | U |
+| POS caído hasta agotar reintentos | Pendiente | Probado en Fase 0 con receptor; falta repetir contra el POS (README sección 10) |
+| Mensajes propios, del grupo, ediciones o borrados | ✅ | U y filtros del webhook (`fromMe`, `isGroup`, solo texto y ubicación) |
+| Pago por QR antes de entrega | ✅ | PG: transferencia pagada sigue con aviso |
+| Delivery solicitado antes del vencimiento | ✅ | PG, Real |
+| Anulación/rechazo antes del aviso | ✅ | PG, Real |
+| Reinicio durante la espera | ✅ | PG: el vencimiento vive en la base, no en el agente |
+| Entrada o aviso antiguo tras una caída | ✅ | PG, U |
+| Grupo expulsó al ejecutor | Pendiente | Falta prueba real; el fallo quedaría en el panel tras 6 intentos |
+| Gateway envió, pero falla la confirmación al POS | ✅ | PG, U |
+| Confirmación tardía de otra reserva | ✅ | PG |
+| Volumen perdido o clave fuera de retención | Pendiente | Prueba de restauración en Windows (README sección 9) |
+| `IDEMPOTENCY_OUTCOME_UNKNOWN` | ✅ | PG, U: queda en revisión y se descarta desde el panel |
+| Cocina o impresora sin conexión | ✅ | La confirmación separa impresión de orden; sin prueba real con impresora apagada |
+| Creación manual por mesero y digital | ✅ | 38 scripts `test:*` sin regresiones |
+| Orden histórica sin campos nuevos | ✅ | Migraciones aditivas aplicadas en desarrollo |
+| Moto pedida en grupo Motos | ✅ | PG, Real: el envío marca la orden; cambios y anulación también llegan a Motos |
+| Pantallas en celular | Pendiente | Requiere sesión del dueño en el navegador |
 
 ### 20. Archivos y superficies previstas
 

@@ -1,13 +1,15 @@
 import { pathToFileURL } from 'node:url';
 
-const USO = `Uso:
-  node ensayo.mjs webhook <sesion> [--filtros] [--url <destino>]
-  node ensayo.mjs enviar <sesion> <chatId> <texto> [clave]
-  node ensayo.mjs fallos <sesion>
-  node ensayo.mjs reenviar <sesion>
-  node ensayo.mjs fallar
-  node ensayo.mjs normal`;
+const USO = `Uso (dentro del contenedor del agente):
+  node openwa.mjs webhook <sesion>                apunta el webhook al POS_URL
+  node openwa.mjs grupos <sesion>                 lista ID y nombre de los grupos
+  node openwa.mjs enviar <sesion> <chatId> <texto> [clave]
+  node openwa.mjs fallos <sesion>                 eventos que el POS no aceptó
+  node openwa.mjs reenviar <sesion>               reintenta esos eventos`;
 
+const RUTA_WEBHOOK = '/api/integraciones/whatsapp/webhook';
+
+// El POS descarta lo demás igual; filtrar en el gateway evita tráfico y datos ajenos.
 const FILTROS = {
   conditions: [
     { field: 'fromMe', operator: 'is', value: false },
@@ -19,7 +21,6 @@ const FILTROS = {
 export async function ejecutar(args, entorno, solicitar = fetch) {
   const [comando, sesion, ...resto] = args;
   const api = entorno.OPENWA_URL ?? 'http://openwa:2785/api';
-  const receptor = entorno.RECEPTOR_URL ?? 'http://localhost:8080';
 
   const llamar = async (ruta, opciones = {}) => {
     const { body, headers, ...demas } = opciones;
@@ -37,14 +38,13 @@ export async function ejecutar(args, entorno, solicitar = fetch) {
     return texto ? JSON.parse(texto) : null;
   };
 
-  const exigirSesion = () => {
-    if (!sesion) throw new Error(USO);
-    return encodeURIComponent(sesion);
-  };
+  if (!sesion) throw new Error(USO);
+  const id = encodeURIComponent(sesion);
 
   switch (comando) {
     case 'webhook': {
-      const id = exigirSesion();
+      if (!entorno.POS_URL || !entorno.WEBHOOK_SECRET) throw new Error('Faltan POS_URL o WEBHOOK_SECRET');
+      // Un solo destino: el registro anterior se reemplaza para no duplicar entregas.
       const existentes = await llamar(`/sessions/${id}/webhooks`);
       for (const webhook of existentes) {
         await llamar(`/sessions/${id}/webhooks/${webhook.id}`, { method: 'DELETE' });
@@ -52,16 +52,19 @@ export async function ejecutar(args, entorno, solicitar = fetch) {
       return llamar(`/sessions/${id}/webhooks`, {
         method: 'POST',
         body: {
-          url: resto.includes('--url') ? resto[resto.indexOf('--url') + 1] : 'http://receptor:8080/webhook',
+          url: `${entorno.POS_URL.replace(/\/$/, '')}${RUTA_WEBHOOK}`,
           events: ['message.received', 'session.status'],
           secret: entorno.WEBHOOK_SECRET,
           retryCount: 5,
-          ...(resto.includes('--filtros') ? { filters: FILTROS } : {}),
+          filters: FILTROS,
         },
       });
     }
+    case 'grupos': {
+      const grupos = await llamar(`/sessions/${id}/groups`);
+      return grupos.map(({ id: grupo, name }) => `${grupo} ${name}`);
+    }
     case 'enviar': {
-      const id = exigirSesion();
       const [chatId, text, clave] = resto;
       if (!chatId || !text) throw new Error(USO);
       return llamar(`/sessions/${id}/messages/send-text`, {
@@ -71,20 +74,9 @@ export async function ejecutar(args, entorno, solicitar = fetch) {
       });
     }
     case 'fallos':
-      exigirSesion();
-      return llamar(`/webhooks/delivery-failures?sessionId=${encodeURIComponent(sesion)}`);
+      return llamar(`/webhooks/delivery-failures?sessionId=${id}`);
     case 'reenviar':
-      exigirSesion();
-      return llamar('/webhooks/delivery-failures/redrive', {
-        method: 'POST',
-        body: { sessionId: sesion },
-      });
-    case 'fallar':
-    case 'normal': {
-      const ruta = comando === 'fallar' ? 'fallar' : 'normal';
-      const respuesta = await solicitar(`${receptor}/modo/${ruta}`, { method: 'POST' });
-      return respuesta.json();
-    }
+      return llamar('/webhooks/delivery-failures/redrive', { method: 'POST', body: { sessionId: sesion } });
     default:
       throw new Error(USO);
   }

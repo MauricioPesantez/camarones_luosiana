@@ -29,6 +29,10 @@ export async function PATCH(
         numeroDiario: true,
         fechaNumeroDiario: true,
         nombreCliente: true,
+        telefonoCliente: true,
+        total: true,
+        costoEnvio: true,
+        montoPagado: true,
       },
     });
     if (!orden) {

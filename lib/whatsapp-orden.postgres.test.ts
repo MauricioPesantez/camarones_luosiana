@@ -45,7 +45,7 @@ process.env.WHATSAPP_SESSION_ID = 'sesion';
 process.env.WHATSAPP_OPERATOR_IDS = 'operador@c.us';
 process.env.WHATSAPP_OPERATOR_USER_ID = 'digital';
 process.env.WHATSAPP_GROUP_CHAT_ID = 'grupo@g.us';
-process.env.WHATSAPP_LOCAL_CHAT_ID = 'local@c.us';
+process.env.WHATSAPP_MOTOS_CHAT_ID = 'motos@g.us';
 process.env.WHATSAPP_ENABLED = 'true';
 process.env.WHATSAPP_AGENT_TOKEN = 'w'.repeat(32);
 process.env.PRINT_AGENT_TOKEN = 'p'.repeat(32);
@@ -138,7 +138,7 @@ async function pruebas() {
   assert.ok(efectivo.whatsappEntradas[0].requestHash);
   const [grupo, recordatorio, respuesta] = await salidasDe(efectivo.id);
   assert.deepEqual([grupo.tipo, grupo.destino], ['PUBLICACION_GRUPO', 'grupo@g.us']);
-  assert.deepEqual([recordatorio.tipo, recordatorio.destino], ['RECORDATORIO_DELIVERY', 'local@c.us']);
+  assert.deepEqual([recordatorio.tipo, recordatorio.destino], ['RECORDATORIO_DELIVERY', 'motos@g.us']);
   assert.equal(recordatorio.disponibleAt.getTime(), ahora.getTime() + 10 * 60 * 1000);
   assert.equal(recordatorio.venceAt?.getTime(), ahora.getTime() + 40 * 60 * 1000);
 
@@ -161,6 +161,8 @@ async function pruebas() {
   assert.equal(pagada.cobrada, true);
   assert.equal(pagada.pagos.length, 1);
   assert.equal((await salidasDe(pagada.id)).length, 3);
+  const motoPagada = (await salidasDe(pagada.id)).find((s) => s.tipo === 'RECORDATORIO_DELIVERY')!;
+  assert.match(motoPagada.texto, /Cobras al cliente: nada, transferencia\.\nCobrar carrera: \$2\.00$/);
 
   // Para llevar: sin recordatorio.
   await reiniciar();
@@ -472,6 +474,29 @@ async function pruebas() {
   assert.deepEqual([anulacion.clave, anulacion.destino], [`anulacion:${publicada.id}`, 'grupo@g.us']);
   assert.match(anulacion.texto, /^ANULADA orden #\d+/);
   assert.equal((await deTipo(publicada.id, 'RECORDATORIO_DELIVERY'))[0].ultimoError, 'ORDEN_ANULADA');
+
+  // El aviso enviado a Motos es el pedido de la moto: marca la orden una sola vez.
+  await reiniciar();
+  const conMoto2 = await ordenNueva('Moto enviada');
+  await publicar(conMoto2.id);
+  await prisma.whatsappSalida.updateMany({ where: { ordenId: conMoto2.id }, data: { disponibleAt: new Date(t0.getTime() - 1000) } });
+  await prisma.whatsappSalida.updateMany({ where: { ordenId: conMoto2.id, tipo: 'RESPUESTA_EMPLEADO' }, data: { estado: 'ENVIADA' } });
+  const avisoMotos = (await agente.reservarSalida(cliente, 'sesion', t0))!;
+  assert.equal(avisoMotos.destino, 'motos@g.us');
+  assert.match(avisoMotos.texto, /Total pedido: \$11\.25\nCarrera: \$2\.00\nTotal a cobrar: \$13\.25$/);
+  assert.equal(await agente.completarSalida(cliente, avisoMotos.id, avisoMotos.reservaToken!, 'm'), true);
+  const motoPedida = await prisma.orden.findUniqueOrThrow({ where: { id: conMoto2.id } });
+  assert.ok(motoPedida.deliverySolicitadoAt, 'El aviso enviado marca la moto como pedida');
+  const historialMoto = await prisma.historialOrden.findMany({ where: { ordenId: conMoto2.id, tipoAccion: 'delivery_solicitado' } });
+  assert.deepEqual(historialMoto.map((h) => h.usuarioNombre), ['Agente WhatsApp']);
+
+  // Anular tras pedir la moto: grupo y Motos reciben la anulación.
+  assert.equal((await parchear(anular, conMoto2.id, { razon: 'Cliente canceló el pedido' })).status, 200);
+  const anulaciones = await deTipo(conMoto2.id, 'ACTUALIZACION_GRUPO');
+  assert.deepEqual(
+    anulaciones.map((s) => [s.clave, s.destino]).sort(),
+    [[`anulacion:${conMoto2.id}`, 'grupo@g.us'], [`anulacion:${conMoto2.id}:motos`, 'motos@g.us']],
+  );
 
   // Ubicación editada en el POS: cambio al grupo y aviso de moto con el enlace nuevo.
   await reiniciar();

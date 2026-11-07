@@ -10,7 +10,7 @@ export interface ConfiguracionWhatsapp {
   operadores: Set<string>;
   usuarioOperadorId: string;
   grupoChatId: string;
-  localChatId: string;
+  motosChatId: string;
   habilitado: boolean;
 }
 
@@ -37,7 +37,7 @@ export function leerConfiguracion(
   const sessionId = entorno.WHATSAPP_SESSION_ID?.trim() ?? '';
   const usuarioOperadorId = entorno.WHATSAPP_OPERATOR_USER_ID?.trim() ?? '';
   const grupoChatId = entorno.WHATSAPP_GROUP_CHAT_ID?.trim() ?? '';
-  const localChatId = entorno.WHATSAPP_LOCAL_CHAT_ID?.trim() ?? '';
+  const motosChatId = entorno.WHATSAPP_MOTOS_CHAT_ID?.trim() ?? '';
   const operadores = new Set(
     (entorno.WHATSAPP_OPERATOR_IDS ?? '').split(',').map((id) => id.trim()).filter(Boolean),
   );
@@ -46,7 +46,7 @@ export function leerConfiguracion(
     !sessionId ||
     !usuarioOperadorId ||
     !grupoChatId ||
-    !localChatId ||
+    !motosChatId ||
     operadores.size === 0
   ) {
     return null;
@@ -57,7 +57,7 @@ export function leerConfiguracion(
     operadores,
     usuarioOperadorId,
     grupoChatId,
-    localChatId,
+    motosChatId,
     habilitado: entorno.WHATSAPP_ENABLED === 'true',
   };
 }

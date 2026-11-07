@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 
 import { authenticatePrintAgent } from './print-agent-auth';
 import { getRetryDelaySeconds, sanitizePrintErrorCode } from './print-agent-jobs';
@@ -100,12 +100,39 @@ export function reservarSalida(prisma: PrismaClient, sessionId: string, ahora = 
 const reservaVigente = (id: string, token: string) => ({ id, reservaToken: token, estado: 'PROCESANDO' });
 
 /** El token distingue este intento: uno antiguo no puede cerrar una reserva nueva. */
-export async function completarSalida(prisma: PrismaClient, id: string, token: string, mensajeId: string | null) {
-  const { count } = await prisma.whatsappSalida.updateMany({
-    where: reservaVigente(id, token),
-    data: { estado: 'ENVIADA', mensajeId, ultimoError: null, ...SIN_RESERVA },
+export function completarSalida(prisma: PrismaClient, id: string, token: string, mensajeId: string | null) {
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.whatsappSalida.updateMany({
+      where: reservaVigente(id, token),
+      data: { estado: 'ENVIADA', mensajeId, ultimoError: null, ...SIN_RESERVA },
+    });
+    if (count !== 1) return false;
+
+    const salida = await tx.whatsappSalida.findUniqueOrThrow({ where: { id }, select: { tipo: true, ordenId: true } });
+    if (salida.tipo === 'RECORDATORIO_DELIVERY' && salida.ordenId) await marcarMotoPedida(tx, salida.ordenId);
+    return true;
   });
-  return count === 1;
+}
+
+/** El aviso a Motos es el pedido de la moto: la orden lo refleja igual que el botón. */
+async function marcarMotoPedida(tx: Prisma.TransactionClient, ordenId: string) {
+  const deliverySolicitadoAt = new Date();
+  const { count } = await tx.orden.updateMany({
+    where: { id: ordenId, anulada: false, deliverySolicitadoAt: null },
+    data: { deliverySolicitadoAt },
+  });
+  if (count !== 1) return;
+  await tx.historialOrden.create({
+    data: {
+      ordenId,
+      tipoAccion: 'delivery_solicitado',
+      descripcion: 'Moto pedida al grupo Motos por WhatsApp',
+      datosDespues: { deliverySolicitadoAt: deliverySolicitadoAt.toISOString() },
+      usuarioNombre: 'Agente WhatsApp',
+      usuarioRol: 'sistema',
+      diferenciaTotal: 0,
+    },
+  });
 }
 
 export async function fallarSalida(

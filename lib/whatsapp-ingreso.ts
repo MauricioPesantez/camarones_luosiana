@@ -14,7 +14,6 @@ import {
   textoConflicto,
   textoOrdenesSinUbicacion,
   textoPendienteAprobacion,
-  textoRecordatorio,
   textoReenvio,
   textoUbicacionGuardada,
 } from '@/lib/whatsapp-mensajes';
@@ -25,7 +24,12 @@ import {
   interpretarPedido,
   resolverProductos,
 } from '@/lib/whatsapp-pedido';
-import { avisoDeDelivery, salidasDeOrdenAceptada } from '@/lib/whatsapp-salidas';
+import {
+  avisoDeDelivery,
+  refrescarRecordatorio,
+  registrarCambioWhatsapp,
+  salidasDeOrdenAceptada,
+} from '@/lib/whatsapp-salidas';
 import { ConfiguracionWhatsapp, MensajeEntrante, leerCoordenadas } from '@/lib/whatsapp-webhook';
 import type { AuthenticatedUser } from '@/lib/session';
 import type { CrearOrdenRequest, MetodoPago } from '@/types/orden';
@@ -195,7 +199,7 @@ async function evaluarPedido(contexto: Contexto): Promise<Evaluacion> {
 
 /** El pin llega después del pedido: va a la única orden reciente sin ubicación del operador. */
 async function evaluarPin(contexto: Contexto): Promise<Evaluacion> {
-  const { tx, mensaje, actor, config, vigenteDesde } = contexto;
+  const { tx, mensaje, actor, vigenteDesde } = contexto;
   if (mensaje.enviadoAt < vigenteDesde) {
     return {
       estado: 'IGNORADA',
@@ -268,26 +272,15 @@ async function evaluarPin(contexto: Contexto): Promise<Evaluacion> {
   });
 
   const actualizada = { ...orden, ubicacionUrl };
-  // Un recordatorio sin intentar aún puede cambiar de texto; uno intentado no.
-  await tx.whatsappSalida.updateMany({
-    where: { ordenId: orden.id, tipo: 'RECORDATORIO_DELIVERY', estado: 'PENDIENTE', intentos: 0 },
-    data: { texto: textoRecordatorio(actualizada) },
-  });
-
-  const publicada = orden.estado !== 'pendiente_aprobacion_stock';
+  await refrescarRecordatorio(tx, actualizada);
+  await registrarCambioWhatsapp(
+    tx, orden.id, `ubicacion:${mensaje.messageId}`, textoActualizacionUbicacion(actualizada),
+  );
   return {
     estado: 'UBICACION_USADA',
     ordenId: orden.id,
     datosNormalizados: coordenadas,
     respuesta: textoUbicacionGuardada(actualizada),
-    salidas: publicada ? [{
-      sessionId: mensaje.sessionId,
-      ordenId: orden.id,
-      tipo: 'ACTUALIZACION_GRUPO',
-      destino: config.grupoChatId,
-      texto: textoActualizacionUbicacion(actualizada),
-      clave: `ubicacion:${mensaje.messageId}`,
-    }] : [],
   };
 }
 

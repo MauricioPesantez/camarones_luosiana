@@ -20,7 +20,7 @@ for (const encabezado of [null, '', 'sha256=corta', firmar(bytes).replace('sha25
 const entorno = {
   WHATSAPP_WEBHOOK_SECRET: secreto, WHATSAPP_SESSION_ID: 'sesion-1',
   WHATSAPP_OPERATOR_IDS: ' 593991234567@c.us, 123456789@lid ,', WHATSAPP_OPERATOR_USER_ID: 'usuario-digital',
-  WHATSAPP_GROUP_CHAT_ID: 'grupo@g.us', WHATSAPP_LOCAL_CHAT_ID: 'local@c.us',
+  WHATSAPP_GROUP_CHAT_ID: 'grupo@g.us', WHATSAPP_MOTOS_CHAT_ID: 'motos@g.us',
 };
 const config = leerConfiguracion(entorno)!;
 assert.deepEqual([...config.operadores], ['593991234567@c.us', '123456789@lid']);
@@ -30,7 +30,7 @@ assert.equal(leerConfiguracion({ ...entorno, WHATSAPP_ENABLED: '1' })!.habilitad
 for (const cambio of [
   { WHATSAPP_WEBHOOK_SECRET: 'corto' }, { WHATSAPP_SESSION_ID: ' ' },
   { WHATSAPP_OPERATOR_IDS: ' , ' }, { WHATSAPP_OPERATOR_USER_ID: undefined },
-  { WHATSAPP_GROUP_CHAT_ID: '' }, { WHATSAPP_LOCAL_CHAT_ID: undefined },
+  { WHATSAPP_GROUP_CHAT_ID: '' }, { WHATSAPP_MOTOS_CHAT_ID: undefined },
 ]) {
   assert.equal(leerConfiguracion({ ...entorno, ...cambio }), null);
 }

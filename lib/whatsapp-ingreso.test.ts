@@ -26,7 +26,7 @@ const operador = '13000000000000@lid';
 const CONFIG = {
   WHATSAPP_WEBHOOK_SECRET: secreto, WHATSAPP_SESSION_ID: 'sesion-1', WHATSAPP_OPERATOR_IDS: operador,
   WHATSAPP_OPERATOR_USER_ID: 'digital-1', WHATSAPP_ENABLED: 'true',
-  WHATSAPP_GROUP_CHAT_ID: 'grupo@g.us', WHATSAPP_LOCAL_CHAT_ID: 'local@c.us',
+  WHATSAPP_GROUP_CHAT_ID: 'grupo@g.us', WHATSAPP_MOTOS_CHAT_ID: 'motos@g.us',
 };
 
 // La creación y el pin completos se prueban en PostgreSQL; aquí, la decisión y sus respuestas.

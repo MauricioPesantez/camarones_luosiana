@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client';
 import {
   Encabezado,
   OrdenPublicable,
+  PedidoMoto,
   textoActualizacionUbicacion,
   textoAnulacion,
   textoConfirmacion,
@@ -18,7 +19,7 @@ const MENSAJES_DE_ORDEN = ['PUBLICACION_GRUPO', 'ACTUALIZACION_GRUPO', 'RECORDAT
 const LIMITE_RECORDATORIO_MS = 30 * 60 * 1000;
 
 type OrdenConId = OrdenPublicable & { id: string };
-type Destinos = Pick<ConfiguracionWhatsapp, 'grupoChatId' | 'localChatId'>;
+type Destinos = Pick<ConfiguracionWhatsapp, 'grupoChatId' | 'motosChatId'>;
 
 /** Cuenta desde que el POS acepta la orden para preparación; el pedido puede fijar otra espera. */
 export function avisoDeDelivery(
@@ -53,7 +54,7 @@ export function salidasDeOrdenAceptada(
       sessionId,
       ordenId: orden.id,
       tipo: 'RECORDATORIO_DELIVERY',
-      destino: destinos.localChatId,
+      destino: destinos.motosChatId,
       texto: textoRecordatorio(orden),
       clave: `recordatorio:${orden.id}`,
       disponibleAt: aviso,
@@ -126,20 +127,34 @@ export async function registrarRechazoWhatsapp(
   });
 }
 
-/** Un cambio sale como mensaje nuevo al mismo grupo. Una orden que nunca se publicó no genera nada. */
+/**
+ * Un cambio sale como mensaje nuevo al grupo y, si la moto ya se pidió, también a Motos
+ * (con `textoMotos` si lo que le importa es otro). Una orden nunca publicada no genera nada.
+ */
 export async function registrarCambioWhatsapp(
   tx: Prisma.TransactionClient,
   ordenId: string,
   clave: string,
   texto: string,
+  textoMotos = texto,
 ): Promise<void> {
-  const publicacion = await tx.whatsappSalida.findFirst({
-    where: { ordenId, tipo: 'PUBLICACION_GRUPO', estado: { not: 'CANCELADA' } },
-    select: { sessionId: true, destino: true },
+  const previas = await tx.whatsappSalida.findMany({
+    where: {
+      ordenId,
+      estado: { not: 'CANCELADA' },
+      OR: [{ tipo: 'PUBLICACION_GRUPO' }, { tipo: 'RECORDATORIO_DELIVERY', intentos: { gt: 0 } }],
+    },
+    select: { tipo: true, sessionId: true, destino: true },
   });
-  if (!publicacion) return;
-  await tx.whatsappSalida.create({
-    data: { ...publicacion, ordenId, tipo: 'ACTUALIZACION_GRUPO', texto, clave },
+  if (previas.length === 0) return;
+  await tx.whatsappSalida.createMany({
+    data: previas.map(({ tipo, sessionId, destino }) => ({
+      sessionId,
+      destino,
+      ordenId,
+      tipo: 'ACTUALIZACION_GRUPO',
+      ...(tipo === 'PUBLICACION_GRUPO' ? { texto, clave } : { texto: textoMotos, clave: `${clave}:motos` }),
+    })),
   });
 }
 
@@ -151,30 +166,33 @@ export function cancelarRecordatorios(tx: Prisma.TransactionClient, ordenId: str
   });
 }
 
-/** Lo que nadie intentó enviar se cancela; si el grupo pudo verla, se avisa la anulación. */
+/** Un aviso de moto aún sin intentar toma los datos actuales; uno intentado conserva su texto. */
+export function refrescarRecordatorio(tx: Prisma.TransactionClient, orden: PedidoMoto & { id: string }) {
+  return tx.whatsappSalida.updateMany({
+    where: { ordenId: orden.id, tipo: 'RECORDATORIO_DELIVERY', estado: 'PENDIENTE', intentos: 0 },
+    data: { texto: textoRecordatorio(orden) },
+  });
+}
+
+/** Lo que nadie intentó enviar se cancela; quien pudo ver la orden (grupo o Motos) recibe la anulación. */
 export async function registrarAnulacionWhatsapp(
   tx: Prisma.TransactionClient,
   orden: Encabezado & { id: string },
 ): Promise<void> {
-  await cancelarRecordatorios(tx, orden.id, 'ORDEN_ANULADA');
   await tx.whatsappSalida.updateMany({
     where: { ordenId: orden.id, tipo: { in: MENSAJES_DE_ORDEN }, estado: 'PENDIENTE', intentos: 0 },
     data: { estado: 'CANCELADA', ultimoError: 'ORDEN_ANULADA' },
   });
+  // Antes de cancelar un aviso en reintento: pudo haber llegado a Motos.
   await registrarCambioWhatsapp(tx, orden.id, `anulacion:${orden.id}`, textoAnulacion(orden));
+  await cancelarRecordatorios(tx, orden.id, 'ORDEN_ANULADA');
 }
 
-type OrdenUbicada = Encabezado & Pick<OrdenPublicable, 'nombreCliente' | 'ubicacionUrl' | 'referenciaEntrega'>;
-
-/** El aviso de moto aún sin intentar toma la ubicación nueva; uno intentado conserva su texto. */
 export async function registrarUbicacionWhatsapp(
   tx: Prisma.TransactionClient,
-  orden: OrdenUbicada & { id: string },
+  orden: PedidoMoto & { id: string },
   historialId: string,
 ): Promise<void> {
-  await tx.whatsappSalida.updateMany({
-    where: { ordenId: orden.id, tipo: 'RECORDATORIO_DELIVERY', estado: 'PENDIENTE', intentos: 0 },
-    data: { texto: textoRecordatorio(orden) },
-  });
+  await refrescarRecordatorio(tx, orden);
   await registrarCambioWhatsapp(tx, orden.id, `ubicacion:${historialId}`, textoActualizacionUbicacion(orden));
 }
