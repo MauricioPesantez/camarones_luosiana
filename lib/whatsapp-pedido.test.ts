@@ -115,7 +115,10 @@ assert.deepEqual(resumen(`Domiclio\n${TEL}\n1/2 de camaron\n1lb camarones\nefect
   ['1 1/2 Libra Camarón -', '1 Libra de Camarón -']);
 assert.deepEqual(resumen(`Domiclio\n${TEL}\n1/2 langostinos\n1 lb de langostinos\nefectivo $2`),
   ['1 1/2 Libra Langostinos -', '1 Libra de Langostinos -']);
-assert.match(fallaProducto(`Domiclio\n${TEL}\nextra camarones\nefectivo $2`), /1\/2 o 1 lb/);
+// Sin tamaño no adivina: pregunta entre los dos camarones, nunca langostinos.
+const camaronSinTamano = resolverProductos(pedidoDe(`Domiclio\n${TEL}\nextra camarones\nefectivo $2`).items, catalogo);
+assert.deepEqual(camaronSinTamano.ok ? [] : camaronSinTamano.dudas.map((d) => d.opciones.map((o) => o.id)),
+  [['1/2 Libra Camarón', 'Libra de Camarón']]);
 const sinCamaron = resolverProductos(pedidoDe(`Domiclio\n${TEL}\n1 lb de camarón extra\nefectivo $2`).items,
   [producto('Libra de Langostinos')]);
 assert.match(sinCamaron.ok ? '' : sinCamaron.errores[0], /no encontrado/i, 'Nunca cae en Langostinos');
@@ -192,6 +195,29 @@ assert.match(agotado.ok ? '' : agotado.errores[0], /no está disponible/);
 // Una salsa agregada al catálogo funciona sin cambiar código.
 const conSalsa = resolverProductos(pedidoDe(`Domiclio\n${TEL}\nExtra salsa picante 2\nefectivo $2`).items, [producto('Salsa Picante 2')]);
 assert.ok(conSalsa.ok);
+
+// Dudas: ofrece productos parecidos y disponibles para que el operador elija; nunca elige solo.
+const dudasDe = (texto: string, lista = catalogo) => {
+  const r = resolverProductos(pedidoDe(texto).items, lista);
+  assert.equal(r.ok, false, texto);
+  return r.ok ? [] : r.dudas.map((d) => ({ indice: d.indice, texto: d.texto, cantidad: d.cantidad, opciones: d.opciones.map((o) => o.nombre) }));
+};
+const bebidas = [producto('Coca Cola 1 Litro'), producto('Coca Cola Personal'), producto('Sprite 1 Litro'),
+  producto('Coca Cola Zero', 'Extras', false)];
+assert.deepEqual(dudasDe(`Domiclio\n${TEL}\n2 Cola de 1LT\nefectivo $2`, bebidas),
+  [{ indice: 0, texto: '2 Cola de 1LT', cantidad: 2, opciones: ['Coca Cola 1 Litro', 'Coca Cola Personal'] }]);
+assert.deepEqual(dudasDe(`Domiclio\n${TEL}\n1 cangrejo\ncombo mixto smal picante 1\nefectivo $2`),
+  [{ indice: 1, texto: 'combo mixto smal', cantidad: 1, opciones: ['Combo Mixto Small'] }]);
+assert.match(fallaProducto(`Domiclio\n${TEL}\ncombo mixto smal picante 1\nefectivo $2`), /no encontrado.*¿Quisiste decir Combo Mixto Small\?/);
+assert.deepEqual(dudasDe(`Domiclio\n${TEL}\nRepetido\nefectivo $2`, [producto('Repetido'), { ...producto('repetido'), id: 'otro' }])
+  .map((d) => d.opciones), [['Repetido', 'repetido']]);
+// Con otro error en el pedido no pregunta: rechaza todo junto, con la sugerencia en el texto.
+assert.deepEqual(dudasDe(`Domiclio\n${TEL}\ncombo mixto smal picante 1\ncombo simple\nefectivo $2`), []);
+assert.deepEqual(dudasDe(`Domiclio\n${TEL}\ncombo picante 1\nefectivo $2`), [], 'Demasiadas opciones: no pregunta');
+// El producto elegido entra por id con la cantidad de la duda.
+const elegido = resolverProductos([{ texto: '2 Cola de 1LT', cantidad: 2, nivelPicante: null, observaciones: null,
+  productoId: 'Coca Cola 1 Litro' }], bebidas);
+assert.deepEqual(elegido.ok && elegido.items.map((i) => [i.cantidad, i.productoId]), [[2, 'Coca Cola 1 Litro']]);
 
 // Hash: reconoce el reenvío aunque cambie el formato, no el contenido.
 const base = `Domiclio\n${TEL}\ncombo simple natural\n1 cangrejo\nefectivo $2`;
