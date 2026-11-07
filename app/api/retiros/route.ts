@@ -14,6 +14,7 @@ import { validarRetiroNuevo } from '@/lib/retiros-validaciones';
 import { getAuthenticatedUser } from '@/lib/session';
 import { CATEGORIA_ADELANTO, ROL_REGISTRA_RETIRO } from '@/types/retiro';
 import { ESTADO_CAJA_ABIERTA } from '@/types/caja';
+import { AccountError, appendEmployeeMovement, lockEmployeeAccount } from '@/lib/employee-account';
 
 export async function GET(request: Request) {
   try {
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
       select: RETIRO_SELECT,
     });
     if (retiroExistente) {
-      if (retiroExistente.usuarioId !== usuario.id) {
+      if (retiroExistente.usuarioId !== usuario.id || retiroExistente.categoria !== datos.categoria || retiroExistente.motivo !== datos.motivo || !retiroExistente.monto.equals(new Prisma.Decimal(datos.monto.toFixed(2))) || retiroExistente.beneficiarioId !== datos.beneficiarioId) {
         return NextResponse.json({ error: 'El identificador del envio ya fue utilizado' }, { status: 409 });
       }
       return NextResponse.json(serializarRetiro(retiroExistente));
@@ -131,6 +132,7 @@ export async function POST(request: Request) {
     try {
       const retiro = await prisma.$transaction(async (tx) => {
         await bloquearCajaAbierta(tx);
+        if (beneficiario) await lockEmployeeAccount(tx, beneficiario.id);
         const registrado = await tx.retiroCaja.create({
           data: {
             monto: new Prisma.Decimal(datos.monto.toFixed(2)),
@@ -145,6 +147,7 @@ export async function POST(request: Request) {
           },
           select: RETIRO_SELECT,
         });
+        if (beneficiario) await appendEmployeeMovement(tx, { empleadoId: beneficiario.id, tipo: 'ADELANTO', monto: new Prisma.Decimal(datos.monto.toFixed(2)), motivo: datos.motivo, autor: usuario, origenClave: `retiro:${registrado.id}`, idempotencyKey: `retiro:${registrado.id}`, retiroId: registrado.id });
         if (printMode === 'queue') await enqueueWithdrawalPrintJob(tx, registrado);
         return registrado;
       });
@@ -181,7 +184,7 @@ export async function POST(request: Request) {
         });
 
         if (existente) {
-          if (existente.usuarioId !== usuario.id) {
+          if (existente.usuarioId !== usuario.id || existente.categoria !== datos.categoria || existente.motivo !== datos.motivo || !existente.monto.equals(new Prisma.Decimal(datos.monto.toFixed(2))) || existente.beneficiarioId !== datos.beneficiarioId) {
             return NextResponse.json({ error: 'El identificador del envio ya fue utilizado' }, { status: 409 });
           }
           return NextResponse.json(serializarRetiro(existente));
@@ -190,6 +193,7 @@ export async function POST(request: Request) {
       throw error;
     }
   } catch (error) {
+    if (error instanceof AccountError) return NextResponse.json({ error: error.message }, { status: error.status });
     if (error instanceof CajaNoDisponibleError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
     }

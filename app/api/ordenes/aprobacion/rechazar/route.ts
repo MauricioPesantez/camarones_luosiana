@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { RechazarOrdenRequest } from '@/types/orden';
 import { getAuthenticatedUser } from '@/lib/session';
+import { registrarRechazoWhatsapp } from '@/lib/whatsapp-salidas';
 
 class RejectionConflictError extends Error {}
 
@@ -35,6 +36,8 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    if (orden.tipoOperacion === 'CONSUMO_EMPLEADO') return NextResponse.json({ error: 'Utiliza la gestion de consumos de empleados' }, { status: 409 });
 
     if (orden.anulada) {
       return NextResponse.json(
@@ -91,6 +94,8 @@ export async function POST(request: NextRequest) {
           data: { estado: 'REEMBOLSO_PENDIENTE' },
         });
       }
+
+      await registrarRechazoWhatsapp(tx, ordenActualizada, razon);
 
       return ordenActualizada;
     });

@@ -20,6 +20,7 @@ export function createPaymentLink(requestUrl: string): {
 }
 
 export function shouldPrintPaymentQr(order: {
+  tipoOperacion?: string;
   tipoOrden?: string | null;
   metodoPagoPrevisto?: string | null;
   cobrada?: boolean;
@@ -27,7 +28,7 @@ export function shouldPrintPaymentQr(order: {
   montoPagado?: number | string | { toNumber(): number } | { toString(): string } | null;
   cobroUrl?: string | null;
 }): boolean {
-  if (!order.cobroUrl) return false;
+  if (order.tipoOperacion === 'CONSUMO_EMPLEADO' || !order.cobroUrl) return false;
 
   // Manda el saldo, no el booleano: una orden que crecio despues de pagada
   // vuelve a necesitar su QR. `cobrada` solo decide cuando no hay total, que

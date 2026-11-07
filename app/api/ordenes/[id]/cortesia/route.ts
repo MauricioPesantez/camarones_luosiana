@@ -1,3 +1,4 @@
+import { PUBLIC_PRODUCT_SELECT } from '@/lib/product-select';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { notificarClientes } from '@/lib/sse';
@@ -35,6 +36,8 @@ export async function POST(
     if (!orden) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
+
+    if (orden.tipoOperacion === 'CONSUMO_EMPLEADO') return NextResponse.json({ error: 'Utiliza la gestion de consumos de empleados' }, { status: 409 });
 
     if (orden.anulada) {
       return NextResponse.json(
@@ -117,7 +120,7 @@ export async function POST(
       where: { id },
       include: {
         items: {
-          include: { producto: true },
+          include: { producto: { select: PUBLIC_PRODUCT_SELECT } },
         },
       },
     });

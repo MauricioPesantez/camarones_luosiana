@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { validarAnulacionOrden } from '@/lib/ordenes-anulacion';
 import { PRINT_JOB_STATUSES } from '@/lib/print-jobs';
 import { getAuthenticatedUser } from '@/lib/session';
+import { registrarAnulacionWhatsapp } from '@/lib/whatsapp-salidas';
 
 class AnulacionConflictError extends Error {}
 
@@ -58,17 +59,22 @@ export async function PATCH(
       where: { id },
       select: {
         id: true,
+        tipoOperacion: true,
         anulada: true,
         estado: true,
         cobrada: true,
         metodoPago: true,
         total: true,
+        numeroDiario: true,
+        fechaNumeroDiario: true,
       },
     });
 
     if (!existente) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
+
+    if (existente.tipoOperacion === 'CONSUMO_EMPLEADO') return NextResponse.json({ error: 'Utiliza la gestion de consumos de empleados' }, { status: 409 });
 
     if (existente.anulada) {
       return NextResponse.json(
@@ -138,6 +144,8 @@ export async function PATCH(
           reviewReason: `Orden anulada: ${razon}`,
         },
       });
+
+      await registrarAnulacionWhatsapp(tx, existente);
 
       return tx.orden.findUniqueOrThrow({
         where: { id },

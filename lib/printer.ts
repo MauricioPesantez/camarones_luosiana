@@ -1,3 +1,4 @@
+import type { EmployeeReceiptPayload } from './employee-print';
 import ThermalPrinter from 'node-thermal-printer';
 import path from 'node:path';
 import {
@@ -147,6 +148,8 @@ export interface ItemComanda {
 }
 
 export interface OrdenComanda {
+  tipoOperacion?: string;
+  empleadoNombre?: string | null;
   id: string;
   numeroDiario?: number | null;
   tipoOrden?: string | null;
@@ -185,6 +188,7 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
   const lines = [
     STRONG_SEPARATOR,
     centered(`ORDEN #${visibleOrderNumber}`),
+    ...(orden.tipoOperacion === 'CONSUMO_EMPLEADO' ? ['EMPLEADO - A CUENTA', ...ticketTextLines(`Empleado: ${orden.empleadoNombre ?? ''}`)] : []),
     STRONG_SEPARATOR,
     ...(tipoOrden === 'local' ? [] : [`Tipo: ${labelTipo}`]),
     ...(metodoPagoPrevisto ? [`Pago: ${metodoPagoPrevisto.toUpperCase()}`] : []),
@@ -265,7 +269,11 @@ export class PrinterService {
     return this.imprimirDocumento(payload);
   }
 
-  private async imprimirDocumento(documento: OrdenComanda | WithdrawalPrintPayload) {
+  async imprimirEmpleado(payload: EmployeeReceiptPayload) {
+    return this.imprimirDocumento(payload);
+  }
+
+  private async imprimirDocumento(documento: OrdenComanda | WithdrawalPrintPayload | EmployeeReceiptPayload) {
     try {
       const lines = 'jobType' in documento ? documento.lines : buildOrderTicketLines(documento);
       if (!('jobType' in documento)) {

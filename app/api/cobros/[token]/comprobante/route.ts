@@ -102,13 +102,14 @@ export async function POST(
     const { token } = await params;
     const orden = await prisma.orden.findUnique({
       where: { cobroTokenHash: hashPaymentToken(token) },
-      select: { id: true, cobrada: true },
+      select: { id: true, cobrada: true, tipoOperacion: true },
     });
     // Igual que en el cobro: el token se resuelve despues de autenticar, para no
     // filtrar si es valido.
     if (!orden) {
       return NextResponse.json({ error: 'Enlace de cobro no válido' }, { status: 404 });
     }
+    if (orden.tipoOperacion === 'CONSUMO_EMPLEADO') return NextResponse.json({ error: 'Este consumo no admite comprobantes de pago' }, { status: 409 });
     if (orden.cobrada) {
       return NextResponse.json({ error: 'Esta orden ya fue cobrada' }, { status: 409 });
     }

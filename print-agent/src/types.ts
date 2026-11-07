@@ -1,6 +1,8 @@
-export type PrintJobType = 'ORDER' | 'AMENDMENT' | 'REPRINT' | 'CASH_WITHDRAWAL';
+export type PrintJobType = 'ORDER' | 'AMENDMENT' | 'REPRINT' | 'CASH_WITHDRAWAL' | 'EMPLOYEE_RECEIPT';
 
 export interface PrintOrderSnapshot {
+  employeeConsumption?: boolean;
+  employeeName?: string | null;
   id: string;
   shortCode: string;
   dailyNumber: number | null;
@@ -34,7 +36,7 @@ export interface PrintOrderSnapshot {
 
 export interface PrintJobPayload {
   payloadVersion: number;
-  jobType: Exclude<PrintJobType, 'CASH_WITHDRAWAL'>;
+  jobType: Exclude<PrintJobType, 'CASH_WITHDRAWAL' | 'EMPLOYEE_RECEIPT'>;
   revision: number;
   ticketLabel: 'ORDEN' | 'MODIFICACION' | 'REIMPRESION';
   generatedAt: string;
@@ -63,7 +65,14 @@ export interface WithdrawalPrintPayload {
   lines: string[];
 }
 
-export type AnyPrintJobPayload = PrintJobPayload | WithdrawalPrintPayload;
+export interface EmployeeReceiptPayload {
+  payloadVersion: 1;
+  jobType: 'EMPLOYEE_RECEIPT';
+  documentId: string;
+  lines: string[];
+}
+
+export type AnyPrintJobPayload = PrintJobPayload | WithdrawalPrintPayload | EmployeeReceiptPayload;
 
 export interface ClaimedPrintJob {
   id: string;

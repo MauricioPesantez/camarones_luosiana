@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     // anuló, su historial completo sale del cálculo: contar sus modificaciones
     // haría que el impacto financiero no cuadre con ninguna venta real.
     const whereCondition: Prisma.HistorialOrdenWhereInput = {
-      orden: ORDENES_VIGENTES,
+      orden: { ...ORDENES_VIGENTES, tipoOperacion: 'VENTA_CLIENTE' },
     };
 
     if (fechaInicio && fechaFin) {

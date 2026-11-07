@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import UbicacionEntrega from "@/components/ordenes/UbicacionEntrega";
+import DeliverySolicitado from "@/components/ordenes/DeliverySolicitado";
 import HistorialOrdenTimeline from "./HistorialOrdenTimeline";
 import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 import {
@@ -36,6 +38,9 @@ interface Orden {
   numeroMesa: number | null;
   nombreCliente?: string | null;
   telefonoCliente?: string | null;
+  ubicacionUrl?: string | null;
+  referenciaEntrega?: string | null;
+  deliverySolicitadoAt?: string | null;
   recargo?: number | null;
   costoEnvio?: number | null;
   mesero: string;
@@ -314,6 +319,39 @@ export default function DetalleOrdenModal({
                           <p className="text-base text-gray-800">
                             {orden.telefonoCliente ?? "—"}
                           </p>
+                        </div>
+                      )}
+                      {orden.tipoOrden === "domicilio" && (
+                        <div className="col-span-full">
+                          <label className="text-xs text-gray-500 font-semibold uppercase">
+                            Entrega
+                          </label>
+                          <UbicacionEntrega
+                            key={`${orden.id}:${orden.ubicacionUrl}:${orden.referenciaEntrega}`}
+                            ordenId={orden.id}
+                            ubicacionUrl={orden.ubicacionUrl ?? null}
+                            referenciaEntrega={orden.referenciaEntrega ?? null}
+                            editable={!orden.anulada}
+                            onActualizada={(ubicacion) => {
+                              const actualizada = { ...orden, ...ubicacion };
+                              setOrden(actualizada);
+                              onOrdenActualizada?.(actualizada);
+                            }}
+                          />
+                          <DeliverySolicitado
+                            key={`${orden.id}:${orden.deliverySolicitadoAt}`}
+                            ordenId={orden.id}
+                            deliverySolicitadoAt={orden.deliverySolicitadoAt ?? null}
+                            editable={
+                              !orden.anulada &&
+                              !["cancelada", "pendiente_aprobacion_stock"].includes(orden.estado)
+                            }
+                            onRegistrado={(deliverySolicitadoAt) => {
+                              const actualizada = { ...orden, deliverySolicitadoAt };
+                              setOrden(actualizada);
+                              onOrdenActualizada?.(actualizada);
+                            }}
+                          />
                         </div>
                       )}
                     </>

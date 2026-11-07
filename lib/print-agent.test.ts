@@ -21,6 +21,8 @@ function requestWithToken(token?: string): Request {
 
 function run(): void {
   assert.deepEqual(normalizeSupportedJobTypes(undefined), ['ORDER', 'AMENDMENT', 'REPRINT']);
+  assert.deepEqual(normalizeSupportedJobTypes(['EMPLOYEE_RECEIPT']), ['EMPLOYEE_RECEIPT']);
+  assert.ok(!normalizeSupportedJobTypes(undefined).includes('EMPLOYEE_RECEIPT'), 'Un agente antiguo no recibe comprobantes que no entiende');
   assert.deepEqual(normalizeSupportedJobTypes(['ORDER', 'CASH_WITHDRAWAL']), ['ORDER', 'CASH_WITHDRAWAL']);
   assert.throws(() => normalizeSupportedJobTypes([]), /supportedJobTypes/);
   assert.throws(() => normalizeSupportedJobTypes(['INVALID']), /supportedJobTypes/);

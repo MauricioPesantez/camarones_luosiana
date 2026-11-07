@@ -59,7 +59,7 @@ export class PrintAgentApiClient {
   async claim(): Promise<ClaimedPrintJob | null> {
     const response = await this.request<{ job: ClaimedPrintJob | null }>(
       '/api/print-agent/claim',
-      { workerId: this.config.workerId, supportedJobTypes: ['ORDER', 'AMENDMENT', 'REPRINT', 'CASH_WITHDRAWAL'] },
+      { workerId: this.config.workerId, supportedJobTypes: ['ORDER', 'AMENDMENT', 'REPRINT', 'CASH_WITHDRAWAL', 'EMPLOYEE_RECEIPT'] },
     );
     return response.job;
   }

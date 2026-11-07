@@ -88,4 +88,15 @@ for (const rol of ["mesero", "digital", "cocina", "admin"] as const) {
   assert.ok(ACENTO_POR_ROL[rol].fondo.length > 0);
 }
 
+
+// Las pantallas internas no desplazan los cuatro accesos operativos del móvil.
+for (const rol of ["mesero", "digital", "cocina", "admin"]) {
+  const nav = resolverNav(rol, ctxSinPermiso);
+  const items = nav.flatMap(s => s.items);
+  assert.ok(items.some(i => i.id === "mis-descuentos"));
+  assert.equal(items.some(i => i.id === "consumos-empleados"), rol === "mesero" || rol === "admin");
+  assert.equal(items.some(i => i.id === "cuentas-empleados"), rol === "admin");
+  assert.ok(!itemsBarraInferior(nav).some(i => ["mis-descuentos", "consumos-empleados", "cuentas-empleados"].includes(i.id)));
+}
+
 console.log("navegacion tests passed");

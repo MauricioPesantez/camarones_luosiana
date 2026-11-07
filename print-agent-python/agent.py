@@ -193,7 +193,7 @@ class ApiClient(object):
 
     def claim(self):
         result = self.request(
-            "/api/print-agent/claim", {"workerId": self.config.worker_id, "supportedJobTypes": ["ORDER", "AMENDMENT", "REPRINT", "CASH_WITHDRAWAL"]}
+            "/api/print-agent/claim", {"workerId": self.config.worker_id, "supportedJobTypes": ["ORDER", "AMENDMENT", "REPRINT", "CASH_WITHDRAWAL", "EMPLOYEE_RECEIPT"]}
         )
         return result.get("job")
 
@@ -367,9 +367,9 @@ def amendment_amount_delta(change):
 
 
 def lines_for_payload(payload):
-    if payload.get("jobType") == "CASH_WITHDRAWAL":
+    if payload.get("jobType") in ("CASH_WITHDRAWAL", "EMPLOYEE_RECEIPT"):
         lines = payload.get("lines")
-        if (payload.get("payloadVersion") != 1 or not payload.get("withdrawalId")
+        if (payload.get("payloadVersion") != 1 or not payload.get("withdrawalId" if payload.get("jobType") == "CASH_WITHDRAWAL" else "documentId")
                 or not isinstance(lines, list) or not lines
                 or any(not isinstance(line, str) or len(line) > LINE_WIDTH
                        or re.search(r"[^\x20-\x7E]", line) for line in lines)):
@@ -394,6 +394,8 @@ def lines_for_payload(payload):
         ]
 
     lines = ["=" * LINE_WIDTH] + titles + ["=" * LINE_WIDTH]
+    if order.get("employeeConsumption"):
+        lines.extend(["EMPLEADO - A CUENTA", "Empleado: " + (order.get("employeeName") or "")])
     if order.get("type") != "local":
         type_label = "PARA LLEVAR" if order.get("type") == "para_llevar" else "DOMICILIO"
         lines.append("Tipo: " + type_label)
@@ -625,7 +627,7 @@ def build_esc_pos_ticket(payload, logo_path=DEFAULT_LOGO_PATH, logo_raster=None)
     global _logo_warning_shown
     text = encode_ticket_lines(lines_for_payload(payload))
     logo = logo_raster
-    if payload.get("jobType") == "CASH_WITHDRAWAL":
+    if payload.get("jobType") in ("CASH_WITHDRAWAL", "EMPLOYEE_RECEIPT"):
         logo = b""
     if logo is None:
         try:
@@ -641,7 +643,7 @@ def build_esc_pos_ticket(payload, logo_path=DEFAULT_LOGO_PATH, logo_raster=None)
         chunks.extend([ALIGN_CENTER, logo, b"\n"])
     chunks.extend([ALIGN_LEFT, text])
     payment_url = (payload.get("order") or {}).get("paymentUrl")
-    if payload.get("jobType") not in ("AMENDMENT", "CASH_WITHDRAWAL") and payment_url:
+    if payload.get("jobType") not in ("AMENDMENT", "CASH_WITHDRAWAL", "EMPLOYEE_RECEIPT") and not (payload.get("order") or {}).get("employeeConsumption") and payment_url:
         chunks.append(encode_esc_pos_qr(payment_url))
     chunks.append(bytes(bytearray([ESC, 0x64, 0x05])))
     chunks.append(bytes(bytearray([GS, 0x56, 0x42, 0x10])))

@@ -8,6 +8,7 @@ import {
 } from '@/lib/retiros';
 import { validarAnulacion } from '@/lib/retiros-validaciones';
 import { getAuthenticatedUser } from '@/lib/session';
+import { AccountError, appendEmployeeMovement, lockEmployeeAccount } from '@/lib/employee-account';
 
 class AnulacionConflictError extends Error {}
 
@@ -54,6 +55,9 @@ export async function PATCH(
     }
 
     const retiro = await prisma.$transaction(async (tx) => {
+      const retiroActual = await tx.retiroCaja.findUniqueOrThrow({ where: { id }, select: { beneficiarioId: true } });
+      if (retiroActual.beneficiarioId) await lockEmployeeAccount(tx, retiroActual.beneficiarioId, false);
+      const origen = await tx.movimientoCuentaEmpleado.findUnique({ where: { origenClave: `retiro:${id}` } });
       // Anulacion optimista: si otro admin la gano en el camino, `count` es 0.
       const anulacion = await tx.retiroCaja.updateMany({
         where: { id, estado: ESTADO_REGISTRADO },
@@ -70,6 +74,7 @@ export async function PATCH(
         throw new AnulacionConflictError('El retiro fue anulado al mismo tiempo.');
       }
 
+      if (origen) await appendEmployeeMovement(tx, { empleadoId: origen.empleadoId, tipo: 'REVERSO_ADELANTO', monto: origen.monto.negated(), motivo: razon, autor: admin, origenClave: `reverso-retiro:${id}`, idempotencyKey: `reverso-retiro:${id}`, retiroId: id, movimientoOrigenId: origen.id, requireActive: false });
       await tx.printJob.updateMany({
         where: { retiroId: id, status: { in: ['PENDING', 'RETRY', 'NEEDS_REVIEW', 'FAILED', 'PROCESSING'] } },
         data: { status: 'DISCARDED', reviewedAt: new Date(), reviewedBy: admin.nombre, reviewReason: `Retiro anulado: ${razon}` },
@@ -82,6 +87,7 @@ export async function PATCH(
 
     return NextResponse.json(serializarRetiro(retiro));
   } catch (error) {
+    if (error instanceof AccountError) return NextResponse.json({ error: error.message }, { status: error.status });
     if (error instanceof AnulacionConflictError) {
       return NextResponse.json(
         { error: 'El retiro ya había sido anulado. Recarga el cuadre.' },

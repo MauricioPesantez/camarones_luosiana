@@ -8,6 +8,8 @@ export interface DatosProducto {
   nombre: string;
   categoria: string;
   precio: number;
+  precioEmpleado: number | null;
+  requierePreparacionEmpleado: boolean;
   descripcion: string | null;
   tiempoPreparacion: number;
   stock: number;
@@ -75,6 +77,14 @@ function precio(valor: unknown): number {
   return Math.round(numero * 100) / 100;
 }
 
+function precioEmpleado(valor: unknown): number | null {
+  if (valor === undefined || valor === null || valor === '') return null;
+  if (typeof valor !== 'number' || !Number.isFinite(valor) || valor <= 0 || valor > 99999999.99 || Math.abs(valor * 100 - Math.round(valor * 100)) > 0.000001) {
+    throw new ErrorValidacion('El precio para empleados debe ser positivo y tener hasta dos decimales');
+  }
+  return Math.round(valor * 100) / 100;
+}
+
 function entero(valor: unknown, campo: string): number {
   const numero = typeof valor === 'number' ? valor : Number(valor);
   if (!Number.isInteger(numero) || numero < 0) {
@@ -117,7 +127,11 @@ function exigirCampos(parcial: object): void {
 export function validarProductoNuevo(body: unknown): ResultadoValidacion<DatosProducto> {
   return ejecutar(() => {
     const datos = objeto(body);
+    const especial = precioEmpleado(datos.precioEmpleado);
+    if (especial !== null && especial > precio(datos.precio)) throw new ErrorValidacion('El precio para empleados no puede superar el precio de carta');
     return {
+      precioEmpleado: especial,
+      requierePreparacionEmpleado: datos.requierePreparacionEmpleado === undefined ? true : booleano(datos.requierePreparacionEmpleado, 'Preparacion para empleados'),
       nombre: texto(datos.nombre, 'El nombre'),
       categoria: texto(datos.categoria, 'La categoria'),
       precio: precio(datos.precio),
@@ -144,6 +158,9 @@ export function validarProductoParcial(
     if ('nombre' in datos) parcial.nombre = texto(datos.nombre, 'El nombre');
     if ('categoria' in datos) parcial.categoria = texto(datos.categoria, 'La categoria');
     if ('precio' in datos) parcial.precio = precio(datos.precio);
+    if ('precioEmpleado' in datos) parcial.precioEmpleado = precioEmpleado(datos.precioEmpleado);
+    if ('requierePreparacionEmpleado' in datos) parcial.requierePreparacionEmpleado = booleano(datos.requierePreparacionEmpleado, 'Preparacion para empleados');
+    if (parcial.precioEmpleado != null && parcial.precio !== undefined && parcial.precioEmpleado > parcial.precio) throw new ErrorValidacion('El precio para empleados no puede superar el precio de carta');
     if ('descripcion' in datos) {
       parcial.descripcion = textoOpcional(datos.descripcion, 'La descripcion');
     }

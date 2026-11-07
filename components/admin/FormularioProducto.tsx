@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { ProductoConStock } from "@/types/stock";
 
 interface Props {
-  producto: ProductoConStock | null;
+  producto: (ProductoConStock & { precioEmpleado?: number | null; requierePreparacionEmpleado?: boolean }) | null;
   categorias: string[];
   onCancelar: () => void;
   onGuardado: () => void;
@@ -24,6 +24,8 @@ export default function FormularioProducto({
   const [categoria, setCategoria] = useState(producto?.categoria ?? "");
   // Prisma serializa Decimal como string: Number() antes de mostrarlo.
   const [precio, setPrecio] = useState(producto ? String(Number(producto.precio)) : "");
+  const [precioEmpleado, setPrecioEmpleado] = useState(producto?.precioEmpleado == null ? "" : String(Number(producto.precioEmpleado)));
+  const requierePreparacionEmpleado = producto?.requierePreparacionEmpleado ?? true;
   const [descripcion, setDescripcion] = useState(producto?.descripcion ?? "");
   const [tiempoPreparacion, setTiempoPreparacion] = useState(
     String(producto?.tiempoPreparacion ?? 0),
@@ -37,12 +39,18 @@ export default function FormularioProducto({
   const guardar = async (evento: FormEvent) => {
     evento.preventDefault();
     setError(null);
+    if (precioEmpleado !== "" && (!Number.isFinite(Number(precioEmpleado)) || Number(precioEmpleado) <= 0 || Number(precioEmpleado) > Number(precio))) {
+      setError("El precio de empleado debe ser mayor que cero y no superar el precio de carta");
+      return;
+    }
     setGuardando(true);
 
     const cuerpo: Record<string, unknown> = {
       nombre,
       categoria,
       precio: Number(precio),
+      precioEmpleado: precioEmpleado === "" ? null : Number(precioEmpleado),
+      requierePreparacionEmpleado,
       descripcion,
       tiempoPreparacion: Number(tiempoPreparacion),
       stockMinimo: Number(stockMinimo),
@@ -111,6 +119,12 @@ export default function FormularioProducto({
           ))}
         </datalist>
       </div>
+
+      <fieldset className="border rounded-lg p-3 space-y-2">
+        <legend className={claseEtiqueta}>Consumo de empleados</legend>
+        <label htmlFor="producto-precio-empleado" className={claseEtiqueta}>Precio especial ($), vacío para deshabilitar</label>
+        <input id="producto-precio-empleado" type="number" min="0.01" max={precio} step="0.01" value={precioEmpleado} onChange={(e) => setPrecioEmpleado(e.target.value)} className={claseCampo} />
+      </fieldset>
 
       <div className="grid grid-cols-2 gap-3">
         <div>

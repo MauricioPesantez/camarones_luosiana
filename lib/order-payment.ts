@@ -1,3 +1,4 @@
+import { PUBLIC_PRODUCT_SELECT } from '@/lib/product-select';
 import { Prisma } from '@prisma/client';
 
 import { parseComprobanteKey } from '@/lib/comprobantes';
@@ -29,7 +30,7 @@ export class PaymentNotFoundError extends Error {}
 export class PaymentForbiddenError extends Error {}
 
 const ORDER_WITH_ITEMS = {
-  items: { include: { producto: true } },
+  items: { include: { producto: { select: PUBLIC_PRODUCT_SELECT } } },
 } satisfies Prisma.OrdenInclude;
 
 // El cobro no depende de quién creó la orden: cualquier rol habilitado para cobrar
@@ -54,6 +55,7 @@ export function canUserModifyOrder(
 function validateOrderCanBePaid(
   order: {
     anulada: boolean;
+    tipoOperacion?: string;
     estado: string;
     tipoOrden: string;
     printRevision: number;
@@ -63,6 +65,7 @@ function validateOrderCanBePaid(
   expectedRevision: number,
   origen: 'qr' | 'lista',
 ): void {
+  if (order.tipoOperacion === 'CONSUMO_EMPLEADO') throw new PaymentValidationError('Un consumo de empleado se descuenta de su cuenta');
   if (calcularSaldo({ total: order.total.toString(), montoPagado: order.montoPagado.toString() }) <= 0) {
     throw new PaymentConflictError('Esta orden ya fue cobrada');
   }

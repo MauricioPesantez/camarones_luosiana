@@ -164,6 +164,9 @@ export interface CrearOrdenRequest {
   metodoPagoPrevisto?: MetodoPago;
   /** Confirmación operativa de que el dinero ya ingresó al crear el domicilio. */
   transferenciaConfirmada?: boolean;
+  /** Solo domicilio: enlace de Google Maps, si ya se conoce. */
+  ubicacionUrl?: string;
+  referenciaEntrega?: string;
   // Comunes
   mesero: string;
   /** Usuario autenticado que crea la orden. */

@@ -1,3 +1,4 @@
+import { PUBLIC_PRODUCT_SELECT } from '@/lib/product-select';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/session';
@@ -28,7 +29,7 @@ export async function PATCH(
     }
     const existente = await prisma.orden.findUnique({
       where: { id },
-      select: { cobrada: true, anulada: true },
+      select: { cobrada: true, anulada: true, tipoOperacion: true, estado: true, printRevision: true },
     });
 
     if (!existente) {
@@ -40,6 +41,10 @@ export async function PATCH(
         { error: 'Una orden anulada no cambia de estado' },
         { status: 409 },
       );
+    }
+
+    if (existente.tipoOperacion === 'CONSUMO_EMPLEADO') {
+      return NextResponse.json({ error: 'Los consumos de empleados requieren regularización administrativa' }, { status: 409 });
     }
 
     // Si cocina marca la orden como 'entregada' y ya fue cobrada, cerrarla directamente.
@@ -54,7 +59,7 @@ export async function PATCH(
       include: {
         items: {
           include: {
-            producto: true,
+            producto: { select: PUBLIC_PRODUCT_SELECT },
           },
         },
       },

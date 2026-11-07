@@ -56,6 +56,7 @@ export interface PrintItemSource {
   precioUnitario?: NumericValue;
   subtotal?: NumericValue;
   esCortesia?: boolean;
+  nombreProducto?: string | null;
   producto: {
     id?: string;
     nombre: string;
@@ -63,6 +64,8 @@ export interface PrintItemSource {
 }
 
 export interface PrintOrderSource {
+  tipoOperacion?: string;
+  empleadoNombre?: string | null;
   id: string;
   numeroDiario?: number | null;
   fechaNumeroDiario?: string | null;
@@ -103,6 +106,8 @@ export interface AmendmentChangeSource {
 }
 
 export interface PrintOrderSnapshot {
+  employeeConsumption?: boolean;
+  employeeName?: string | null;
   id: string;
   shortCode: string;
   dailyNumber: number | null;
@@ -335,7 +340,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
     throw new Error('La orden debe incluir al menos un item imprimible');
   }
 
-  const paymentUrl = shouldPrintPaymentQr({
+  const paymentUrl = order.tipoOperacion !== 'CONSUMO_EMPLEADO' && shouldPrintPaymentQr({
     ...order,
     total: toNumber(order.total),
     montoPagado: toNumber(order.montoPagado),
@@ -346,6 +351,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
   return {
     id,
     shortCode: id.slice(-6),
+    ...(order.tipoOperacion === 'CONSUMO_EMPLEADO' ? { employeeConsumption: true, employeeName: order.empleadoNombre ?? null } : {}),
     dailyNumber,
     dailyDate: normalizeDailyDate(order.fechaNumeroDiario),
     type: normalizeOrderType(order.tipoOrden),
@@ -367,7 +373,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
         id: normalizeOptionalText(item.id),
         productId: normalizeOptionalText(item.producto.id),
         productName: normalizeRequiredText(
-          item.producto.nombre,
+          item.nombreProducto ?? item.producto.nombre,
           'item.producto.nombre',
         ),
         quantity: item.cantidad,

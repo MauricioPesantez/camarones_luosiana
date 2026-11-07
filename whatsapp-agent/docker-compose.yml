@@ -1,0 +1,73 @@
+# OpenWA y agente del POS. Instalación y operación en README.md.
+name: whatsapp-pos
+
+# Logs de Docker rotados: OpenWA y el agente no deben llenar el disco del equipo.
+x-logs: &logs
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '3'
+
+services:
+  openwa:
+    # Fijado por digest: una versión nueva se ensaya antes de cambiar esta línea.
+    image: rmyndharis/openwa:0.27.1@sha256:1a2d0c393a7c8a629b0b18cdb5125d9be59192480c02d56a022c249a66af9068
+    restart: unless-stopped
+    logging: *logs
+    stop_grace_period: 75s
+    # Mismo endurecimiento que el docker-compose.yml oficial de OpenWA.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - KILL
+      - SETGID
+      - SETUID
+    read_only: true
+    tmpfs:
+      - /tmp
+    pids_limit: 2048
+    mem_limit: 2g
+    ports:
+      - '127.0.0.1:2785:2785'
+    environment:
+      NODE_ENV: production
+      PORT: '2785'
+      HOME: /tmp
+      XDG_CONFIG_HOME: /tmp/.config
+      XDG_CACHE_HOME: /tmp/.cache
+      ENGINE_TYPE: ${ENGINE_TYPE:-whatsapp-web.js}
+      AUTO_START_SESSIONS: 'true'
+      WWEBJS_AUTH_TIMEOUT_MS: '120000'
+      # Solo para un POS en la red local (desarrollo): IP del equipo del POS.
+      SSRF_ALLOWED_HOSTS: ${SSRF_ALLOWED_HOSTS:-localhost}
+      WEBHOOK_FAILURE_PAYLOAD_RETENTION_HOURS: '24'
+    volumes:
+      - openwa-data:/app/data
+
+  agente:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: node agente.mjs
+    logging: *logs
+    environment:
+      POS_URL: ${POS_URL:?falta_en_env}
+      WHATSAPP_AGENT_TOKEN: ${WHATSAPP_AGENT_TOKEN:?falta_en_env}
+      WHATSAPP_SESSION_ID: ${WHATSAPP_SESSION_ID:?falta_en_env}
+      OPENWA_API_KEY: ${OPENWA_API_KEY:?falta_en_env}
+      HORARIO: ${HORARIO:-}
+      # Solo los usa openwa.mjs al registrar el webhook; el agente no los lee.
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:?falta_en_env}
+    volumes:
+      - ./agente.mjs:/app/agente.mjs:ro
+      - ./openwa.mjs:/app/openwa.mjs:ro
+
+volumes:
+  openwa-data:
+    # Nombre heredado del ensayo: cambiarlo crea un volumen vacío y obliga a escanear el QR otra vez.
+    name: openwa-ensayo_openwa-data

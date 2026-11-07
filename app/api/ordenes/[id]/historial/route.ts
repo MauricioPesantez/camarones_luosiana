@@ -18,11 +18,12 @@ export async function GET(
     const { id } = await params;
     const orden = await prisma.orden.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, tipoOperacion: true },
     });
     if (!orden) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
+    if (orden.tipoOperacion === 'CONSUMO_EMPLEADO' && usuario.rol !== 'admin') return NextResponse.json({ error: 'Consulta el detalle desde tu cuenta de empleado' }, { status: 403 });
     const historial = await prisma.historialOrden.findMany({
       where: { ordenId: id },
       orderBy: { createdAt: 'asc' },

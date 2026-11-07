@@ -32,7 +32,7 @@ export function sanitizePrintErrorMessage(value: unknown): string {
 
 export function normalizeSupportedJobTypes(value: unknown): string[] {
   if (value === undefined) return ['ORDER', 'AMENDMENT', 'REPRINT'];
-  const allowed = ['ORDER', 'AMENDMENT', 'REPRINT', 'CASH_WITHDRAWAL'];
+  const allowed = ['ORDER', 'AMENDMENT', 'REPRINT', 'CASH_WITHDRAWAL', 'EMPLOYEE_RECEIPT'];
   if (!Array.isArray(value) || value.length === 0 || value.some((type) => !allowed.includes(type))) {
     throw new Error('supportedJobTypes no valido');
   }
@@ -89,6 +89,14 @@ export async function claimNextPrintJob(
         AND "availableAt" <= ${now}
         AND "autoPrintUntil" >= ${now}
         AND attempts < "maxAttempts"
+        AND (
+          type::text NOT IN ('ORDER', 'AMENDMENT', 'REPRINT')
+          OR NOT EXISTS (
+            SELECT 1 FROM "Orden"
+            WHERE "Orden".id = "PrintJob"."ordenId"
+              AND "Orden"."tipoOperacion" = 'CONSUMO_EMPLEADO'
+          )
+        )
       ORDER BY "availableAt" ASC, "createdAt" ASC
       FOR UPDATE SKIP LOCKED
       LIMIT 1

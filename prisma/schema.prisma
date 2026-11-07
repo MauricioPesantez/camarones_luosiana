@@ -12,6 +12,7 @@ enum PrintJobType {
   AMENDMENT
   REPRINT
   CASH_WITHDRAWAL
+  EMPLOYEE_RECEIPT
 }
 
 enum PrintJobStatus {
@@ -25,58 +26,71 @@ enum PrintJobStatus {
 }
 
 model Producto {
-  id                String   @id @default(cuid())
-  nombre            String
-  categoria         String
-  precio            Decimal  @db.Decimal(10, 2)
-  disponible        Boolean  @default(true)
-  descripcion       String?
-  tiempoPreparacion Int?     @default(0) // Tiempo en minutos
-  stock             Int      @default(0) // Cantidad en stock
-  stockMinimo       Int?     @default(5) // Alerta de stock bajo
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  items             Item[]
+  id                          String   @id @default(cuid())
+  nombre                      String
+  categoria                   String
+  precio                      Decimal  @db.Decimal(10, 2)
+  precioEmpleado              Decimal? @db.Decimal(10, 2)
+  requierePreparacionEmpleado Boolean  @default(true)
+  disponible                  Boolean  @default(true)
+  descripcion                 String?
+  tiempoPreparacion           Int?     @default(0) // Tiempo en minutos
+  stock                       Int      @default(0) // Cantidad en stock
+  stockMinimo                 Int?     @default(5) // Alerta de stock bajo
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+  items                       Item[]
 }
 
 model Orden {
-  id                             String    @id @default(cuid())
+  id                             String                     @id @default(cuid())
+  tipoOperacion                  String                     @default("VENTA_CLIENTE")
+  empleadoId                     String?
+  empleado                       Usuario?                   @relation("ConsumosEmpleado", fields: [empleadoId], references: [id], onDelete: Restrict)
+  empleadoNombre                 String?
+  consumoRequestId               String?                    @unique
+  consumoRequestHash             String?
+  stockRestituido                Boolean                    @default(false)
+  movimientosCuenta              MovimientoCuentaEmpleado[]
   numeroDiario                   Int?
-  fechaNumeroDiario              String?   @db.VarChar(10) // YYYY-MM-DD en America/Guayaquil
-  tipoOrden                      String    @default("local") // "local" | "para_llevar" | "domicilio"
-  nivelPicante                   String    @default("natural") // Campo legado; las órdenes nuevas guardan el nivel en Item
+  fechaNumeroDiario              String?                    @db.VarChar(10) // YYYY-MM-DD en America/Guayaquil
+  tipoOrden                      String                     @default("local") // "local" | "para_llevar" | "domicilio"
+  nivelPicante                   String                     @default("natural") // Campo legado; las órdenes nuevas guardan el nivel en Item
   numeroMesa                     Int? // Solo para tipo "local"
   nombreCliente                  String? // Obligatorio para "para_llevar", opcional para "domicilio"
   telefonoCliente                String? // Solo para "domicilio"
-  recargo                        Decimal?  @db.Decimal(10, 2) // $1.25 por cada combo para "para_llevar" y "domicilio"
-  costoEnvio                     Decimal?  @db.Decimal(10, 2) // Solo para "domicilio"
+  ubicacionUrl                   String? // Enlace de Google Maps validado o generado por el POS
+  referenciaEntrega              String? // Indicaciones complementarias de entrega
+  deliverySolicitadoAt           DateTime? // Alguien pidió motorizado; el autor queda en historial. No implica entrega ni pago
+  recargo                        Decimal?                   @db.Decimal(10, 2) // $1.25 por cada combo para "para_llevar" y "domicilio"
+  costoEnvio                     Decimal?                   @db.Decimal(10, 2) // Solo para "domicilio"
   metodoPago                     String? // "efectivo" | "transferencia" — como se cobro realmente
   metodoPagoPrevisto             String? // "efectivo" | "transferencia" — acordado al crear la orden, solo "domicilio"
-  transferenciaConfirmadaAlCrear Boolean   @default(false)
-  cobrada                        Boolean   @default(false)
+  transferenciaConfirmadaAlCrear Boolean                    @default(false)
+  cobrada                        Boolean                    @default(false)
   fechaCobro                     DateTime?
   cobradaPor                     String? // Nombre del mesero/admin que cobró
   cobradaPorId                   String?
-  cobrador                       Usuario?  @relation("OrdenesCobradas", fields: [cobradaPorId], references: [id], onDelete: SetNull)
+  cobrador                       Usuario?                   @relation("OrdenesCobradas", fields: [cobradaPorId], references: [id], onDelete: SetNull)
   origenCobro                    String? // "qr" | "lista" | "creacion_domicilio_transferencia"
-  cobroTokenHash                 String?   @unique
-  cobroUrl                       String?   @unique
+  cobroTokenHash                 String?                    @unique
+  cobroUrl                       String?                    @unique
   comprobanteTransferenciaKey    String?
   mesero                         String
   creadorId                      String?
-  creador                        Usuario?  @relation("OrdenesCreadas", fields: [creadorId], references: [id], onDelete: SetNull)
+  creador                        Usuario?                   @relation("OrdenesCreadas", fields: [creadorId], references: [id], onDelete: SetNull)
   creadorRol                     String? // Snapshot del rol al crear la orden para reportes historicos
-  estado                         String    @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cobrada", "cancelada"
+  estado                         String                     @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cobrada", "cancelada"
   observaciones                  String?
-  total                          Decimal   @default(0) @db.Decimal(10, 2)
+  total                          Decimal                    @default(0) @db.Decimal(10, 2)
   /// Suma de los pagos confirmados. Materializado: `cobrada` se deriva de
   /// `montoPagado >= total` y los listados filtran por el sin agregar.
-  montoPagado                    Decimal   @default(0) @db.Decimal(10, 2)
-  tiempoEstimado                 Int?      @default(0) // Tiempo estimado en minutos
-  modificada                     Boolean   @default(false) // Indica si la orden fue modificada
-  sinStock                       Boolean   @default(false) // Indica si fue aprobada sin stock suficiente
+  montoPagado                    Decimal                    @default(0) @db.Decimal(10, 2)
+  tiempoEstimado                 Int?                       @default(0) // Tiempo estimado en minutos
+  modificada                     Boolean                    @default(false) // Indica si la orden fue modificada
+  sinStock                       Boolean                    @default(false) // Indica si fue aprobada sin stock suficiente
   aprobadaPorId                  String? // Admin que aprobó la orden sin stock
-  aprobadaPor                    Usuario?  @relation("OrdenesAprobadas", fields: [aprobadaPorId], references: [id])
+  aprobadaPor                    Usuario?                   @relation("OrdenesAprobadas", fields: [aprobadaPorId], references: [id])
   razonAprobacion                String? // Razón por la que se aprobó sin stock
   itemsSinStock                  Json? // Lista de items que no tenían stock: [{productoId, productoNombre, cantidadSolicitada, stockDisponible}]
 
@@ -91,18 +105,21 @@ model Orden {
   razonAnulacion   String?
   anuladaAt        DateTime?
 
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  items         Item[]
-  historial     HistorialOrden[]
-  impresa       Boolean          @default(false)
-  printRevision Int              @default(0)
-  printJobs     PrintJob[]
-  pagos         Cobro[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  items            Item[]
+  historial        HistorialOrden[]
+  impresa          Boolean           @default(false)
+  printRevision    Int               @default(0)
+  printJobs        PrintJob[]
+  pagos            Cobro[]
+  whatsappEntradas WhatsappEntrada[]
+  whatsappSalidas  WhatsappSalida[]
 
   @@unique([fechaNumeroDiario, numeroDiario])
   @@index([creadorId])
   @@index([cobradaPorId])
+  @@index([tipoOperacion, empleadoId, createdAt])
 }
 
 model Cobro {
@@ -140,20 +157,22 @@ model ContadorOrdenDiaria {
 }
 
 model PrintJob {
-  id             String         @id @default(cuid())
+  id             String               @id @default(cuid())
   ordenId        String?
-  orden          Orden?         @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  orden          Orden?               @relation(fields: [ordenId], references: [id], onDelete: Cascade)
   retiroId       String?
-  retiro         RetiroCaja?    @relation(fields: [retiroId], references: [id], onDelete: Restrict)
+  retiro         RetiroCaja?          @relation(fields: [retiroId], references: [id], onDelete: Restrict)
+  liquidacionId  String?
+  liquidacion    LiquidacionEmpleado? @relation(fields: [liquidacionId], references: [id], onDelete: Restrict)
   type           PrintJobType
-  status         PrintJobStatus @default(PENDING)
-  dedupeKey      String         @unique
+  status         PrintJobStatus       @default(PENDING)
+  dedupeKey      String               @unique
   revision       Int
-  payloadVersion Int            @default(1)
+  payloadVersion Int                  @default(1)
   payload        Json
-  attempts       Int            @default(0)
-  maxAttempts    Int            @default(10)
-  availableAt    DateTime       @default(now())
+  attempts       Int                  @default(0)
+  maxAttempts    Int                  @default(10)
+  availableAt    DateTime             @default(now())
   autoPrintUntil DateTime
   workerId       String?
   leasedAt       DateTime?
@@ -164,12 +183,13 @@ model PrintJob {
   reviewedAt     DateTime?
   reviewedBy     String?
   reviewReason   String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   @@index([status, availableAt])
   @@index([ordenId, createdAt])
   @@index([retiroId, createdAt])
+  @@index([liquidacionId, createdAt])
   @@index([leaseExpiresAt])
 }
 
@@ -195,6 +215,8 @@ model Item {
   producto       Producto @relation(fields: [productoId], references: [id])
   cantidad       Int
   precioUnitario Decimal  @db.Decimal(10, 2)
+  nombreProducto String?
+  precioCarta    Decimal? @db.Decimal(10, 2)
   subtotal       Decimal  @db.Decimal(10, 2)
   observaciones  String?
   nivelPicante   String? // Solo para productos de categoría Combo(s)
@@ -211,23 +233,30 @@ model Mesa {
 }
 
 model Usuario {
-  id                 String          @id @default(cuid())
-  nombre             String
-  rol                String
-  password           String?
-  activo             Boolean         @default(true)
-  createdAt          DateTime        @default(now())
-  ordenesAprobadas   Orden[]         @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
-  ordenesCreadas     Orden[]         @relation("OrdenesCreadas")
-  ordenesCobradas    Orden[]         @relation("OrdenesCobradas")
-  ordenesAnuladas    Orden[]         @relation("OrdenesAnuladas")
-  cobrosRegistrados  Cobro[]         @relation("CobrosRegistrados")
-  sesiones           SesionUsuario[]
-  retirosRegistrados RetiroCaja[]    @relation("RetirosRegistrados")
-  adelantosRecibidos RetiroCaja[]    @relation("AdelantosRecibidos")
-  retirosAnulados    RetiroCaja[]    @relation("RetirosAnulados")
-  cajasAbiertas      SesionCaja[]    @relation("CajasAbiertas")
-  cajasCerradas      SesionCaja[]    @relation("CajasCerradas")
+  id                  String                     @id @default(cuid())
+  nombre              String
+  rol                 String
+  password            String?
+  activo              Boolean                    @default(true)
+  cuentaActivadaAt    DateTime?
+  cuentaRevision      Int                        @default(0)
+  aperturaCuenta      Json?
+  movimientosCuenta   MovimientoCuentaEmpleado[]
+  liquidacionesCuenta LiquidacionEmpleado[]
+  consumosEmpleado    Orden[]                    @relation("ConsumosEmpleado")
+  createdAt           DateTime                   @default(now())
+  ordenesAprobadas    Orden[]                    @relation("OrdenesAprobadas") // Órdenes sin stock aprobadas por este admin
+  ordenesCreadas      Orden[]                    @relation("OrdenesCreadas")
+  ordenesCobradas     Orden[]                    @relation("OrdenesCobradas")
+  ordenesAnuladas     Orden[]                    @relation("OrdenesAnuladas")
+  cobrosRegistrados   Cobro[]                    @relation("CobrosRegistrados")
+  sesiones            SesionUsuario[]
+  retirosRegistrados  RetiroCaja[]               @relation("RetirosRegistrados")
+  adelantosRecibidos  RetiroCaja[]               @relation("AdelantosRecibidos")
+  retirosAnulados     RetiroCaja[]               @relation("RetirosAnulados")
+  cajasAbiertas       SesionCaja[]               @relation("CajasAbiertas")
+  cajasCerradas       SesionCaja[]               @relation("CajasCerradas")
+  whatsappEntradas    WhatsappEntrada[]
 }
 
 model SesionUsuario {
@@ -272,14 +301,75 @@ model RetiroCaja {
   anuladoAt        DateTime?
 
   /// Idempotencia: el mismo envio reintentado no duplica la salida de dinero.
-  clientRequestId String @unique
-  printJobs       PrintJob[]
+  clientRequestId   String                     @unique
+  printJobs         PrintJob[]
+  movimientosCuenta MovimientoCuentaEmpleado[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([createdAt])
   @@index([usuarioId, createdAt])
+}
+
+/// Movimientos inmutables: un importe positivo aumenta la deuda; uno negativo la reduce.
+model MovimientoCuentaEmpleado {
+  id                 String                     @id @default(cuid())
+  empleadoId         String
+  empleado           Usuario                    @relation(fields: [empleadoId], references: [id], onDelete: Restrict)
+  empleadoNombre     String
+  secuencia          Int
+  tipo               String
+  monto              Decimal                    @db.Decimal(10, 2)
+  motivo             String
+  autorId            String
+  autorNombre        String
+  autorRol           String
+  origenClave        String                     @unique
+  idempotencyKey     String                     @unique
+  requestHash        String?
+  retiroId           String?
+  retiro             RetiroCaja?                @relation(fields: [retiroId], references: [id], onDelete: Restrict)
+  ordenId            String?
+  orden              Orden?                     @relation(fields: [ordenId], references: [id], onDelete: Restrict)
+  liquidacionId      String?
+  liquidacion        LiquidacionEmpleado?       @relation(fields: [liquidacionId], references: [id], onDelete: Restrict)
+  movimientoOrigenId String?
+  movimientoOrigen   MovimientoCuentaEmpleado?  @relation("CorreccionesCuenta", fields: [movimientoOrigenId], references: [id], onDelete: Restrict)
+  correcciones       MovimientoCuentaEmpleado[] @relation("CorreccionesCuenta")
+  detalle            Json?
+  fechaHecho         DateTime?
+  createdAt          DateTime                   @default(now())
+
+  @@unique([empleadoId, secuencia])
+  @@index([empleadoId, createdAt])
+  @@index([retiroId])
+  @@index([ordenId])
+  @@index([liquidacionId])
+  @@index([movimientoOrigenId])
+}
+
+model LiquidacionEmpleado {
+  id             String                     @id @default(cuid())
+  empleadoId     String
+  empleado       Usuario                    @relation(fields: [empleadoId], references: [id], onDelete: Restrict)
+  empleadoNombre String
+  autorId        String
+  autorNombre    String
+  autorRol       String
+  fechaDescuento DateTime
+  saldoAnterior  Decimal                    @db.Decimal(10, 2)
+  montoAplicado  Decimal                    @db.Decimal(10, 2)
+  saldoPosterior Decimal                    @db.Decimal(10, 2)
+  corteSecuencia Int
+  snapshot       Json
+  idempotencyKey String                     @unique
+  requestHash    String
+  createdAt      DateTime                   @default(now())
+  movimientos    MovimientoCuentaEmpleado[]
+  printJobs      PrintJob[]
+
+  @@index([empleadoId, createdAt])
 }
 
 /// Jornada financiera de una fecha local de Ecuador. Existe una sola caja por
@@ -337,4 +427,68 @@ model HistorialOrden {
 
   @@index([ordenId])
   @@index([createdAt])
+}
+
+/// Mensaje recibido del número del local. Una por (sessionId, messageId): los
+/// reintentos del gateway no repiten ventas.
+model WhatsappEntrada {
+  id                String           @id @default(cuid())
+  tipo              String // "PEDIDO" | "UBICACION"
+  sessionId         String
+  messageId         String
+  claveEntrega      String? // Clave de entrega del webhook; defensa adicional, no identidad del pedido
+  remitente         String
+  usuarioId         String?
+  usuario           Usuario?         @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  enviadoAt         DateTime // Timestamp original del mensaje
+  recibidaAt        DateTime         @default(now())
+  texto             String? // Limitado; nunca el cuerpo bruto del gateway
+  datosNormalizados Json?
+  /// Hash del pedido normalizado. Vive aquí y no en Orden para que ninguna respuesta de orden pueda exponerlo.
+  requestHash       String?
+  estado            String // "CREADA" | "INVALIDA" | "IGNORADA" | "REQUIERE_REVISION" | "UBICACION_DISPONIBLE" | "UBICACION_USADA"
+  ordenId           String?
+  orden             Orden?           @relation(fields: [ordenId], references: [id], onDelete: Restrict)
+  error             String?
+  /// Quién descartó la revisión. El estado se conserva para explicar por qué llegó a revisión.
+  revisadaPor       String?
+  revisadaAt        DateTime?
+  salidas           WhatsappSalida[]
+
+  @@unique([sessionId, messageId])
+  @@index([requestHash, recibidaAt])
+  @@index([remitente, tipo, estado, recibidaAt])
+  @@index([ordenId])
+  @@index([usuarioId])
+}
+
+/// Trabajo de envío. `texto` no cambia una vez intentado con la misma `clave`.
+model WhatsappSalida {
+  id              String           @id @default(cuid())
+  sessionId       String
+  ordenId         String?
+  orden           Orden?           @relation(fields: [ordenId], references: [id], onDelete: Restrict)
+  entradaId       String?
+  entrada         WhatsappEntrada? @relation(fields: [entradaId], references: [id], onDelete: Restrict)
+  tipo            String // "RESPUESTA_EMPLEADO" | "PUBLICACION_GRUPO" | "ACTUALIZACION_GRUPO" | "RECORDATORIO_DELIVERY"
+  destino         String
+  texto           String
+  clave           String           @unique
+  disponibleAt    DateTime         @default(now())
+  venceAt         DateTime?
+  estado          String           @default("PENDIENTE") // "PENDIENTE" | "PROCESANDO" | "REINTENTO" | "ENVIADA" | "CANCELADA" | "REQUIERE_REVISION"
+  intentos        Int              @default(0)
+  reservaToken    String?
+  reservaExpiraAt DateTime?
+  mensajeId       String? // Identificador devuelto por OpenWA
+  ultimoError     String?
+  /// Revisión descartada: no se envía y deja de bloquear los cambios posteriores de su orden.
+  revisadaPor     String?
+  revisadaAt      DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@index([estado, disponibleAt])
+  @@index([ordenId])
+  @@index([entradaId])
 }

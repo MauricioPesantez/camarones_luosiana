@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     // de existir para el negocio, así que no cuentan en el reporte.
     const whereCondition: Prisma.HistorialOrdenWhereInput = {
       tipoAccion: 'cortesia_aplicada',
-      orden: ORDENES_VIGENTES,
+      orden: { ...ORDENES_VIGENTES, tipoOperacion: 'VENTA_CLIENTE' },
     };
 
     if (fechaInicio && fechaFin) {
