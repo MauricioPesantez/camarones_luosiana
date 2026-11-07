@@ -139,6 +139,19 @@ assert.equal(pedidoDe(`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2\nmoto
 assert.equal(pedidoDe(`Para retirar Cliente\ncombo simple natural\nmoto 10`).esperaMotoMin, null);
 assert.match(erroresDe(`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2\nmoto 121`), /Moto: máximo 120 minutos/);
 
+// Envío y pago en líneas separadas, con o sin espacio antes del monto.
+for (const lineas of [['Envio$2', 'efectivo'], ['Envío $2', 'Efectivo'], ['envio: 2', 'efectivo'], ['efectivo$2'], ['efectivo', 'Envío $2']]) {
+  const separado = pedidoDe([`Domiclio`, TEL, 'combo simple natural', ...lineas].join('\n'));
+  assert.deepEqual([separado.pago, separado.envio], ['efectivo', 2], lineas.join(' | '));
+}
+const transSeparado = pedidoDe(`Domiclio\n${TEL}\ncombo simple natural\nEnvío $2.50\ntrans`);
+assert.deepEqual([transSeparado.pago, transSeparado.envio], ['transferencia_confirmada', 2.5]);
+// Mismo valor dos veces es válido; valores distintos no eligen uno.
+assert.equal(pedidoDe(`Domiclio\n${TEL}\ncombo simple natural\nEnvío $2\nefectivo $2`).envio, 2);
+assert.match(erroresDe(`Domiclio\n${TEL}\ncombo simple natural\nEnvío $2\nefectivo $3`), /Envío repetido/);
+// Sin método de pago el envío solo no basta.
+assert.match(erroresDe(`Domiclio\n${TEL}\ncombo simple natural\nEnvío $2`), /Pago/);
+
 // Líneas de control.
 assert.equal(pedidoDe(`Domicilio\n${TEL}\ncombo simple natural\nefectivo $2\nNuevo pedido`).nuevoPedido, true);
 assert.equal(pedidoDe(`Domicilio\n${TEL}\ncombo simple natural\nefectivo $2\nSolicitar aprobación`).solicitarAprobacion, true);
