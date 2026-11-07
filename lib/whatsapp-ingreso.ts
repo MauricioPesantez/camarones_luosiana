@@ -18,6 +18,7 @@ import {
   textoUbicacionGuardada,
 } from '@/lib/whatsapp-mensajes';
 import {
+  DudaProducto,
   ItemResuelto,
   PedidoWhatsapp,
   hashPedido,
@@ -72,6 +73,32 @@ function rechazoDePedido(errores: string[]): Evaluacion {
   };
 }
 
+function textoEleccion(dudas: DudaProducto[], aviso = 'Pedido en espera. ¿Quisiste decir?'): string {
+  let numero = 0;
+  const bloques = dudas.map((duda) => [
+    `"${duda.texto}"`,
+    ...duda.opciones.map((opcion) => `${++numero}. ${opcion.nombre}`),
+  ].join('\n'));
+  const instruccion = dudas.length === 1
+    ? 'Responde con el número.'
+    : `Responde un número por producto, en orden. Ej: ${dudas.map((_, i) => i + 1).join(' ')}`;
+  return [aviso, ...bloques, `${instruccion} Si no es ninguno, corrige y reenvía el pedido completo.`].join('\n\n');
+}
+
+/** Un número por duda, cada uno dentro de las opciones de su línea; si no, `null`. */
+function aplicarEleccion(pedido: PedidoWhatsapp, dudas: DudaProducto[], numeros: number[]): PedidoWhatsapp | null {
+  if (numeros.length !== dudas.length) return null;
+  const items = [...pedido.items];
+  let desde = 1;
+  for (const [i, duda] of dudas.entries()) {
+    const opcion = duda.opciones[numeros[i] - desde];
+    if (!opcion) return null;
+    items[duda.indice] = { ...items[duda.indice], cantidad: duda.cantidad, productoId: opcion.id };
+    desde += duda.opciones.length;
+  }
+  return { ...pedido, items };
+}
+
 function buscarOrdenDelCliente(tx: Prisma.TransactionClient, pedido: PedidoWhatsapp, desde: Date) {
   const cliente: Prisma.OrdenWhereInput = pedido.telefono
     ? { telefonoCliente: { in: [pedido.telefono, `0${pedido.telefono.slice(4)}`] } }
@@ -123,11 +150,48 @@ function construirSolicitud(
 }
 
 async function evaluarPedido(contexto: Contexto): Promise<Evaluacion> {
-  const { tx, mensaje, actor, config, requestUrl, ahora, vigenteDesde } = contexto;
+  const respuesta = (contexto.mensaje.texto ?? '').trim();
+  if (/^\d+(?:[\s,]+\d+)*$/.test(respuesta)) {
+    return evaluarEleccion(contexto, respuesta.split(/[\s,]+/).map(Number));
+  }
 
-  const interpretado = interpretarPedido(mensaje.texto ?? '');
+  const interpretado = interpretarPedido(contexto.mensaje.texto ?? '');
   if (!interpretado.ok) return rechazoDePedido(interpretado.errores);
-  const { pedido } = interpretado;
+  return crearDesdePedido(contexto, interpretado.pedido);
+}
+
+/** Respuesta numérica a la última duda vigente del operador. */
+async function evaluarEleccion(contexto: Contexto, numeros: number[]): Promise<Evaluacion> {
+  const { tx, mensaje, vigenteDesde } = contexto;
+  const pendiente = await tx.whatsappEntrada.findFirst({
+    where: { remitente: mensaje.remitente, tipo: 'PEDIDO', estado: 'ESPERA_ELECCION', recibidaAt: { gte: vigenteDesde } },
+    orderBy: { recibidaAt: 'desc' },
+    select: { id: true, datosNormalizados: true },
+  });
+  if (!pendiente) {
+    return {
+      estado: 'IGNORADA',
+      error: 'SIN_ELECCION_PENDIENTE',
+      respuesta: 'No hay ningún pedido esperando un número. Reenvía el pedido completo.',
+    };
+  }
+
+  // Lo guardó evaluarPedido en esta misma tabla.
+  const { pedido, dudas } = pendiente.datosNormalizados as unknown as { pedido: PedidoWhatsapp; dudas: DudaProducto[] };
+  const elegido = aplicarEleccion(pedido, dudas, numeros);
+  if (!elegido) {
+    return { estado: 'INVALIDA', error: 'ELECCION_INVALIDA', respuesta: textoEleccion(dudas, 'Número no válido.') };
+  }
+
+  await tx.whatsappEntrada.updateMany({
+    where: { id: pendiente.id, estado: 'ESPERA_ELECCION' },
+    data: { estado: 'ELECCION_USADA' },
+  });
+  return crearDesdePedido(contexto, elegido);
+}
+
+async function crearDesdePedido(contexto: Contexto, pedido: PedidoWhatsapp): Promise<Evaluacion> {
+  const { tx, mensaje, actor, config, requestUrl, ahora, vigenteDesde } = contexto;
   const requestHash = hashPedido(pedido);
   const ventana = new Date(ahora.getTime() - VENTANA_REENVIO_MS);
 
@@ -166,6 +230,14 @@ async function evaluarPedido(contexto: Contexto): Promise<Evaluacion> {
     select: { id: true, nombre: true, categoria: true, disponible: true },
   });
   const productos = resolverProductos(pedido.items, catalogo);
+  if (!productos.ok && productos.dudas.length > 0) {
+    return {
+      estado: 'ESPERA_ELECCION',
+      error: 'PRODUCTO_POR_ELEGIR',
+      datosNormalizados: { pedido, dudas: productos.dudas },
+      respuesta: textoEleccion(productos.dudas),
+    };
+  }
   if (!productos.ok) return rechazoDePedido(productos.errores);
 
   const solicitud = construirSolicitud(pedido, productos.items, actor);

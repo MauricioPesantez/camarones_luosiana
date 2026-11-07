@@ -61,9 +61,17 @@ async function run() {
       findUnique: async ({ where }: { where: { sessionId_messageId: { messageId: string } } }) => (
         entradas.find((e) => e.messageId === where.sessionId_messageId.messageId) ?? null
       ),
-      findFirst: async ({ where }: { where: { requestHash: string } }) => (
-        entradas.some((e) => e.requestHash === where.requestHash && e.ordenId) ? { orden: ordenGuardada } : null
-      ),
+      findFirst: async ({ where }: { where: Fila }) => {
+        if (where.estado) {
+          return entradas.findLast((e) => e.estado === where.estado && e.remitente === where.remitente) ?? null;
+        }
+        return entradas.some((e) => e.requestHash === where.requestHash && e.ordenId) ? { orden: ordenGuardada } : null;
+      },
+      updateMany: async ({ where, data }: { where: Fila; data: Fila }) => {
+        const filas = entradas.filter((e) => e.id === where.id && e.estado === where.estado);
+        filas.forEach((fila) => Object.assign(fila, data));
+        return { count: filas.length };
+      },
       findMany: async () => [],
     },
     whatsappSalida: { createMany: async ({ data }: { data: Fila[] }) => { salidas.push(...data); } },
@@ -213,6 +221,34 @@ async function run() {
   assert.equal(ultima().estado, 'INVALIDA');
   assert.match(respuesta(), /Combo Mixto Small/);
   stockInsuficiente = false;
+
+  // Producto dudoso: pregunta, guarda la duda y crea la orden con el número elegido.
+  limpiar();
+  ordenesCreadas = 0;
+  await texto('1');
+  assert.equal(ultima().error, 'SIN_ELECCION_PENDIENTE');
+  assert.match(respuesta(), /reenvía el pedido completo/i);
+  const dudoso = valido.replace('combo mixto small', 'combo mixto smal');
+  await texto(dudoso);
+  const pendiente = ultima();
+  assert.equal(pendiente.estado, 'ESPERA_ELECCION');
+  assert.match(respuesta(), /combo mixto smal[\s\S]*1\. Combo Mixto Small/);
+  await texto('2');
+  assert.equal(ultima().error, 'ELECCION_INVALIDA');
+  assert.equal(pendiente.estado, 'ESPERA_ELECCION', 'Un número fuera de rango no consume la duda');
+  assert.match(respuesta(), /1\. Combo Mixto Small/);
+  await texto(' 1 ');
+  assert.equal(ultima().estado, 'CREADA');
+  assert.equal(ultima().ordenId, 'orden-1');
+  assert.equal(pendiente.estado, 'ELECCION_USADA');
+  assert.equal(ordenesCreadas, 1);
+  assert.deepEqual((ultima().datosNormalizados as { items: Fila[] }).items.map((i) => [i.productoId, i.nivelPicante]),
+    [['c1', 'picante_1']]);
+  // El texto original y la elección son el mismo pedido: reenviarlo no crea otra orden.
+  assert.equal(ultima().requestHash, pedido.hashPedido((pedido.interpretarPedido(dudoso) as { pedido: pedido.PedidoWhatsapp }).pedido));
+  await texto('1');
+  assert.equal(ultima().error, 'SIN_ELECCION_PENDIENTE');
+  assert.equal(ordenesCreadas, 1);
 
   // Mismo mensaje entregado otra vez: sin efectos nuevos.
   const repetido = mensaje({ body: valido });

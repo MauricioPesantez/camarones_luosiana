@@ -10,6 +10,7 @@ const MAX_CLIENTE = 100;
 const MAX_OBSERVACIONES = 500;
 const MAX_ENVIO = 999.99;
 const MAX_ESPERA_MOTO = 120;
+const MAX_OPCIONES = 4;
 
 export interface ItemPedido {
   /** Como lo escribió el operador; el catálogo decide producto y cantidad. */
@@ -17,6 +18,8 @@ export interface ItemPedido {
   cantidad: number | null;
   nivelPicante: NivelPicante | null;
   observaciones: string | null;
+  /** Elegido por el operador al responder una duda; no forma parte del hash. */
+  productoId?: string;
 }
 
 export interface PedidoWhatsapp {
@@ -309,9 +312,18 @@ interface ProductoCatalogo {
 
 export type ItemResuelto = Omit<ItemPedido, 'cantidad'> & { cantidad: number; productoId: string };
 
+/** Línea sin un único producto, con los candidatos que el operador puede elegir por número. */
+export interface DudaProducto {
+  indice: number;
+  texto: string;
+  cantidad: number;
+  opciones: Array<{ id: string; nombre: string }>;
+}
+
 export type ResultadoProductos =
   | { ok: true; items: ItemResuelto[] }
-  | { ok: false; errores: string[] };
+  /** `dudas` solo trae algo cuando elegir resuelve todos los errores. */
+  | { ok: false; errores: string[]; dudas: DudaProducto[] };
 
 /** Solo formas confirmadas con pedidos reales. Un nombre nuevo se agrega aquí o en el catálogo. */
 const ALIAS_PRODUCTOS = new Map<string, string>([
@@ -355,18 +367,47 @@ function buscarProducto(texto: string, catalogo: ProductoCatalogo[]): ProductoCa
 
 /** El nombre completo manda: `3 cangrejos` es ese producto si existe; si no, 3 de `cangrejo`. */
 function identificarLinea(item: ItemPedido, catalogo: ProductoCatalogo[]) {
-  if (item.cantidad !== null) {
-    return { cantidad: item.cantidad, encontrados: buscarProducto(item.texto, catalogo) };
+  const linea = (cantidad: number, nombre: string) => ({ cantidad, nombre, encontrados: buscarProducto(nombre, catalogo) });
+  if (item.productoId) {
+    return { cantidad: item.cantidad ?? 1, nombre: item.texto, encontrados: catalogo.filter((p) => p.id === item.productoId) };
   }
+  if (item.cantidad !== null) return linea(item.cantidad, item.texto);
 
-  const completos = buscarProducto(item.texto, catalogo);
-  if (completos.length > 0) return { cantidad: 1, encontrados: completos };
+  const completos = linea(1, item.texto);
+  if (completos.encontrados.length > 0) return completos;
 
   const antes = item.texto.match(/^(\d+)(?:\s*x)?\s+(.+)$/i);
-  if (antes) return { cantidad: Number(antes[1]), encontrados: buscarProducto(antes[2], catalogo) };
+  if (antes) return linea(Number(antes[1]), antes[2]);
   const despues = item.texto.match(/^(.+?)\s+(\d+)$/);
-  if (despues) return { cantidad: Number(despues[2]), encontrados: buscarProducto(despues[1], catalogo) };
-  return { cantidad: 1, encontrados: [] };
+  if (despues) return linea(Number(despues[2]), despues[1]);
+  return completos;
+}
+
+/** Iguales, una empieza a la otra o difieren en una letra (`smal`, `camarones`). */
+function palabrasParecidas(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (Math.min(a.length, b.length) < 4) return false;
+  if (a.startsWith(b) || b.startsWith(a)) return true;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (a[i] === b[i]) i++;
+  return a.slice(i + 1) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i) || a.slice(i) === b.slice(i + 1);
+}
+
+const palabrasDe = (texto: string) => limpiarNombre(texto).split(' ').filter((p) => p.length >= 3 && /\p{L}/u.test(p));
+
+/** Disponibles con más palabras parecidas; si empatan demasiados, no sugiere nada. */
+function sugerirProductos(texto: string, catalogo: ProductoCatalogo[]): ProductoCatalogo[] {
+  const buscadas = palabrasDe(texto);
+  const puntuados = catalogo
+    .filter((p) => p.disponible)
+    .map((p) => {
+      const propias = palabrasDe(p.nombre);
+      return { p, puntos: buscadas.filter((b) => propias.some((q) => palabrasParecidas(b, q))).length };
+    });
+  const mejor = Math.max(0, ...puntuados.map((x) => x.puntos));
+  const elegidos = puntuados.filter((x) => mejor > 0 && x.puntos === mejor).map((x) => x.p);
+  return elegidos.length <= MAX_OPCIONES ? elegidos.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) : [];
 }
 
 /** Si no hay un único producto disponible, no adivina. */
@@ -376,10 +417,28 @@ export function resolverProductos(
 ): ResultadoProductos {
   const errores = new Set<string>();
   const resueltos: ItemResuelto[] = [];
+  const dudas: DudaProducto[] = [];
+  let otrosErrores = false;
 
-  for (const item of items) {
-    const { cantidad, encontrados } = identificarLinea(item, catalogo);
+  for (const [indice, item] of items.entries()) {
+    const { cantidad, nombre, encontrados } = identificarLinea(item, catalogo);
     const producto = encontrados[0];
+    const opciones = encontrados.length > 1
+      ? encontrados.filter((p) => p.disponible)
+      : !producto && !item.productoId ? sugerirProductos(nombre, catalogo) : [];
+    if (opciones.length > 0 && cantidad >= 1 && cantidad <= MAX_CANTIDAD) {
+      const inicio = encontrados.length > 1 ? 'Producto ambiguo en el catálogo' : 'Producto no encontrado';
+      const lista = opciones.map((p) => p.nombre).join(' o ');
+      errores.add(`${inicio}: ${item.texto}. ¿Quisiste decir ${lista}?`);
+      dudas.push({ indice, texto: item.texto, cantidad, opciones: opciones.map(({ id, nombre }) => ({ id, nombre })) });
+      continue;
+    }
+    if (producto && encontrados.length === 1 && producto.disponible && cantidad >= 1 && cantidad <= MAX_CANTIDAD &&
+      !(esCategoriaCombo(producto.categoria) && !item.nivelPicante)) {
+      resueltos.push({ ...item, cantidad, productoId: producto.id });
+      continue;
+    }
+    otrosErrores = true;
     if (!producto) {
       errores.add(
         /camar/.test(normalizar(item.texto)) && !/1\/2|libra|lb/.test(limpiarNombre(item.texto))
@@ -392,14 +451,13 @@ export function resolverProductos(
       errores.add(`Producto no está disponible: ${producto.nombre}`);
     } else if (cantidad < 1 || cantidad > MAX_CANTIDAD) {
       errores.add(`Cantidad máxima ${MAX_CANTIDAD} por línea: ${item.texto}`);
-    } else if (esCategoriaCombo(producto.categoria) && !item.nivelPicante) {
-      errores.add(`Falta picante para ${producto.nombre}`);
     } else {
-      resueltos.push({ ...item, cantidad, productoId: producto.id });
+      errores.add(`Falta picante para ${producto.nombre}`);
     }
   }
 
-  return errores.size > 0 ? { ok: false, errores: [...errores] } : { ok: true, items: resueltos };
+  if (errores.size === 0) return { ok: true, items: resueltos };
+  return { ok: false, errores: [...errores], dudas: otrosErrores ? [] : dudas };
 }
 
 /** Identifica el contenido escrito; no depende del catálogo, de precios ni del mensaje. */
