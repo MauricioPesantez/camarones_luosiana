@@ -21,6 +21,8 @@ import {
 } from '@/types/orden';
 import { canUserModifyOrder } from '@/lib/order-payment';
 import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
+import { textoActualizacionItems, textoActualizacionMoto } from '@/lib/whatsapp-mensajes';
+import { refrescarRecordatorio, registrarCambioWhatsapp } from '@/lib/whatsapp-salidas';
 
 type ItemChange =
   | { accion: 'eliminar'; itemId: string }
@@ -610,6 +612,17 @@ export async function PATCH(
             ordenId: id,
           })),
         });
+
+        // El total a cobrar cambia: un aviso de moto aún no enviado debe decirlo.
+        await refrescarRecordatorio(tx, updatedOrder);
+        // printRevision cambia una vez por modificación: identifica el aviso al grupo.
+        await registrarCambioWhatsapp(
+          tx,
+          id,
+          `items:${id}:${updatedOrder.printRevision}`,
+          textoActualizacionItems(updatedOrder),
+          textoActualizacionMoto(updatedOrder),
+        );
 
         let printJobQueued = false;
         const amendmentCreatedAt = new Date();

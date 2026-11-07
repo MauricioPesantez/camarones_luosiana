@@ -23,6 +23,8 @@ if (!/^postgres(ql)?:$/.test(url.protocol) || !/test/i.test(url.pathname) || tes
 }
 const schema = `employee_test_${randomUUID().replaceAll('-', '')}`;
 url.searchParams.set('schema', schema);
+// Igual que Neon: el SQL crudo compara columnas sin zona con parámetros Date.
+url.searchParams.set('options', '-c timezone=UTC');
 const isolatedUrl = url.toString();
 const prisma = new PrismaClient({ datasources: { db: { url: isolatedUrl } } });
 const requireFromHere = createRequire(__filename);

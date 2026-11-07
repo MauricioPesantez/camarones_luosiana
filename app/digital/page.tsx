@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/auth";
 import AppShell from "@/components/shell/AppShell";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
+import UbicacionEntrega from "@/components/ordenes/UbicacionEntrega";
+import DeliverySolicitado from "@/components/ordenes/DeliverySolicitado";
 import { montoACobrarEnCaja } from "@/types/cobro";
 import {
   MetodoPago,
@@ -21,6 +23,9 @@ interface Orden {
   numeroMesa: number | null;
   nombreCliente: string | null;
   telefonoCliente: string | null;
+  ubicacionUrl: string | null;
+  referenciaEntrega: string | null;
+  deliverySolicitadoAt: string | null;
   recargo: number | null;
   costoEnvio: number | null;
   mesero: string;
@@ -243,6 +248,22 @@ function DigitalContenido() {
                                 📞 {orden.telefonoCliente}
                               </p>
                             )}
+                          {orden.tipoOrden === "domicilio" && (
+                            <UbicacionEntrega
+                              key={`${orden.id}:${orden.ubicacionUrl}:${orden.referenciaEntrega}`}
+                              ordenId={orden.id}
+                              ubicacionUrl={orden.ubicacionUrl}
+                              referenciaEntrega={orden.referenciaEntrega}
+                              editable
+                            />
+                          )}
+                          {orden.tipoOrden === "domicilio" && (
+                            <DeliverySolicitado
+                              ordenId={orden.id}
+                              deliverySolicitadoAt={orden.deliverySolicitadoAt}
+                              editable={!["cancelada", "pendiente_aprobacion_stock"].includes(orden.estado)}
+                            />
+                          )}
                           <p className="text-xs text-gray-500">
                             {new Date(orden.createdAt).toLocaleString("es-EC")}
                           </p>

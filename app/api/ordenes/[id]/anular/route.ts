@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { validarAnulacionOrden } from '@/lib/ordenes-anulacion';
 import { PRINT_JOB_STATUSES } from '@/lib/print-jobs';
 import { getAuthenticatedUser } from '@/lib/session';
+import { registrarAnulacionWhatsapp } from '@/lib/whatsapp-salidas';
 
 class AnulacionConflictError extends Error {}
 
@@ -64,6 +65,8 @@ export async function PATCH(
         cobrada: true,
         metodoPago: true,
         total: true,
+        numeroDiario: true,
+        fechaNumeroDiario: true,
       },
     });
 
@@ -141,6 +144,8 @@ export async function PATCH(
           reviewReason: `Orden anulada: ${razon}`,
         },
       });
+
+      await registrarAnulacionWhatsapp(tx, existente);
 
       return tx.orden.findUniqueOrThrow({
         where: { id },
