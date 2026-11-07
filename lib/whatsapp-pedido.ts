@@ -54,8 +54,9 @@ const NIVEL_POR_TEXTO = new Map<string, NivelPicante>([
 ]);
 
 const MONTO = '\\$?(\\d+(?:[.,]\\d{1,2})?)';
-const PAGO = new RegExp(`^(efectivo|trans|transferencia)(?: confirmada)?(?: ${MONTO})?$`);
-const ENVIO = new RegExp(`^envio:? ${MONTO}$`);
+// El espacio antes del monto es opcional: `Envio$2` y `efectivo$2` se escriben así.
+const PAGO = new RegExp(`^(efectivo|trans|transferencia)(?: confirmada)?(?: ?${MONTO})?$`);
+const ENVIO = new RegExp(`^envio:? ?${MONTO}$`);
 const MOTO = /^moto (\d+)(?: min(?:utos)?)?$/;
 
 /** Separa del final de la línea las palabras que cumplan `coincide`. */
@@ -120,11 +121,18 @@ export function interpretarPedido(texto: string): ResultadoPedido {
   const nivelesSueltos: NivelPicante[] = [];
   let ultimoEsProducto = false;
 
+  // Dinero escrito dos veces con valores distintos no se resuelve eligiendo uno.
+  const anotarEnvio = (monto: string) => {
+    const valor = Number(monto.replace(',', '.'));
+    if (envio !== null && envio !== valor) errores.push('Envío repetido con valores distintos');
+    envio = valor;
+  };
+
   const anotarPago = (palabra: string, monto: string | undefined) => {
     const leido = palabra === 'efectivo' ? 'efectivo' : 'transferencia';
     if (metodo && metodo !== leido) errores.push('Pago repetido con valores distintos');
     metodo = leido;
-    if (monto) envio = Number(monto.replace(',', '.'));
+    if (monto) anotarEnvio(monto);
   };
 
   const agregarProducto = (linea: string, nota: string | null) => {
@@ -189,7 +197,7 @@ export function interpretarPedido(texto: string): ResultadoPedido {
     const normalPrincipal = normalizar(principal);
     const envioLinea = normalPrincipal.match(ENVIO);
     if (envioLinea) {
-      envio = Number(envioLinea[1].replace(',', '.'));
+      anotarEnvio(envioLinea[1]);
       ultimoEsProducto = false;
       continue;
     }
@@ -260,7 +268,7 @@ export function interpretarPedido(texto: string): ResultadoPedido {
       errores.push(telefonoEscrito ? 'Teléfono no válido: usa +593XXXXXXXXX o 09XXXXXXXX' : 'Teléfono es requerido en domicilio');
     }
     if (!metodo) errores.push('Pago es requerido: efectivo $2.50 o trans $2.50');
-    else if (envio === null) errores.push('Falta el valor del envío: escribe efectivo $2.50 o trans $2.50');
+    else if (envio === null) errores.push('Falta el valor del envío: escribe efectivo $2.50, trans $2.50 o Envío $2.50');
     else if (envio > MAX_ENVIO) errores.push('El valor del envío es demasiado alto');
   } else {
     if (!cliente) errores.push('Para retirar requiere el nombre del cliente');
