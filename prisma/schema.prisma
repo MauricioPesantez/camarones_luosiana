@@ -446,7 +446,7 @@ model WhatsappEntrada {
   datosNormalizados Json?
   /// Hash del pedido normalizado. Vive aquí y no en Orden para que ninguna respuesta de orden pueda exponerlo.
   requestHash       String?
-  estado            String // "CREADA" | "INVALIDA" | "IGNORADA" | "REQUIERE_REVISION" | "UBICACION_DISPONIBLE" | "UBICACION_USADA"
+  estado            String // "CREADA" | "INVALIDA" | "IGNORADA" | "REQUIERE_REVISION" | "UBICACION_DISPONIBLE" | "UBICACION_USADA" | "ESPERA_ELECCION" | "ELECCION_USADA"
   ordenId           String?
   orden             Orden?           @relation(fields: [ordenId], references: [id], onDelete: Restrict)
   error             String?
