@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/session';
+import { cancelarRecordatorios } from '@/lib/whatsapp-salidas';
 
 const ESTADOS_SIN_PREPARACION = new Set(['cancelada', 'pendiente_aprobacion_stock']);
 
@@ -69,6 +70,7 @@ export async function PATCH(
           diferenciaTotal: 0,
         },
       });
+      await cancelarRecordatorios(tx, id, 'DELIVERY_SOLICITADO');
       return true;
     });
     if (registrada) {

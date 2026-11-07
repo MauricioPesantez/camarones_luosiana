@@ -412,6 +412,98 @@ async function pruebas() {
   await agente.completarSalida(cliente, pub.id, pub.reservaToken!, 'm');
   assert.equal((await agente.reservarSalida(cliente, 'sesion', t2))?.id, correccion.id);
 
+  // Fase 6: pedir delivery o anular cancela el aviso; reservar relee la elegibilidad.
+  type RutaPatch = { PATCH: (request: never, contexto: never) => Promise<Response> };
+  const parchear = (ruta: RutaPatch, id: string, body: object) => ruta.PATCH(
+    new Request('http://test.invalid', { method: 'PATCH', body: JSON.stringify(body) }) as never,
+    { params: Promise.resolve({ id }) } as never,
+  );
+  const delivery = load<RutaPatch>('app/api/ordenes/[id]/delivery/route.ts', rutasDeps);
+  const anular = load<RutaPatch>('app/api/ordenes/[id]/anular/route.ts', {
+    ...rutasDeps, '@/lib/ordenes-anulacion': requireFromHere('./ordenes-anulacion'),
+  });
+  const ubicacion = load<RutaPatch>('app/api/ordenes/[id]/ubicacion/route.ts', {
+    ...rutasDeps, '@/lib/order-payment': { canUserModifyOrder: () => true },
+  });
+  const revisionRuta = load<RutaPost & { GET: () => Promise<Response> }>('app/api/admin/whatsapp/route.ts', rutasDeps);
+  const ordenNueva = async (cliente: string) => {
+    await procesar(mensaje(plantilla(cliente)));
+    return prisma.orden.findFirstOrThrow({ orderBy: { createdAt: 'desc' } });
+  };
+  const deTipo = async (ordenId: string, tipo: string) => (await salidasDe(ordenId)).filter((s) => s.tipo === tipo);
+  const publicar = (ordenId: string) => prisma.whatsappSalida.updateMany({
+    where: { ordenId, tipo: 'PUBLICACION_GRUPO' }, data: { estado: 'ENVIADA', intentos: 1 },
+  });
+
+  await reiniciar();
+  const conDelivery = await ordenNueva('Delivery');
+  assert.equal((await parchear(delivery, conDelivery.id, { accion: 'solicitar' })).status, 200);
+  assert.equal((await parchear(delivery, conDelivery.id, { accion: 'solicitar' })).status, 200, 'Repetir no falla');
+  const [avisoCancelado] = await deTipo(conDelivery.id, 'RECORDATORIO_DELIVERY');
+  assert.deepEqual([avisoCancelado.estado, avisoCancelado.ultimoError], ['CANCELADA', 'DELIVERY_SOLICITADO']);
+  assert.equal(await prisma.historialOrden.count({ where: { ordenId: conDelivery.id, tipoAccion: 'delivery_solicitado' } }), 1);
+
+  // Una marca hecha por otra vía también detiene el aviso al reservar.
+  await reiniciar();
+  const porFuera = await ordenNueva('Por fuera');
+  await prisma.whatsappSalida.updateMany({ where: { tipo: { not: 'RECORDATORIO_DELIVERY' } }, data: { estado: 'ENVIADA' } });
+  await prisma.whatsappSalida.updateMany({ data: { disponibleAt: new Date(t0.getTime() - 1000) } });
+  await prisma.orden.update({ where: { id: porFuera.id }, data: { deliverySolicitadoAt: t0 } });
+  assert.equal(await agente.reservarSalida(cliente, 'sesion', t0), null);
+  const [noElegible] = await deTipo(porFuera.id, 'RECORDATORIO_DELIVERY');
+  assert.deepEqual([noElegible.estado, noElegible.ultimoError], ['CANCELADA', 'NO_ELEGIBLE']);
+
+  // Anular sin publicar: nadie la vio, no hay aviso de anulación.
+  await reiniciar();
+  const sinPublicar = await ordenNueva('Sin publicar');
+  assert.equal((await parchear(anular, sinPublicar.id, { razon: 'Cliente canceló el pedido' })).status, 200);
+  const trasAnular = await salidasDe(sinPublicar.id);
+  assert.deepEqual(
+    trasAnular.map((s) => [s.tipo, s.estado]),
+    [['PUBLICACION_GRUPO', 'CANCELADA'], ['RECORDATORIO_DELIVERY', 'CANCELADA'], ['RESPUESTA_EMPLEADO', 'PENDIENTE']],
+  );
+
+  // Anular publicada: el grupo recibe la anulación y el aviso de moto se cancela.
+  await reiniciar();
+  const publicada = await ordenNueva('Publicada');
+  await publicar(publicada.id);
+  assert.equal((await parchear(anular, publicada.id, { razon: 'Cliente canceló el pedido' })).status, 200);
+  const [anulacion] = await deTipo(publicada.id, 'ACTUALIZACION_GRUPO');
+  assert.deepEqual([anulacion.clave, anulacion.destino], [`anulacion:${publicada.id}`, 'grupo@g.us']);
+  assert.match(anulacion.texto, /^ANULADA orden #\d+/);
+  assert.equal((await deTipo(publicada.id, 'RECORDATORIO_DELIVERY'))[0].ultimoError, 'ORDEN_ANULADA');
+
+  // Ubicación editada en el POS: cambio al grupo y aviso de moto con el enlace nuevo.
+  await reiniciar();
+  const sinUbicacion = await ordenNueva('Ubicacion');
+  await publicar(sinUbicacion.id);
+  const enlaceNuevo = 'https://maps.google.com/?q=-2.88,-78.95';
+  const editada = await parchear(ubicacion, sinUbicacion.id, { ubicacionUrl: enlaceNuevo, referenciaEntrega: 'Casa azul' });
+  assert.equal(editada.status, 200);
+  const [cambioUbicacion] = await deTipo(sinUbicacion.id, 'ACTUALIZACION_GRUPO');
+  assert.match(cambioUbicacion.clave, /^ubicacion:/);
+  assert.match(cambioUbicacion.texto, /Referencia: Casa azul/);
+  assert.ok((await deTipo(sinUbicacion.id, 'RECORDATORIO_DELIVERY'))[0].texto.includes('-2.88,-78.95'));
+
+  // Revisión: descartar deja autor y libera los cambios que esperaban esa publicación.
+  await prisma.whatsappSalida.updateMany({ data: { estado: 'ENVIADA' } });
+  await prisma.whatsappSalida.updateMany({
+    where: { ordenId: sinUbicacion.id, tipo: 'PUBLICACION_GRUPO' }, data: { estado: 'REQUIERE_REVISION' },
+  });
+  await prisma.whatsappSalida.update({
+    where: { id: cambioUbicacion.id }, data: { estado: 'PENDIENTE', disponibleAt: new Date(t0.getTime() - 1000) },
+  });
+  assert.equal(await agente.reservarSalida(cliente, 'sesion', t0), null, 'Espera la publicación en duda');
+  const listado = await (await revisionRuta.GET()).json();
+  assert.equal(listado.salidas.length, 1);
+  const dudosa = listado.salidas[0];
+  assert.equal((await pedirRuta(revisionRuta, { tipo: 'salida', id: dudosa.id })).status, 200);
+  assert.equal((await pedirRuta(revisionRuta, { tipo: 'salida', id: dudosa.id })).status, 409);
+  const descartada = await salidaDe(dudosa.id);
+  assert.deepEqual([descartada.estado, descartada.revisadaPor], ['REQUIERE_REVISION', 'Admin']);
+  assert.equal((await agente.reservarSalida(cliente, 'sesion', t0))?.id, cambioUbicacion.id);
+  assert.equal((await (await revisionRuta.GET()).json()).salidas.length, 0);
+
   // Rutas: credencial propia, salud y sesión caída sin reservar.
   await prisma.whatsappSalida.deleteMany();
   await crearSalida('ruta');

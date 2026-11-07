@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  enlaceDePin, textoActualizacionUbicacion, textoConfirmacion, textoConflicto, textoOrdenesSinUbicacion,
+  enlaceDePin, textoActualizacionItems, textoActualizacionUbicacion, textoAnulacion, textoConfirmacion, textoConflicto, textoOrdenesSinUbicacion,
   textoPendienteAprobacion, textoPublicacion, textoRechazo, textoRecordatorio, textoReenvio, textoUbicacionGuardada,
 } from './whatsapp-mensajes';
 
@@ -75,7 +75,16 @@ assert.match(textoConflicto(orden), /Orden #42/);
 assert.match(textoConflicto(orden), /línea Nuevo pedido/);
 assert.equal(textoUbicacionGuardada(orden), 'Ubicación guardada en Orden #42 · Ana\nhttps://www.google.com/maps?q=-2.17,-79.92');
 assert.equal(textoActualizacionUbicacion(orden),
-  'ACTUALIZACIÓN orden #42 · 04/11/2026\nUbicación: https://www.google.com/maps?q=-2.17,-79.92');
+  'ACTUALIZACIÓN orden #42 · 04/11/2026\nUbicación: https://www.google.com/maps?q=-2.17,-79.92\nReferencia: portón negro');
+assert.equal(textoActualizacionUbicacion(pendiente), 'ACTUALIZACIÓN orden #42 · 04/11/2026\nUbicación: pendiente');
+assert.equal(textoActualizacionItems(pendiente), `ACTUALIZACIÓN orden #42 · 04/11/2026
+Productos ahora:
+2 x Combo Duo | Natural
+1 x Combo Duo | Picante 1 | sin cebolla
+1 x 3 Cangrejos
+Total: $45.50
+Pago: efectivo`);
+assert.equal(textoAnulacion(orden), 'ANULADA orden #42 · 04/11/2026\nNo preparar ni enviar.');
 assert.match(textoOrdenesSinUbicacion([orden, { ...orden, numeroDiario: 43 }]), /2 órdenes.*#42, #43.*POS/);
 
 console.log('whatsapp-mensajes tests: ok');

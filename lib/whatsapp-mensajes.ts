@@ -24,7 +24,7 @@ export interface OrdenPublicable {
   }>;
 }
 
-type Encabezado = Pick<OrdenPublicable, 'numeroDiario' | 'fechaNumeroDiario'>;
+export type Encabezado = Pick<OrdenPublicable, 'numeroDiario' | 'fechaNumeroDiario'>;
 
 export function enlaceDePin({ latitud, longitud }: { latitud: number; longitud: number }): string {
   return `https://www.google.com/maps?q=${latitud},${longitud}`;
@@ -40,7 +40,7 @@ function fecha({ fechaNumeroDiario }: Encabezado): string {
 
 const dinero = (valor: unknown) => `$${Number(valor).toFixed(2)}`;
 
-const lineaUbicacion = (orden: OrdenPublicable) => `Ubicación: ${orden.ubicacionUrl ?? 'pendiente'}`;
+const lineaUbicacion = (orden: Pick<OrdenPublicable, 'ubicacionUrl'>) => `Ubicación: ${orden.ubicacionUrl ?? 'pendiente'}`;
 
 function lineaConfirmacionUbicacion(orden: OrdenPublicable): string {
   return orden.ubicacionUrl
@@ -123,7 +123,9 @@ export function textoRechazo(orden: Encabezado, razon: string | null | undefined
   ].join('\n');
 }
 
-export function textoRecordatorio(orden: OrdenPublicable): string {
+type Recordable = Encabezado & Pick<OrdenPublicable, 'nombreCliente' | 'ubicacionUrl'>;
+
+export function textoRecordatorio(orden: Recordable): string {
   return [
     `Pedir delivery para orden ${numero(orden)} · ${fecha(orden)}`,
     'Verifica el estado en el POS antes de contratar el motorizado.',
@@ -153,8 +155,28 @@ export function textoUbicacionGuardada(orden: OrdenPublicable): string {
   ].join('\n');
 }
 
-export function textoActualizacionUbicacion(orden: OrdenPublicable): string {
-  return [`ACTUALIZACIÓN orden ${numero(orden)} · ${fecha(orden)}`, lineaUbicacion(orden)].join('\n');
+export function textoActualizacionUbicacion(
+  orden: Encabezado & Pick<OrdenPublicable, 'ubicacionUrl' | 'referenciaEntrega'>,
+): string {
+  return [
+    `ACTUALIZACIÓN orden ${numero(orden)} · ${fecha(orden)}`,
+    lineaUbicacion(orden),
+    ...(orden.referenciaEntrega ? [`Referencia: ${orden.referenciaEntrega}`] : []),
+  ].join('\n');
+}
+
+export function textoActualizacionItems(orden: OrdenPublicable): string {
+  return [
+    `ACTUALIZACIÓN orden ${numero(orden)} · ${fecha(orden)}`,
+    'Productos ahora:',
+    ...(orden.items ?? []).map(lineaItem),
+    `Total: ${dinero(orden.total)}`,
+    `Pago: ${lineaPago(orden)}`,
+  ].join('\n');
+}
+
+export function textoAnulacion(orden: Encabezado): string {
+  return `ANULADA orden ${numero(orden)} · ${fecha(orden)}\nNo preparar ni enviar.`;
 }
 
 export function textoOrdenesSinUbicacion(ordenes: Encabezado[]): string {

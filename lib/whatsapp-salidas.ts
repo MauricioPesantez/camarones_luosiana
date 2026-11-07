@@ -1,6 +1,9 @@
 import type { Prisma } from '@prisma/client';
 import {
+  Encabezado,
   OrdenPublicable,
+  textoActualizacionUbicacion,
+  textoAnulacion,
   textoConfirmacion,
   textoPublicacion,
   textoRechazo,
@@ -10,6 +13,8 @@ import type { PedidoWhatsapp } from '@/lib/whatsapp-pedido';
 import { ConfiguracionWhatsapp, leerConfiguracion } from '@/lib/whatsapp-webhook';
 
 const ESPERA_DELIVERY_MIN = 10;
+const SIN_SALIR = ['PENDIENTE', 'REINTENTO'];
+const MENSAJES_DE_ORDEN = ['PUBLICACION_GRUPO', 'ACTUALIZACION_GRUPO', 'RECORDATORIO_DELIVERY'];
 const LIMITE_RECORDATORIO_MS = 30 * 60 * 1000;
 
 type OrdenConId = OrdenPublicable & { id: string };
@@ -119,4 +124,57 @@ export async function registrarRechazoWhatsapp(
       clave: `rechazo:${orden.id}`,
     },
   });
+}
+
+/** Un cambio sale como mensaje nuevo al mismo grupo. Una orden que nunca se publicó no genera nada. */
+export async function registrarCambioWhatsapp(
+  tx: Prisma.TransactionClient,
+  ordenId: string,
+  clave: string,
+  texto: string,
+): Promise<void> {
+  const publicacion = await tx.whatsappSalida.findFirst({
+    where: { ordenId, tipo: 'PUBLICACION_GRUPO', estado: { not: 'CANCELADA' } },
+    select: { sessionId: true, destino: true },
+  });
+  if (!publicacion) return;
+  await tx.whatsappSalida.create({
+    data: { ...publicacion, ordenId, tipo: 'ACTUALIZACION_GRUPO', texto, clave },
+  });
+}
+
+/** Con delivery pedido o la orden anulada, el aviso de moto que no salió ya no aplica. */
+export function cancelarRecordatorios(tx: Prisma.TransactionClient, ordenId: string, motivo: string) {
+  return tx.whatsappSalida.updateMany({
+    where: { ordenId, tipo: 'RECORDATORIO_DELIVERY', estado: { in: SIN_SALIR } },
+    data: { estado: 'CANCELADA', ultimoError: motivo },
+  });
+}
+
+/** Lo que nadie intentó enviar se cancela; si el grupo pudo verla, se avisa la anulación. */
+export async function registrarAnulacionWhatsapp(
+  tx: Prisma.TransactionClient,
+  orden: Encabezado & { id: string },
+): Promise<void> {
+  await cancelarRecordatorios(tx, orden.id, 'ORDEN_ANULADA');
+  await tx.whatsappSalida.updateMany({
+    where: { ordenId: orden.id, tipo: { in: MENSAJES_DE_ORDEN }, estado: 'PENDIENTE', intentos: 0 },
+    data: { estado: 'CANCELADA', ultimoError: 'ORDEN_ANULADA' },
+  });
+  await registrarCambioWhatsapp(tx, orden.id, `anulacion:${orden.id}`, textoAnulacion(orden));
+}
+
+type OrdenUbicada = Encabezado & Pick<OrdenPublicable, 'nombreCliente' | 'ubicacionUrl' | 'referenciaEntrega'>;
+
+/** El aviso de moto aún sin intentar toma la ubicación nueva; uno intentado conserva su texto. */
+export async function registrarUbicacionWhatsapp(
+  tx: Prisma.TransactionClient,
+  orden: OrdenUbicada & { id: string },
+  historialId: string,
+): Promise<void> {
+  await tx.whatsappSalida.updateMany({
+    where: { ordenId: orden.id, tipo: 'RECORDATORIO_DELIVERY', estado: 'PENDIENTE', intentos: 0 },
+    data: { texto: textoRecordatorio(orden) },
+  });
+  await registrarCambioWhatsapp(tx, orden.id, `ubicacion:${historialId}`, textoActualizacionUbicacion(orden));
 }

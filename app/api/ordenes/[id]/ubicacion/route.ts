@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { UbicacionInvalidaError, parsearUbicacionEntrega } from '@/lib/delivery-location';
 import { canUserModifyOrder } from '@/lib/order-payment';
 import { getAuthenticatedUser } from '@/lib/session';
+import { registrarUbicacionWhatsapp } from '@/lib/whatsapp-salidas';
 
 export async function PATCH(
   request: Request,
@@ -25,6 +26,9 @@ export async function PATCH(
         mesero: true,
         ubicacionUrl: true,
         referenciaEntrega: true,
+        numeroDiario: true,
+        fechaNumeroDiario: true,
+        nombreCliente: true,
       },
     });
     if (!orden) {
@@ -60,7 +64,7 @@ export async function PATCH(
         data: despues,
       });
       if (count !== 1) return false;
-      await tx.historialOrden.create({
+      const historial = await tx.historialOrden.create({
         data: {
           ordenId: id,
           tipoAccion: 'ubicacion_actualizada',
@@ -71,7 +75,9 @@ export async function PATCH(
           usuarioRol: usuario.rol,
           diferenciaTotal: 0,
         },
+        select: { id: true },
       });
+      await registrarUbicacionWhatsapp(tx, { ...orden, ...despues, id }, historial.id);
       return true;
     });
     if (!actualizada) {

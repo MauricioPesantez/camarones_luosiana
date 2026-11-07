@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import AppShell from "@/components/shell/AppShell";
 import DetalleOrdenModal from "@/components/admin/DetalleOrdenModal";
+import RevisionWhatsapp from "@/components/admin/RevisionWhatsapp";
 import { ProductoStockBajo } from "@/types/stock";
 import {
   OrdenPendienteAprobacion,
@@ -561,6 +562,8 @@ export default function AdminPage() {
             </button>
           </div>
         </div>
+
+        <RevisionWhatsapp />
 
         {/* Alertas y Notificaciones */}
         {(ordenesPendientes.length > 0 || productosStockBajo.length > 0) && (

@@ -7,6 +7,7 @@ import AppShell from "@/components/shell/AppShell";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
 import UbicacionEntrega from "@/components/ordenes/UbicacionEntrega";
+import DeliverySolicitado from "@/components/ordenes/DeliverySolicitado";
 import { montoACobrarEnCaja } from "@/types/cobro";
 import {
   MetodoPago,
@@ -24,6 +25,7 @@ interface Orden {
   telefonoCliente: string | null;
   ubicacionUrl: string | null;
   referenciaEntrega: string | null;
+  deliverySolicitadoAt: string | null;
   recargo: number | null;
   costoEnvio: number | null;
   mesero: string;
@@ -253,6 +255,13 @@ function DigitalContenido() {
                               ubicacionUrl={orden.ubicacionUrl}
                               referenciaEntrega={orden.referenciaEntrega}
                               editable
+                            />
+                          )}
+                          {orden.tipoOrden === "domicilio" && (
+                            <DeliverySolicitado
+                              ordenId={orden.id}
+                              deliverySolicitadoAt={orden.deliverySolicitadoAt}
+                              editable={!["cancelada", "pendiente_aprobacion_stock"].includes(orden.estado)}
                             />
                           )}
                           <p className="text-xs text-gray-500">

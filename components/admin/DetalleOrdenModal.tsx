@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import UbicacionEntrega from "@/components/ordenes/UbicacionEntrega";
+import DeliverySolicitado from "@/components/ordenes/DeliverySolicitado";
 import HistorialOrdenTimeline from "./HistorialOrdenTimeline";
 import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 import {
@@ -337,12 +338,20 @@ export default function DetalleOrdenModal({
                               onOrdenActualizada?.(actualizada);
                             }}
                           />
-                          {orden.deliverySolicitadoAt && (
-                            <p className="text-sm text-gray-700 mt-1">
-                              🛵 Delivery solicitado:{" "}
-                              {new Date(orden.deliverySolicitadoAt).toLocaleString("es-EC")}
-                            </p>
-                          )}
+                          <DeliverySolicitado
+                            key={`${orden.id}:${orden.deliverySolicitadoAt}`}
+                            ordenId={orden.id}
+                            deliverySolicitadoAt={orden.deliverySolicitadoAt ?? null}
+                            editable={
+                              !orden.anulada &&
+                              !["cancelada", "pendiente_aprobacion_stock"].includes(orden.estado)
+                            }
+                            onRegistrado={(deliverySolicitadoAt) => {
+                              const actualizada = { ...orden, deliverySolicitadoAt };
+                              setOrden(actualizada);
+                              onOrdenActualizada?.(actualizada);
+                            }}
+                          />
                         </div>
                       )}
                     </>

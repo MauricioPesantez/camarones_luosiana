@@ -52,6 +52,16 @@ export function reservarSalida(prisma: PrismaClient, sessionId: string, ahora = 
       data: { estado: REVISION, ultimoError: 'VENCIDA' },
     });
 
+    // Releer elegibilidad: anulación, rechazo o delivery pedido por cualquier vía cancelan el aviso.
+    await tx.whatsappSalida.updateMany({
+      where: {
+        tipo: 'RECORDATORIO_DELIVERY',
+        estado: { in: ENVIABLES },
+        orden: { OR: [{ anulada: true }, { estado: 'cancelada' }, { deliverySolicitadoAt: { not: null } }] },
+      },
+      data: { estado: 'CANCELADA', ultimoError: 'NO_ELEGIBLE' },
+    });
+
     // Una corrección no sale antes que la publicación de su orden; otras órdenes siguen.
     const [candidata] = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT s.id
@@ -65,6 +75,7 @@ export function reservarSalida(prisma: PrismaClient, sessionId: string, ahora = 
             AND previa."ordenId" = s."ordenId"
             AND previa.tipo IN ('PUBLICACION_GRUPO', 'ACTUALIZACION_GRUPO')
             AND previa.estado NOT IN ('ENVIADA', 'CANCELADA')
+            AND previa."revisadaAt" IS NULL
             AND previa."createdAt" < s."createdAt"
         )
       ORDER BY s."disponibleAt" ASC, s."createdAt" ASC

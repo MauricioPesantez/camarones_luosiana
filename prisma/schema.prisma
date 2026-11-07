@@ -450,6 +450,9 @@ model WhatsappEntrada {
   ordenId           String?
   orden             Orden?           @relation(fields: [ordenId], references: [id], onDelete: Restrict)
   error             String?
+  /// Quién descartó la revisión. El estado se conserva para explicar por qué llegó a revisión.
+  revisadaPor       String?
+  revisadaAt        DateTime?
   salidas           WhatsappSalida[]
 
   @@unique([sessionId, messageId])
@@ -479,6 +482,9 @@ model WhatsappSalida {
   reservaExpiraAt DateTime?
   mensajeId       String? // Identificador devuelto por OpenWA
   ultimoError     String?
+  /// Revisión descartada: no se envía y deja de bloquear los cambios posteriores de su orden.
+  revisadaPor     String?
+  revisadaAt      DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 

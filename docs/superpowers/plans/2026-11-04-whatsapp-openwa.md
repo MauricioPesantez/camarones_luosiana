@@ -512,18 +512,18 @@ Salida: un pedido produce una sola venta, un solo efecto de stock y los cobros p
 - [x] Implementar agente y rutas internas de trabajo/resultado.
 - [x] Usar claves estables del gateway, clasificar resultados desconocidos y conservar cuerpos inmutables.
 - [x] Respetar orden de publicaciones por pedido y permitir avanzar otros pedidos.
-- [ ] Configurar reinicio, sondeo con espera progresiva, horario y salud visible. Hecho salvo la vista en el POS: la salud queda en `PrintAgent` con id `whatsapp-agent` y se muestra en la lista de revisión de Fase 6.
+- [x] Configurar reinicio, sondeo con espera progresiva, horario y salud visible. La salud queda en `PrintAgent` con id `whatsapp-agent` y se muestra en el panel WhatsApp del cuadre (Fase 6).
 - [x] Probar caídas antes/después del envío y antes/después de confirmar al POS.
 
 Salida: reiniciar no pierde trabajos ni reenvía ciegamente mensajes inciertos.
 
 #### Fase 6. Delivery y cambios operativos
 
-- [ ] Programar desde aceptación o aprobación, con reloj del servidor.
-- [ ] Incorporar elegibilidad, expiración y cancelación por solicitud, anulación o rechazo.
-- [ ] Agregar acción humana en digital/admin con permisos, historial e idempotencia.
-- [ ] Publicar cambios de items/ubicación y anulaciones con identificación inequívoca.
-- [ ] Mostrar una lista de entradas antiguas, fallos de grupo y resultados inciertos con una sola acción: descartar, registrando autor.
+- [x] Programar desde aceptación o aprobación, con reloj del servidor. Hecho en Fase 4; la línea `moto N` cambia la espera.
+- [x] Incorporar elegibilidad, expiración y cancelación por solicitud, anulación o rechazo. Un rechazo nunca programa aviso; al reservar se cancela el de toda orden anulada, cancelada o con delivery pedido.
+- [x] Agregar acción humana en digital/admin con permisos, historial e idempotencia. Botón “Ya pedí el delivery”.
+- [x] Publicar cambios de items/ubicación y anulaciones con identificación inequívoca. Claves `items:<orden>:<revisión>`, `ubicacion:<historial>` y `anulacion:<orden>`; una anulación de algo nunca intentado cancela sus mensajes sin avisar.
+- [x] Mostrar una lista de entradas antiguas, fallos de grupo y resultados inciertos con una sola acción: descartar, registrando autor. Solo administrador; descartar conserva el estado y libera los cambios que esperaban esa publicación.
 
 Salida: el operador puede coordinar delivery sin depender de que la aplicación siga abierta y sin deducir entrega desde un pago.
 

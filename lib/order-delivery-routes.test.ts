@@ -45,7 +45,9 @@ async function run() {
         return { count: 1 };
       },
     },
-    historialOrden: { create: async ({ data }: { data: Record<string, unknown> }) => { historial.push(data); } },
+    historialOrden: {
+      create: async ({ data }: { data: Record<string, unknown> }) => { historial.push(data); return { id: 'h1' }; },
+    },
   };
   const prisma = {
     orden: {
@@ -62,6 +64,8 @@ async function run() {
     '@/lib/session': { getAuthenticatedUser: async () => actor },
     '@/lib/order-payment': { canUserModifyOrder },
     '@/lib/delivery-location': location,
+    // Las salidas de WhatsApp se prueban contra PostgreSQL en whatsapp-orden.postgres.test.ts.
+    '@/lib/whatsapp-salidas': { cancelarRecordatorios: async () => {}, registrarUbicacionWhatsapp: async () => {} },
   };
   type Ruta = { PATCH: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response> };
   const ubicacion = loadModule<Ruta>('app/api/ordenes/[id]/ubicacion/route.ts', dependencias);
