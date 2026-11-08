@@ -286,14 +286,18 @@ def amount_lines_for_order(order):
     total = float(order.get("total") or 0)
     surcharge = float(order.get("surcharge") or 0)
     delivery = float(order.get("deliveryCost") or 0)
-    subtotal = total - surcharge - delivery
+    discount = float(order.get("discount") or 0)
+    # El total ya trae el descuento restado; el ticket muestra los productos sin el.
+    subtotal = total - surcharge - delivery + discount
+    discount_lines = [amount_line("Descuento:", -discount)] if discount > 0 else []
 
     if order.get("type") == "local":
-        return [separator, amount_line("TOTAL:", total)]
+        return [separator] + discount_lines + [amount_line("TOTAL:", total)]
     if order.get("type") == "para_llevar":
         return [
             separator,
             amount_line("Subtotal productos:", subtotal),
+            *discount_lines,
             amount_line("Recipientes:", surcharge),
             separator,
             amount_line("TOTAL:", total),
@@ -301,10 +305,11 @@ def amount_lines_for_order(order):
 
     payment = payment_method_label(order)
     if payment == "efectivo":
-        total_local = subtotal + surcharge
+        total_local = subtotal - discount + surcharge
         return [
             separator,
             amount_line("Subtotal productos:", subtotal),
+            *discount_lines,
             amount_line("Recipientes:", surcharge),
             separator,
             amount_line("TOTAL:", total_local),

@@ -59,6 +59,7 @@ interface Orden {
   modificada: boolean;
   cobrada?: boolean;
   metodoPago?: string | null;
+  metodoPagoPrevisto?: string | null;
   comprobanteTransferenciaKey?: string | null;
   pagos?: {
     id: string;
@@ -250,45 +251,39 @@ export default function DetalleOrdenModal({
     p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase()),
   );
 
-  const [cambiandoPagoId, setCambiandoPagoId] = useState<string | null>(null);
-  const [errorPago, setErrorPago] = useState("");
+  // Pago acordado del domicilio: se cambia antes de cobrar (p. ej. el cliente ahora transfiere).
+  const puedeCambiarPrevisto =
+    Boolean(adminId) &&
+    orden.tipoOrden === "domicilio" &&
+    !orden.anulada &&
+    orden.estado !== "cancelada" &&
+    Number(orden.montoPagado ?? 0) === 0;
+  const [cambiandoPrevisto, setCambiandoPrevisto] = useState(false);
+  const [errorPrevisto, setErrorPrevisto] = useState("");
 
-  const cambiarMetodoPago = async (pagoId: string, metodoActual: string) => {
-    const nuevo = metodoActual === "efectivo" ? "transferencia" : "efectivo";
-    if (!window.confirm(`¿Cambiar este pago a ${nuevo}?`)) return;
-    setCambiandoPagoId(pagoId);
-    setErrorPago("");
+  const cambiarMetodoPrevisto = async () => {
+    const nuevo = orden.metodoPagoPrevisto === "efectivo" ? "transferencia" : "efectivo";
+    if (!window.confirm(`¿Cambiar el pago acordado a ${nuevo}?`)) return;
+    setCambiandoPrevisto(true);
+    setErrorPrevisto("");
     try {
-      const res = await fetch(`/api/admin/ordenes/${orden.id}/pagos/${pagoId}`, {
+      const res = await fetch(`/api/admin/ordenes/${orden.id}/metodo-pago`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metodoPago: nuevo }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrorPago(data.error || "Error al cambiar método de pago");
+        setErrorPrevisto(data.error || "Error al cambiar método de pago");
         return;
       }
-      // Se toca solo el pago cambiado: los del cuadre traen campos (enRango, estado) que el endpoint no envía.
-      const ordenActualizada = {
-        ...orden,
-        metodoPago: data.metodoPago,
-        pagos: orden.pagos?.map((p) =>
-          p.id === pagoId
-            ? {
-                ...p,
-                metodoPago: nuevo,
-                comprobanteTransferenciaKey: nuevo === "efectivo" ? null : p.comprobanteTransferenciaKey,
-              }
-            : p,
-        ),
-      };
-      setOrden(ordenActualizada);
-      onOrdenActualizada?.(ordenActualizada);
+      const actualizada = { ...orden, metodoPagoPrevisto: data.orden.metodoPagoPrevisto };
+      setOrden(actualizada);
+      onOrdenActualizada?.(actualizada);
     } catch {
-      setErrorPago("Error de red al cambiar método de pago");
+      setErrorPrevisto("Error de red al cambiar método de pago");
     } finally {
-      setCambiandoPagoId(null);
+      setCambiandoPrevisto(false);
     }
   };
 
@@ -439,6 +434,34 @@ export default function DetalleOrdenModal({
                         </div>
                       )}
                       {orden.tipoOrden === "domicilio" && (
+                        <div>
+                          <label className="text-xs text-gray-500 font-semibold uppercase">
+                            Pago acordado
+                          </label>
+                          <p className="flex flex-wrap items-center gap-2 text-base text-gray-800">
+                            {orden.metodoPagoPrevisto === "transferencia"
+                              ? "🏦 Transferencia"
+                              : orden.metodoPagoPrevisto === "efectivo"
+                                ? "💵 Efectivo"
+                                : "—"}
+                            {puedeCambiarPrevisto && (
+                              <button
+                                onClick={() => void cambiarMetodoPrevisto()}
+                                disabled={cambiandoPrevisto}
+                                className="text-xs font-bold text-amber-700 underline disabled:opacity-50"
+                              >
+                                {cambiandoPrevisto
+                                  ? "Cambiando…"
+                                  : `🔁 Cambiar a ${orden.metodoPagoPrevisto === "efectivo" ? "transferencia" : "efectivo"}`}
+                              </button>
+                            )}
+                          </p>
+                          {errorPrevisto && (
+                            <p className="text-sm text-red-600">{errorPrevisto}</p>
+                          )}
+                        </div>
+                      )}
+                      {orden.tipoOrden === "domicilio" && (
                         <div className="col-span-full">
                           <label className="text-xs text-gray-500 font-semibold uppercase">
                             Entrega
@@ -539,22 +562,10 @@ export default function DetalleOrdenModal({
                             ) : (
                               <span className="text-xs text-amber-700">sin comprobante</span>
                             ))}
-                          {adminId && !orden.anulada && (
-                            <button
-                              onClick={() => void cambiarMetodoPago(pago.id, pago.metodoPago)}
-                              disabled={cambiandoPagoId !== null}
-                              className="text-xs font-bold text-amber-700 underline disabled:opacity-50"
-                            >
-                              {cambiandoPagoId === pago.id
-                                ? "Cambiando…"
-                                : `🔁 A ${pago.metodoPago === "efectivo" ? "transferencia" : "efectivo"}`}
-                            </button>
-                          )}
                         </span>
                       </li>
                     ))}
                   </ul>
-                  {errorPago && <p className="mt-1 text-sm text-red-600">{errorPago}</p>}
                 </div>
               ) : (
                 orden.metodoPago === "transferencia" && (

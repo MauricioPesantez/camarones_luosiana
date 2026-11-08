@@ -68,6 +68,16 @@ class TicketTests(unittest.TestCase):
         self.assertIn("Cobra al cliente:", text)
         self.assertLess(text.index("TOTAL:"), text.index("Envio:"))
 
+    def test_cash_delivery_with_discount(self):
+        value = payload("domicilio", "efectivo")
+        value["order"].update({"discount": 10, "total": 96.25})
+        lines = agent.amount_lines_for_order(value["order"])
+        self.assertIn(agent.amount_line("Subtotal productos:", 100), lines)
+        self.assertIn(agent.amount_line("Descuento:", -10), lines)
+        self.assertIn(agent.amount_line("TOTAL:", 91.25), lines)
+        self.assertIn(agent.amount_line("Cobra al cliente:", 96.25), lines)
+        self.assertIn("-$10.00", agent.amount_line("Descuento:", -10))
+
     def test_payment_qr_commands(self):
         value = payload("domicilio", "efectivo")
         url = "https://pos.example.com/ordenes/cobrar/token-seguro"
