@@ -57,7 +57,7 @@ function centered(value: string): string {
 
 /** Etiqueta a la izquierda y monto pegado al borde derecho del ticket. */
 function amountLine(label: string, amount: number): string {
-  const value = `$${amount.toFixed(2)}`;
+  const value = `${amount < 0 ? '-' : ''}$${Math.abs(amount).toFixed(2)}`;
   const cleanLabel = ascii(label);
   const padding = Math.max(1, LINE_WIDTH - cleanLabel.length - value.length);
   return `${cleanLabel}${' '.repeat(padding)}${value}`;
@@ -79,19 +79,23 @@ function buildAmountLines(params: {
   recargo: number;
   costoEnvio: number;
   total: number;
+  descuento: number;
   metodoPagoPrevisto: string | null;
 }): string[] {
-  const { tipoOrden, recargo, costoEnvio, total, metodoPagoPrevisto } = params;
-  const subtotalProductos = total - recargo - costoEnvio;
+  const { tipoOrden, recargo, costoEnvio, total, descuento, metodoPagoPrevisto } = params;
+  // El total ya trae el descuento restado; el ticket muestra los productos sin él.
+  const subtotalProductos = total - recargo - costoEnvio + descuento;
+  const lineasDescuento = descuento > 0 ? [amountLine('Descuento:', -descuento)] : [];
 
   if (tipoOrden === 'local') {
-    return [SECTION_SEPARATOR, amountLine('TOTAL:', total)];
+    return [SECTION_SEPARATOR, ...lineasDescuento, amountLine('TOTAL:', total)];
   }
 
   if (tipoOrden === 'para_llevar') {
     return [
       SECTION_SEPARATOR,
       amountLine('Subtotal productos:', subtotalProductos),
+      ...lineasDescuento,
       amountLine('Recipientes:', recargo),
       SECTION_SEPARATOR,
       amountLine('TOTAL:', total),
@@ -99,10 +103,11 @@ function buildAmountLines(params: {
   }
 
   if (metodoPagoPrevisto === 'efectivo') {
-    const totalLocal = subtotalProductos + recargo;
+    const totalLocal = subtotalProductos - descuento + recargo;
     return [
       SECTION_SEPARATOR,
       amountLine('Subtotal productos:', subtotalProductos),
+      ...lineasDescuento,
       amountLine('Recipientes:', recargo),
       SECTION_SEPARATOR,
       amountLine('TOTAL:', totalLocal),
@@ -162,6 +167,7 @@ export interface OrdenComanda {
   printRevision?: number | null;
   recargo?: NumericValue | null;
   costoEnvio?: NumericValue | null;
+  descuento?: NumericValue | null;
   metodoPagoPrevisto?: string | null;
   cobrada?: boolean;
   cobroUrl?: string | null;
@@ -237,6 +243,7 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
       recargo: toOptionalNumber(orden.recargo),
       costoEnvio: toOptionalNumber(orden.costoEnvio),
       total: toNumber(orden.total),
+      descuento: toOptionalNumber(orden.descuento),
       metodoPagoPrevisto,
     }),
   );

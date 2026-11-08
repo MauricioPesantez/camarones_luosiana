@@ -168,6 +168,23 @@ async function run(): Promise<void> {
     includesLine(domicilioEfectivo, amountLine('Cobra al cliente:', '$106.25')),
     true,
   );
+  // Con descuento: productos sin descontar, la línea Descuento y el TOTAL ya rebajado.
+  const domicilioDescuento = buildOrderTicketLines(
+    createOrder({
+      tipoOrden: 'domicilio',
+      numeroMesa: null,
+      recargo: '1.25',
+      costoEnvio: '5.00',
+      descuento: '10.00',
+      metodoPagoPrevisto: 'efectivo',
+      total: '96.25',
+    }),
+  );
+  assert.equal(includesLine(domicilioDescuento, amountLine('Subtotal productos:', '$100.00')), true);
+  assert.equal(includesLine(domicilioDescuento, amountLine('Descuento:', '-$10.00')), true);
+  assert.equal(includesLine(domicilioDescuento, amountLine('TOTAL:', '$91.25')), true);
+  assert.equal(includesLine(domicilioDescuento, amountLine('Cobra al cliente:', '$96.25')), true);
+
   // El envio va despues del TOTAL, nunca antes: sumarlo al total seria un error.
   assert.ok(
     domicilioEfectivo.findIndex((line) => line.startsWith('TOTAL:')) <

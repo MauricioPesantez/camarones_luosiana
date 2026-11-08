@@ -43,6 +43,7 @@ Natural
 efectivo $2`), {
   tipoOrden: 'domicilio', cliente: 'Cliente Uno', telefono: '+593990000000', pago: 'efectivo', envio: 2,
   ubicacionUrl: null, esperaMotoMin: null, solicitarAprobacion: false, nuevoPedido: false, observaciones: null,
+  descuento: null,
   items: [{ texto: 'Combo simple', cantidad: 1, nivelPicante: 'natural', observaciones: null }],
 });
 
@@ -122,6 +123,26 @@ assert.deepEqual(resumen(`Domiclio\n${TEL}\n2 combo mixto small\npicante 1\nefec
 assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo simple natural\ncombo simple natural\ncombo simple picante 1\nefectivo $2`),
   ['1 Combo Simple natural', '1 Combo Simple natural', '1 Combo Simple picante_1']);
 assert.deepEqual(resumen(`Domiclio\n${TEL}\n3 Combo Simples natural\nefectivo $2`), ['3 Combo Simple natural']);
+// Descuento: dólares o porcentaje, en cualquier forma habitual; sin unidad no se adivina.
+for (const [linea, esperado] of [
+  ['Descuento $2', { tipo: 'monto', valor: 2 }],
+  ['descuento: $2.50', { tipo: 'monto', valor: 2.5 }],
+  ['Descuento 3 dólares', { tipo: 'monto', valor: 3 }],
+  ['Descuento 10%', { tipo: 'porcentaje', valor: 10 }],
+  ['Dscto 15 %', { tipo: 'porcentaje', valor: 15 }],
+  ['descuento de 20 por ciento', { tipo: 'porcentaje', valor: 20 }],
+  ['10% de descuento', { tipo: 'porcentaje', valor: 10 }],
+  ['$2 descuento', { tipo: 'monto', valor: 2 }],
+] as const) {
+  assert.deepEqual(pedidoDe(`Domiclio\n${TEL}\ncombo simple natural\n${linea}\nefectivo $2`).descuento, esperado, linea);
+}
+assert.equal(pedidoDe(`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2`).descuento, null);
+assert.match(erroresDe(`Domiclio\n${TEL}\ncombo simple natural\nDescuento 2\nefectivo $2`), /Descuento no válido/);
+assert.match(erroresDe(`Domiclio\n${TEL}\ncombo simple natural\nDescuento 150%\nefectivo $2`), /Descuento no válido/);
+assert.match(erroresDe(`Domiclio\n${TEL}\ncombo simple natural\nDescuento $2\nDescuento 10%\nefectivo $2`), /Descuento repetido/);
+const sinDescuento = pedidoDe(`Domiclio\n${TEL}\ncombo simple natural\nefectivo $2`);
+assert.notEqual(hashPedido(sinDescuento), hashPedido({ ...sinDescuento, descuento: { tipo: 'monto', valor: 2 } }));
+
 // Una salsa por combo en la misma línea o en una lista con comas.
 assert.deepEqual(resumen(`Domiclio\n${TEL}\n2 combo simple natural y picante 1\nefectivo $2`),
   ['1 Combo Simple natural', '1 Combo Simple picante_1']);

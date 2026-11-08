@@ -135,6 +135,60 @@ export function calcularSaldo(orden: {
   return pendiente > 0 ? pendiente / 100 : 0;
 }
 
+export type TipoDescuento = 'porcentaje' | 'monto';
+
+export interface DescuentoSolicitado {
+  tipo: TipoDescuento;
+  /** Porcentaje (hasta 100) o dólares, como lo escribió quien lo aplica. */
+  valor: number;
+}
+
+/** Únicos roles que aplican descuentos: admin en su panel, digital al crear. */
+export const ROLES_DESCUENTO = ['admin', 'digital'];
+
+export function esDescuentoSolicitado(valor: unknown): valor is DescuentoSolicitado {
+  if (typeof valor !== 'object' || valor === null) return false;
+  const { tipo, valor: monto } = valor as Record<string, unknown>;
+  return (
+    (tipo === 'porcentaje' || tipo === 'monto') &&
+    typeof monto === 'number' &&
+    Number.isFinite(monto) &&
+    monto > 0 &&
+    Math.abs(Math.round(monto * 100) - monto * 100) < 1e-6 &&
+    (tipo === 'monto' || monto <= 100)
+  );
+}
+
+/**
+ * Dólares que se restan del subtotal de productos. Envases y envío nunca se
+ * descuentan: el envío es del motorizado. Un monto mayor al subtotal se recorta.
+ */
+export function calcularDescuento(
+  descuento: DescuentoSolicitado | null | undefined,
+  subtotalProductos: number,
+): number {
+  if (!descuento) return 0;
+  const subtotal = aCentavosOrden(subtotalProductos);
+  const centavos =
+    descuento.tipo === 'porcentaje'
+      ? Math.round((subtotal * descuento.valor) / 100)
+      : aCentavosOrden(descuento.valor);
+  return Math.min(Math.max(centavos, 0), subtotal) / 100;
+}
+
+/** Descuento guardado en la orden (`descuentoTipo` + `descuentoValor`), si hay. */
+export function descuentoDeOrden(orden: {
+  descuentoTipo?: string | null;
+  descuentoValor?: unknown;
+}): DescuentoSolicitado | null {
+  const descuento = { tipo: orden.descuentoTipo, valor: Number(orden.descuentoValor ?? NaN) };
+  return esDescuentoSolicitado(descuento) ? descuento : null;
+}
+
+export function etiquetaDescuento(descuento: DescuentoSolicitado): string {
+  return descuento.tipo === 'porcentaje' ? `${descuento.valor}%` : `$${descuento.valor.toFixed(2)}`;
+}
+
 export type EstadoOrden =
   | 'pendiente_aprobacion_stock'
   | 'pendiente'
@@ -172,6 +226,8 @@ export interface CrearOrdenRequest {
   /** Usuario autenticado que crea la orden. */
   creadorId?: string;
   observaciones?: string;
+  /** Solo roles en `ROLES_DESCUENTO`. */
+  descuento?: DescuentoSolicitado;
   items: {
     productoId: string;
     cantidad: number;

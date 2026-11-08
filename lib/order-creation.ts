@@ -10,10 +10,14 @@ import {
   MetodoPago,
   RECARGO_RECIPIENTES,
   TipoOrden,
+  ROLES_DESCUENTO,
+  calcularDescuento,
   calcularRecargoEnvases,
   esCategoriaCombo,
+  esDescuentoSolicitado,
   esMetodoPago,
   esNivelPicante,
+  etiquetaDescuento,
 } from '@/types/orden';
 import { notificarClientes } from '@/lib/sse';
 import {
@@ -105,6 +109,16 @@ export async function prepararOrden(
     body.transferenciaConfirmada !== true
   ) {
     throw new OrdenInvalidaError('Debe confirmar que la transferencia ya fue recibida');
+  }
+
+  const descuentoSolicitado = body.descuento ?? null;
+  if (descuentoSolicitado !== null) {
+    if (!ROLES_DESCUENTO.includes(actor.rol)) {
+      throw new OrdenInvalidaError('Solo admin o digital pueden aplicar descuentos');
+    }
+    if (!esDescuentoSolicitado(descuentoSolicitado)) {
+      throw new OrdenInvalidaError('Descuento no válido: usa un monto en dólares o un porcentaje hasta 100%');
+    }
   }
 
   let ubicacion = { ubicacionUrl: null as string | null, referenciaEntrega: null as string | null };
@@ -249,9 +263,16 @@ export async function prepararOrden(
   // Calcular tiempo estimado total (redondeado al entero más cercano)
   const tiempoEstimado = Math.ceil(tiempoBase + tiempoAdicional);
 
-  // Total final: subtotal de productos + recargo + costo de envío
+  // Total final: subtotal de productos - descuento + recargo + costo de envío
   const subtotalProductos = total;
-  const totalFinal = subtotalProductos + recargo + costoEnvio;
+  if (
+    descuentoSolicitado?.tipo === 'monto' &&
+    Math.round(descuentoSolicitado.valor * 100) > Math.round(subtotalProductos * 100)
+  ) {
+    throw new OrdenInvalidaError('El descuento supera el subtotal de productos');
+  }
+  const descuento = calcularDescuento(descuentoSolicitado, subtotalProductos);
+  const totalFinal = subtotalProductos - descuento + recargo + costoEnvio;
 
   // Determinar el estado inicial de la orden
   const estadoInicial = hayStockInsuficiente && solicitarAprobacion
@@ -289,6 +310,8 @@ export async function prepararOrden(
     itemsData,
     tiempoEstimado,
     subtotalProductos,
+    descuentoSolicitado,
+    descuento,
     totalFinal,
     estadoInicial,
     paymentLink,
@@ -313,6 +336,8 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
     itemsData,
     tiempoEstimado,
     subtotalProductos,
+    descuentoSolicitado,
+    descuento,
     totalFinal,
     estadoInicial,
     paymentLink,
@@ -356,6 +381,14 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
       creadorId: creador.id,
       creadorRol: creador.rol,
       observaciones: body.observaciones,
+      ...(descuentoSolicitado
+        ? {
+            descuentoTipo: descuentoSolicitado.tipo,
+            descuentoValor: descuentoSolicitado.valor,
+            descuento,
+            descuentoPor: creadorNombre,
+          }
+        : {}),
       total: totalFinal,
       tiempoEstimado,
       estado: estadoInicial,
@@ -399,12 +432,15 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
   const descripcion = estadoInicial === 'pendiente_aprobacion_stock'
     ? `Orden creada pendiente de aprobación (sin stock) con ${nuevaOrden.items.length} items: ${itemsDescripcion}`
     : `Orden creada con ${nuevaOrden.items.length} items: ${itemsDescripcion}`;
+  const descripcionDescuento = descuentoSolicitado
+    ? ` · Descuento ${etiquetaDescuento(descuentoSolicitado)} (-$${descuento.toFixed(2)})`
+    : '';
 
   await tx.historialOrden.create({
     data: {
       ordenId: nuevaOrden.id,
       tipoAccion,
-      descripcion,
+      descripcion: descripcion + descripcionDescuento,
       datosDespues: {
         tipoOrden,
         items: nuevaOrden.items.map((item) => ({
@@ -415,6 +451,8 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
           nivelPicante: item.nivelPicante,
         })),
         subtotalProductos: Number(subtotalProductos),
+        descuento,
+        descuentoSolicitado: descuentoSolicitado ? { ...descuentoSolicitado } : null,
         recargo: Number(recargo),
         costoEnvio: Number(costoEnvio),
         metodoPagoPrevisto,

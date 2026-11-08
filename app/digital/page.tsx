@@ -28,6 +28,7 @@ interface Orden {
   deliverySolicitadoAt: string | null;
   recargo: number | null;
   costoEnvio: number | null;
+  descuento?: number | string | null;
   mesero: string;
   estado: string;
   total: number;
@@ -339,6 +340,12 @@ function DigitalContenido() {
 
                       {/* Desglose de precios */}
                       <div className="border-t pt-3 mb-4 space-y-1">
+                        {Number(orden.descuento ?? 0) > 0 && (
+                          <div className="flex justify-between text-xs text-amber-700">
+                            <span>Descuento:</span>
+                            <span>-${Number(orden.descuento).toFixed(2)}</span>
+                          </div>
+                        )}
                         {orden.recargo !== null &&
                           Number(orden.recargo) > 0 && (
                             <div className="flex justify-between text-xs text-gray-500">

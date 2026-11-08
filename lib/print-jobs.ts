@@ -78,6 +78,7 @@ export interface PrintOrderSource {
   observaciones?: string | null;
   recargo?: NumericValue | null;
   costoEnvio?: NumericValue | null;
+  descuento?: NumericValue | null;
   metodoPagoPrevisto?: string | null;
   cobrada?: boolean;
   cobroUrl?: string | null;
@@ -122,6 +123,8 @@ export interface PrintOrderSnapshot {
   observations: string | null;
   surcharge: number;
   deliveryCost: number;
+  /** Dólares descontados de los productos, ya restados en `total`. */
+  discount: number;
   /**
    * Modalidad acordada al crear la orden. Solo se llena en domicilio; en el resto
    * queda null y el ticket se imprime igual que antes de esta funcionalidad.
@@ -362,6 +365,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
     observations: normalizeOptionalText(order.observaciones),
     surcharge: toNumber(order.recargo),
     deliveryCost: toNumber(order.costoEnvio),
+    discount: toNumber(order.descuento),
     paymentMethod: normalizePaymentMethod(order.tipoOrden, order.metodoPagoPrevisto),
     paymentUrl,
     total: toNumber(order.total),

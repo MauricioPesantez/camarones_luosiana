@@ -1,7 +1,13 @@
 import { createHash } from 'node:crypto';
 
 import { normalizarUbicacionUrl } from './delivery-location';
-import { NIVELES_PICANTE, NivelPicante, esCategoriaCombo } from '../types/orden';
+import {
+  DescuentoSolicitado,
+  NIVELES_PICANTE,
+  NivelPicante,
+  esCategoriaCombo,
+  esDescuentoSolicitado,
+} from '../types/orden';
 
 const MAX_TEXTO = 4000;
 const MAX_ITEMS = 30;
@@ -34,6 +40,8 @@ export interface PedidoWhatsapp {
   solicitarAprobacion: boolean;
   nuevoPedido: boolean;
   observaciones: string | null;
+  /** `Descuento $2` o `Descuento 10%`; el servidor valida contra el subtotal. */
+  descuento: DescuentoSolicitado | null;
   items: ItemPedido[];
 }
 
@@ -68,6 +76,24 @@ const MONTO = '\\$?(\\d+(?:[.,]\\d{1,2})?)';
 const PAGO = new RegExp(`^(efectivo|trans|transferencia)(?: confirmada)?(?: ?${MONTO})?$`);
 const ENVIO = new RegExp(`^envio:? ?${MONTO}$`);
 const MOTO = /^moto (\d+)(?: min(?:utos)?)?$/;
+const PALABRA_DESCUENTO = '(?:descuento|desc|dscto|dcto)\\.?';
+const NUMERO = '(\\d+(?:[.,]\\d{1,2})?)';
+// `$2`, `2$`, `2 dolares`, `10%`, `10 por ciento`: sin unidad no se adivina si son dólares o porcentaje.
+const VALOR_DESCUENTO = `(?:\\$ ?${NUMERO}|${NUMERO} ?(%|\\$|dolar(?:es)?|usd|por ?ciento))`;
+const DESCUENTO = new RegExp(
+  `^(?:${PALABRA_DESCUENTO}:? ?(?:de )?${VALOR_DESCUENTO}|${VALOR_DESCUENTO} (?:de )?${PALABRA_DESCUENTO})$`,
+);
+
+/** Línea de descuento ya normalizada → descuento, o `null` si es otra cosa. Inválido → `'invalido'`. */
+function leerDescuento(normal: string): DescuentoSolicitado | 'invalido' | null {
+  const encontrado = normal.match(DESCUENTO);
+  if (!encontrado) return new RegExp(`^${PALABRA_DESCUENTO}\\b`).test(normal) ? 'invalido' : null;
+  const [, dolarAntes, numero, unidad, dolarDespues, numeroDespues, unidadDespues] = encontrado;
+  const valor = Number((dolarAntes ?? numero ?? dolarDespues ?? numeroDespues).replace(',', '.'));
+  const porcentaje = /%|ciento/.test(unidad ?? unidadDespues ?? '');
+  const descuento = { tipo: porcentaje ? 'porcentaje' : 'monto', valor } as const;
+  return esDescuentoSolicitado(descuento) ? descuento : 'invalido';
+}
 
 /** Separa del final de la línea las palabras que cumplan `coincide`. */
 function quitarCola<T>(
@@ -132,6 +158,7 @@ export function interpretarPedido(texto: string): ResultadoPedido {
   let esperaMotoMin: number | null = null;
   let solicitarAprobacion = false;
   let nuevoPedido = false;
+  let descuento: DescuentoSolicitado | null = null;
   const notas: string[] = [];
   const items: ItemPedido[] = [];
   const nivelesSueltos: NivelPicante[] = [];
@@ -224,6 +251,22 @@ export function interpretarPedido(texto: string): ResultadoPedido {
     }
 
     const normalPrincipal = normalizar(principal);
+    const descuentoLinea = leerDescuento(normalPrincipal);
+    if (descuentoLinea === 'invalido') {
+      errores.push(`Descuento no válido: "${principal}". Escribe Descuento $2 o Descuento 10%`);
+      ultimoEsProducto = false;
+      continue;
+    }
+    if (descuentoLinea) {
+      // Dinero escrito dos veces con valores distintos no se resuelve eligiendo uno.
+      if (descuento && JSON.stringify(descuento) !== JSON.stringify(descuentoLinea)) {
+        errores.push('Descuento repetido con valores distintos');
+      }
+      descuento = descuentoLinea;
+      ultimoEsProducto = false;
+      continue;
+    }
+
     const envioLinea = normalPrincipal.match(ENVIO);
     if (envioLinea) {
       anotarEnvio(envioLinea[1]);
@@ -319,6 +362,7 @@ export function interpretarPedido(texto: string): ResultadoPedido {
       solicitarAprobacion,
       nuevoPedido,
       observaciones,
+      descuento,
       items: expandidos,
     },
   };
@@ -504,6 +548,8 @@ export function hashPedido(pedido: PedidoWhatsapp): string {
     pedido.nuevoPedido,
     normalizar(pedido.observaciones ?? ''),
     items,
+    // Solo si hay: los pedidos sin descuento conservan el hash que ya tenían.
+    ...(pedido.descuento ? [pedido.descuento] : []),
   ]);
   return createHash('sha256').update(contenido, 'utf8').digest('hex');
 }

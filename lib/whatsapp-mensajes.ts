@@ -20,6 +20,8 @@ export interface OrdenPublicable {
   referenciaEntrega: string | null;
   observaciones: string | null;
   total: unknown;
+  /** Dólares descontados de los productos; ya restados en `total`. */
+  descuento?: unknown;
   costoEnvio: unknown;
   montoPagado: unknown;
   metodoPagoPrevisto: string | null;
@@ -49,7 +51,10 @@ function fecha({ fechaNumeroDiario }: Encabezado): string {
 
 const dinero = (valor: unknown) => `$${Number(valor).toFixed(2)}`;
 
-const lineaUbicacion = (orden: Pick<OrdenPublicable, 'ubicacionUrl'>) => `Ubicación: ${orden.ubicacionUrl ?? 'pendiente'}`;
+const lineasDescuento = (orden: Pick<OrdenPublicable, 'descuento'>) =>
+  Number(orden.descuento ?? 0) > 0 ? [`Descuento: -${dinero(orden.descuento)}`] : [];
+
+const lineaUbicacion =(orden: Pick<OrdenPublicable, 'ubicacionUrl'>) => `Ubicación: ${orden.ubicacionUrl ?? 'pendiente'}`;
 
 function lineaConfirmacionUbicacion(orden: OrdenPublicable): string {
   return orden.ubicacionUrl
@@ -80,6 +85,7 @@ export function textoPublicacion(orden: OrdenPublicable): string {
     `ORDEN ${numero(orden)} · ${fecha(orden)}`,
     cliente,
     ...(orden.items ?? []).map(lineaItem),
+    ...lineasDescuento(orden),
     `Total: ${dinero(orden.total)}`,
     `Pago: ${lineaPago(orden)}`,
     ...(domicilio ? [lineaUbicacion(orden)] : []),
@@ -109,6 +115,7 @@ export function textoConfirmacion(
     ...(orden.nombreCliente ? [`Cliente: ${orden.nombreCliente}`] : []),
     ...(domicilio ? [lineaConfirmacionUbicacion(orden)] : []),
     `Pago: ${pago}`,
+    ...lineasDescuento(orden),
     `Total: ${dinero(orden.total)}`,
     'Publicación al grupo: pendiente',
     `Impresión: ${impresionEnCola ? 'en cola' : 'no está en cola; revisa el POS'}`,
@@ -220,6 +227,7 @@ export function textoActualizacionItems(orden: OrdenPublicable): string {
     `ACTUALIZACIÓN orden ${numero(orden)} · ${fecha(orden)}`,
     'Productos ahora:',
     ...(orden.items ?? []).map(lineaItem),
+    ...lineasDescuento(orden),
     `Total: ${dinero(orden.total)}`,
     `Pago: ${lineaPago(orden)}`,
   ].join('\n');

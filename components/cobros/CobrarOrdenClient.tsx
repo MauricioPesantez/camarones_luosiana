@@ -31,6 +31,7 @@ interface CobroOrder {
   printRevision: number;
   recargo: number;
   costoEnvio: number;
+  descuento: number;
   total: number;
   montoPagado: number;
   metodoPagoPrevisto: string | null;
@@ -328,6 +329,7 @@ export default function CobrarOrdenClient({
 
           <div className="mt-4 space-y-2 border-t pt-4 text-sm">
             <div className="flex justify-between"><span>Productos</span><span>${subtotalProductos.toFixed(2)}</span></div>
+            {orden.descuento > 0 && <div className="flex justify-between text-amber-700"><span>Descuento</span><span>-${orden.descuento.toFixed(2)}</span></div>}
             {orden.recargo > 0 && <div className="flex justify-between"><span>Recipientes</span><span>${orden.recargo.toFixed(2)}</span></div>}
             {orden.costoEnvio > 0 && <div className="flex justify-between"><span>Envío del motorizado</span><span>${orden.costoEnvio.toFixed(2)}</span></div>}
             <div className={`flex justify-between border-t pt-2 ${esDomicilio ? "font-semibold" : "text-2xl font-bold"}`}>
