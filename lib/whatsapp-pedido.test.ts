@@ -80,6 +80,16 @@ for (const tel of ['099 000 0000', '099.000.0000', '+593 099 000 0000', '\u202a+
   assert.equal(pedidoDe(`Domicilio\n${tel}\ncombo simple natural\nefectivo $2`).telefono, '+593990000000', tel);
 }
 
+// Caracteres invisibles o saltos de línea raros no rompen el tipo de pedido.
+for (const [nombre, texto] of [
+  ['espacio de ancho cero', `Domiclio\u200b\n${TEL}\ncombo simple natural\nefectivo $2`],
+  ['guion suave', `Domi\u00adclio\n${TEL}\ncombo simple natural\nefectivo $2`],
+  ['separador de línea', `Domiclio\u2028${TEL}\u2028combo simple natural\u2028efectivo $2`],
+  ['solo \\r', `Domiclio\r${TEL}\rcombo simple natural\refectivo $2`],
+]) {
+  assert.equal(pedidoDe(texto).tipoOrden, 'domicilio', nombre);
+}
+
 // Todo en una línea.
 const unaLinea = pedidoDe(`Para retirar Cliente\n${TEL}\ncombo simple natural efectivo`);
 assert.equal(unaLinea.tipoOrden, 'para_llevar');

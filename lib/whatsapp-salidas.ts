@@ -197,14 +197,27 @@ export async function registrarUbicacionWhatsapp(
   await registrarCambioWhatsapp(tx, orden.id, `ubicacion:${historialId}`, textoActualizacionUbicacion(orden));
 }
 
-export type ResultadoPedirMoto = 'encolada' | 'en_curso' | 'ya_enviada' | 'sin_configuracion';
+export type ResultadoProgramarMoto = 'encolada' | 'en_curso' | 'ya_enviada' | 'sin_configuracion';
 
-/** Pedido manual de moto: adelanta (o crea) el aviso a Motos; al enviarse, el agente marca la orden. */
-export async function pedirMotoAhora(
+export type AvisoMoto = { estado: string; disponibleAt: Date } | null;
+
+/** Estado del aviso a Motos de una orden; null si nunca se programó. */
+export function leerAvisoMoto(db: Pick<Prisma.TransactionClient, 'whatsappSalida'>, ordenId: string): Promise<AvisoMoto> {
+  return db.whatsappSalida.findUnique({
+    where: { clave: `recordatorio:${ordenId}` },
+    select: { estado: true, disponibleAt: true },
+  });
+}
+
+/**
+ * Pide la moto a una hora (ahora o más tarde): mueve o crea el aviso a Motos.
+ * Uno ya enviado o en envío no se toca; al enviarse, el agente marca la orden.
+ */
+export async function programarAvisoMoto(
   tx: Prisma.TransactionClient,
   orden: PedidoMoto & { id: string },
-  ahora = new Date(),
-): Promise<ResultadoPedirMoto> {
+  disponibleAt: Date,
+): Promise<ResultadoProgramarMoto> {
   const config = leerConfiguracion(process.env);
   if (!config) return 'sin_configuracion';
 
@@ -213,8 +226,8 @@ export async function pedirMotoAhora(
     sessionId: config.sessionId,
     destino: config.motosChatId,
     texto: textoRecordatorio(orden),
-    disponibleAt: ahora,
-    venceAt: new Date(ahora.getTime() + LIMITE_RECORDATORIO_MS),
+    disponibleAt,
+    venceAt: new Date(disponibleAt.getTime() + LIMITE_RECORDATORIO_MS),
   };
   const actual = await tx.whatsappSalida.findUnique({ where: { clave }, select: { estado: true, intentos: true } });
   if (!actual) {
@@ -224,10 +237,10 @@ export async function pedirMotoAhora(
   if (actual.estado === 'ENVIADA') return 'ya_enviada';
   if (actual.estado === 'PROCESANDO') return 'en_curso';
   if (SIN_SALIR.includes(actual.estado)) {
-    // Uno ya intentado conserva su texto (pudo llegar); solo se adelanta.
+    // Uno ya intentado conserva su texto (pudo llegar); solo cambia la hora.
     await tx.whatsappSalida.update({
       where: { clave },
-      data: actual.intentos === 0 ? fresca : { disponibleAt: ahora, venceAt: fresca.venceAt },
+      data: actual.intentos === 0 ? fresca : { disponibleAt, venceAt: fresca.venceAt },
     });
     return 'encolada';
   }

@@ -143,6 +143,14 @@ async function run() {
   orden = null;
   assert.equal((await pedir(delivery, { accion: 'solicitar' })).status, 404);
 
+  // Programar la moto: la hora se valida antes de tocar la orden.
+  reiniciar();
+  const enMin = (min: number) => new Date(Date.now() + min * 60 * 1000).toISOString();
+  for (const hora of [undefined, 'no-es-hora', enMin(-5), enMin(13 * 60)]) {
+    assert.equal((await pedir(delivery, { accion: 'programar', hora })).status, 400, String(hora));
+  }
+  assert.equal(historial.length, 0);
+
   // Delivery: orden elegible, independiente del pago.
   for (const cambios of [
     { tipoOrden: 'local' }, { anulada: true }, { tipoOperacion: 'CONSUMO_EMPLEADO' },

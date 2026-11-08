@@ -105,10 +105,11 @@ export function interpretarPedido(texto: string): ResultadoPedido {
   }
 
   const errores: string[] = [];
-  // WhatsApp envuelve números copiados en marcas invisibles de dirección (U+202A…U+202C, U+200E).
+  // Teclados y copias de WhatsApp meten caracteres invisibles (marcas de dirección, espacio
+  // de ancho cero, guion suave) y saltos \r o U+2028. Se conserva U+200D: une emojis.
   const lineas = texto
-    .split(/\r?\n/)
-    .map((linea) => linea.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').trim())
+    .split(/\r\n|[\r\n\u2028\u2029]/)
+    .map((linea) => linea.replace(/(?!\u200d)\p{Cf}/gu, '').trim())
     .filter(Boolean);
   const tipo = leerTipo(lineas[0] ?? '', errores);
   if (!tipo) return { ok: false, errores };
