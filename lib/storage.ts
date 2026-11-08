@@ -32,7 +32,16 @@ function getCliente(): S3Client {
         accessKeyId: ACCESS_KEY_ID!,
         secretAccessKey: SECRET_ACCESS_KEY!,
       },
-      ...(ENDPOINT ? { endpoint: ENDPOINT } : {}),
+      // Desde @aws-sdk 3.729 el SDK manda checksums CRC32 en cada subida y B2
+      // los rechaza ("Unsupported header 'x-amz-checksum-crc32'"). Fuera de AWS
+      // solo se envian cuando la operacion los exige.
+      ...(ENDPOINT
+        ? {
+            endpoint: ENDPOINT,
+            requestChecksumCalculation: 'WHEN_REQUIRED' as const,
+            responseChecksumValidation: 'WHEN_REQUIRED' as const,
+          }
+        : {}),
       ...(FORCE_PATH_STYLE ? { forcePathStyle: true } : {}),
     });
   }

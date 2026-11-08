@@ -76,8 +76,9 @@ function quitarCola<T>(
 }
 
 function leerTelefono(valor: string): string | null {
-  const limpio = valor.replace(/[\s()-]/g, '');
-  const digitos = limpio.match(/^\+?593(\d{8,9})$/)?.[1] ?? limpio.match(/^0(\d{8,9})$/)?.[1];
+  const limpio = valor.replace(/[\s().-]/g, '');
+  // "+593 099..." es frecuente: el 0 nacional sobra tras el código de país.
+  const digitos = limpio.match(/^\+?5930?(\d{8,9})$/)?.[1] ?? limpio.match(/^0(\d{8,9})$/)?.[1];
   return digitos ? `+593${digitos}` : null;
 }
 
@@ -104,7 +105,11 @@ export function interpretarPedido(texto: string): ResultadoPedido {
   }
 
   const errores: string[] = [];
-  const lineas = texto.split(/\r?\n/).map((linea) => linea.trim()).filter(Boolean);
+  // WhatsApp envuelve números copiados en marcas invisibles de dirección (U+202A…U+202C, U+200E).
+  const lineas = texto
+    .split(/\r?\n/)
+    .map((linea) => linea.replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '').trim())
+    .filter(Boolean);
   const tipo = leerTipo(lineas[0] ?? '', errores);
   if (!tipo) return { ok: false, errores };
 
@@ -158,7 +163,7 @@ export function interpretarPedido(texto: string): ResultadoPedido {
     if (indice === 0) continue;
     const normal = normalizar(linea);
 
-    if (/^\+?[\d\s()-]{7,}$/.test(linea)) {
+    if (/^\+?[\d\s().-]{7,}$/.test(linea)) {
       telefonoEscrito = true;
       telefono = leerTelefono(linea);
       ultimoEsProducto = false;

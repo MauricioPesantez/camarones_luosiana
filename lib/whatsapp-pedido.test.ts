@@ -75,6 +75,11 @@ assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo simple\nporción extra de arro
 assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo simple\npicante leve\nefectivo $2`), ['1 Combo Simple leve']);
 assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo mixto dúo\npicante 2\nefectivo $2`), ['1 Combo Mixto Duo picante_2']);
 
+// Teléfono con espacios, puntos, 0 tras +593 o copiado de WhatsApp (marcas invisibles).
+for (const tel of ['099 000 0000', '099.000.0000', '+593 099 000 0000', '\u202a+593 99 000 0000\u202c', '\u200e0990000000']) {
+  assert.equal(pedidoDe(`Domicilio\n${tel}\ncombo simple natural\nefectivo $2`).telefono, '+593990000000', tel);
+}
+
 // Todo en una línea.
 const unaLinea = pedidoDe(`Para retirar Cliente\n${TEL}\ncombo simple natural efectivo`);
 assert.equal(unaLinea.tipoOrden, 'para_llevar');
