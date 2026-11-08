@@ -21,7 +21,8 @@ interface ItemCarrito {
   cantidad: number;
   precioUnitario: number;
   observaciones?: string;
-  nivelPicante?: NivelPicante | "";
+  /** Combos: una salsa por unidad, siempre con largo `cantidad`. */
+  nivelesPicante?: (NivelPicante | "")[];
 }
 
 import { useAuth } from "@/lib/auth";
@@ -196,7 +197,11 @@ export default function CrearOrden() {
       setCarrito(
         carrito.map((item) =>
           item.productoId === producto.id
-            ? { ...item, cantidad: item.cantidad + 1 }
+            ? {
+                ...item,
+                cantidad: item.cantidad + 1,
+                nivelesPicante: item.nivelesPicante && [...item.nivelesPicante, ""],
+              }
             : item,
         ),
       );
@@ -212,7 +217,7 @@ export default function CrearOrden() {
             typeof producto.precio === "string"
               ? parseFloat(producto.precio)
               : producto.precio,
-          nivelPicante: esCategoriaCombo(producto.categoria) ? "" : undefined,
+          nivelesPicante: esCategoriaCombo(producto.categoria) ? [""] : undefined,
         },
       ]);
     }
@@ -239,7 +244,18 @@ export default function CrearOrden() {
     } else {
       setCarrito(
         carrito.map((item) =>
-          item.productoId === productoId ? { ...item, cantidad } : item,
+          item.productoId === productoId
+            ? {
+                ...item,
+                cantidad,
+                nivelesPicante:
+                  item.nivelesPicante &&
+                  Array.from(
+                    { length: cantidad },
+                    (_, i) => item.nivelesPicante![i] ?? "",
+                  ),
+              }
+            : item,
         ),
       );
     }
@@ -263,14 +279,36 @@ export default function CrearOrden() {
 
   const actualizarNivelPicante = (
     productoId: string,
+    unidad: number,
     nivelPicante: NivelPicante | "",
   ) => {
     setCarrito((actual) =>
       actual.map((item) =>
-        item.productoId === productoId ? { ...item, nivelPicante } : item,
+        item.productoId === productoId && item.nivelesPicante
+          ? {
+              ...item,
+              nivelesPicante: item.nivelesPicante.map((nivel, i) =>
+                i === unidad ? nivelPicante : nivel,
+              ),
+            }
+          : item,
       ),
     );
   };
+
+  // El backend acepta varias líneas del mismo producto: una por salsa.
+  const itemsParaEnviar = () =>
+    carrito.flatMap(({ nivelesPicante, ...item }) => {
+      if (!nivelesPicante) return [item];
+      const porNivel = new Map<string, number>();
+      for (const nivel of nivelesPicante)
+        porNivel.set(nivel, (porNivel.get(nivel) ?? 0) + 1);
+      return [...porNivel].map(([nivelPicante, cantidad]) => ({
+        ...item,
+        cantidad,
+        nivelPicante,
+      }));
+    });
 
   const calcularCostoEnvio = () =>
     tipoOrden === "domicilio" ? parseFloat(costoEnvio) || 0 : 0;
@@ -308,14 +346,13 @@ export default function CrearOrden() {
     const falta = (campo: string, mensaje: string) => ({ campo, mensaje });
     if (carrito.length === 0)
       return falta("panel-productos", "Agrega al menos un producto al carrito");
-    const comboSinPicante = carrito.find(
-      (item) => esCategoriaCombo(item.categoria) && !item.nivelPicante,
-    );
-    if (comboSinPicante) {
-      return falta(
-        `picante-${comboSinPicante.productoId}`,
-        `Selecciona el nivel de picante para ${comboSinPicante.nombre}`,
-      );
+    for (const item of carrito) {
+      const unidad = item.nivelesPicante?.indexOf("") ?? -1;
+      if (unidad >= 0)
+        return falta(
+          `picante-${item.productoId}-${unidad}`,
+          `Selecciona el nivel de picante para ${item.nombre}${item.cantidad > 1 ? ` #${unidad + 1}` : ""}`,
+        );
     }
     if (tipoOrden === "local" && !numeroMesa)
       return falta("numero-mesa", "Ingresa el número de mesa");
@@ -393,7 +430,7 @@ export default function CrearOrden() {
           mesero: usuario?.nombre || "Desconocido",
           creadorId: usuario?.id,
           observaciones,
-          items: carrito,
+          items: itemsParaEnviar(),
           solicitarAprobacion: solicitarAprobacion,
         }),
       });
@@ -880,41 +917,45 @@ export default function CrearOrden() {
                         +
                       </button>
                     </div>
-                    {esCategoriaCombo(item.categoria) && (
-                      <div className="mt-3">
-                        <label
-                          htmlFor={`picante-${item.productoId}`}
-                          className="block text-xs font-semibold mb-1 text-gray-700"
-                        >
-                          Nivel de picante <span className="text-red-600">*</span>
-                        </label>
-                        <select
-                          id={`picante-${item.productoId}`}
-                          value={item.nivelPicante ?? ""}
-                          onChange={(event) =>
-                            actualizarNivelPicante(
-                              item.productoId,
-                              event.target.value as NivelPicante | "",
-                            )
-                          }
-                          aria-invalid={
-                            errorActual?.campo === `picante-${item.productoId}`
-                          }
-                          className={`w-full border rounded-lg px-3 py-2 text-black bg-white${claseError(`picante-${item.productoId}`)}`}
-                          required
-                        >
-                          <option value="" disabled>
-                            Selecciona una opción
-                          </option>
-                          {NIVELES_PICANTE.map((nivel) => (
-                            <option key={nivel.value} value={nivel.value}>
-                              {nivel.label}
+                    {item.nivelesPicante?.map((nivel, unidad) => {
+                      const id = `picante-${item.productoId}-${unidad}`;
+                      return (
+                        <div key={unidad} className="mt-3">
+                          <label
+                            htmlFor={id}
+                            className="block text-xs font-semibold mb-1 text-gray-700"
+                          >
+                            Nivel de picante
+                            {item.cantidad > 1 ? ` · combo ${unidad + 1}` : ""}{" "}
+                            <span className="text-red-600">*</span>
+                          </label>
+                          <select
+                            id={id}
+                            value={nivel}
+                            onChange={(event) =>
+                              actualizarNivelPicante(
+                                item.productoId,
+                                unidad,
+                                event.target.value as NivelPicante | "",
+                              )
+                            }
+                            aria-invalid={errorActual?.campo === id}
+                            className={`w-full border rounded-lg px-3 py-2 text-black bg-white${claseError(id)}`}
+                            required
+                          >
+                            <option value="" disabled>
+                              Selecciona una opción
                             </option>
-                          ))}
-                        </select>
-                        {mensajeError(`picante-${item.productoId}`)}
-                      </div>
-                    )}
+                            {NIVELES_PICANTE.map((opcion) => (
+                              <option key={opcion.value} value={opcion.value}>
+                                {opcion.label}
+                              </option>
+                            ))}
+                          </select>
+                          {mensajeError(id)}
+                        </div>
+                      );
+                    })}
                   </div>
                 ))
               )}

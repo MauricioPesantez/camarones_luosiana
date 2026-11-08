@@ -122,6 +122,14 @@ assert.deepEqual(resumen(`Domiclio\n${TEL}\n2 combo mixto small\npicante 1\nefec
 assert.deepEqual(resumen(`Domiclio\n${TEL}\ncombo simple natural\ncombo simple natural\ncombo simple picante 1\nefectivo $2`),
   ['1 Combo Simple natural', '1 Combo Simple natural', '1 Combo Simple picante_1']);
 assert.deepEqual(resumen(`Domiclio\n${TEL}\n3 Combo Simples natural\nefectivo $2`), ['3 Combo Simple natural']);
+// Una salsa por combo en la misma línea o en una lista con comas.
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n2 combo simple natural y picante 1\nefectivo $2`),
+  ['1 Combo Simple natural', '1 Combo Simple picante_1']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n2 combo mixto small / natural / picante 2\nefectivo $2`),
+  ['1 Combo Mixto Small natural', '1 Combo Mixto Small picante_2']);
+assert.deepEqual(resumen(`Domiclio\n${TEL}\n3 combo duo\nnatural, leve y picante 1\nefectivo $2`),
+  ['1 Combo Duo natural', '1 Combo Duo leve', '1 Combo Duo picante_1']);
+assert.match(erroresDe(`Domiclio\n${TEL}\n3 combo simple natural y leve\nefectivo $2`), /2 picantes para 3 combo/);
 
 // Camarón y langostinos son productos distintos; el camarón exige tamaño.
 assert.deepEqual(resumen(`Domiclio\n${TEL}\n1/2 camarones extra\n1 lb de camarón extra\nefectivo $2`),

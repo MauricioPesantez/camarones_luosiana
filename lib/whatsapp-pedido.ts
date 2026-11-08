@@ -56,6 +56,13 @@ const NIVEL_POR_TEXTO = new Map<string, NivelPicante>([
   ['salsa natural', 'natural'],
 ]);
 
+/** `natural`, `natural y picante 1`, `natural, leve / picante 1`: todas las partes deben ser picantes. */
+function leerNiveles(texto: string): NivelPicante[] | null {
+  const partes = normalizar(texto).split(/\s*(?:[,/]|\by\b)\s*/).filter(Boolean);
+  const niveles = partes.map((parte) => NIVEL_POR_TEXTO.get(parte));
+  return niveles.length > 0 && niveles.every(Boolean) ? (niveles as NivelPicante[]) : null;
+}
+
 const MONTO = '\\$?(\\d+(?:[.,]\\d{1,2})?)';
 // El espacio antes del monto es opcional: `Envio$2` y `efectivo$2` se escriben así.
 const PAGO = new RegExp(`^(efectivo|trans|transferencia)(?: confirmada)?(?: ?${MONTO})?$`);
@@ -150,14 +157,27 @@ export function interpretarPedido(texto: string): ResultadoPedido {
       items.push({ texto: linea, cantidad: null, nivelPicante: null, observaciones: nota });
       return;
     }
-    const sinBarra = combo[2].replace(/\s*\/\s*/g, ' ');
-    const nivel = quitarCola(sinBarra, (cola) => NIVEL_POR_TEXTO.get(cola));
-    items.push({
-      texto: nivel?.resto ?? sinBarra,
-      cantidad: Number(combo[1] ?? 1),
-      nivelPicante: nivel?.valor ?? null,
-      observaciones: nota,
-    });
+    const cantidad = Number(combo[1] ?? 1);
+    // La cola más larga que sea solo picantes: `2 combo simple natural y picante 1`.
+    const palabras = combo[2].replace(/\s*([,/])\s*/g, ' $1 ').split(/\s+/);
+    let resto = palabras.join(' ');
+    let niveles: NivelPicante[] = [];
+    for (let largo = palabras.length - 1; largo >= 1; largo--) {
+      const leidos = leerNiveles(palabras.slice(-largo).join(' '));
+      if (leidos) {
+        resto = palabras.slice(0, -largo).join(' ');
+        niveles = leidos;
+        break;
+      }
+    }
+    resto = resto.replace(/[\s,/]+$/, '').replace(/\s+\/\s+/g, ' ');
+    if (niveles.length <= 1) {
+      items.push({ texto: resto, cantidad, nivelPicante: niveles[0] ?? null, observaciones: nota });
+    } else if (niveles.length === cantidad) {
+      for (const nivelPicante of niveles) items.push({ texto: resto, cantidad: 1, nivelPicante, observaciones: nota });
+    } else {
+      errores.push(`${linea}: ${niveles.length} picantes para ${cantidad} combo(s); escribe uno por combo`);
+    }
   };
 
   for (const [indice, linea] of lineas.entries()) {
@@ -225,14 +245,9 @@ export function interpretarPedido(texto: string): ResultadoPedido {
       ultimoEsProducto = false;
       continue;
     }
-    const nivelLinea = NIVEL_POR_TEXTO.get(normalPrincipal);
-    if (nivelLinea) {
-      nivelesSueltos.push(nivelLinea);
-      continue;
-    }
-    const dosNiveles = normalPrincipal.split(' y ').map((parte) => NIVEL_POR_TEXTO.get(parte));
-    if (dosNiveles.length > 1 && dosNiveles.every(Boolean)) {
-      nivelesSueltos.push(...(dosNiveles as NivelPicante[]));
+    const nivelesLinea = leerNiveles(principal);
+    if (nivelesLinea) {
+      nivelesSueltos.push(...nivelesLinea);
       continue;
     }
 
