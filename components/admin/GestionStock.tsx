@@ -16,8 +16,11 @@ export default function GestionStock() {
     setLoading(true);
     try {
       const res = await fetch("/api/productos");
-      const data = await res.json();
-      setProductos(data);
+      const data: ProductoConStock[] = await res.json();
+      // Menos stock primero: lo que hay que reponer queda arriba.
+      setProductos(
+        data.sort((a, b) => a.stock - b.stock || a.nombre.localeCompare(b.nombre)),
+      );
     } catch (error) {
       console.error("Error al cargar productos:", error);
     } finally {

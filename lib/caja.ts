@@ -22,6 +22,19 @@ export const CAJA_SELECT = {
   cerradaPorId: true,
   cerradaPorNombre: true,
   cerradaAt: true,
+  cortes: {
+    select: {
+      id: true,
+      numero: true,
+      fondoInicial: true,
+      montoEsperado: true,
+      montoContado: true,
+      diferencia: true,
+      usuarioNombre: true,
+      createdAt: true,
+    },
+    orderBy: { numero: "asc" },
+  },
 } satisfies Prisma.SesionCajaSelect;
 
 type CajaSeleccionada = Prisma.SesionCajaGetPayload<{
@@ -42,6 +55,14 @@ export function serializarCaja(caja: CajaSeleccionada): SesionCaja {
       caja.diferenciaCierre === null ? null : Number(caja.diferenciaCierre),
     abiertaAt: caja.abiertaAt.toISOString(),
     cerradaAt: caja.cerradaAt?.toISOString() ?? null,
+    cortes: caja.cortes.map((corte) => ({
+      ...corte,
+      fondoInicial: Number(corte.fondoInicial),
+      montoEsperado: Number(corte.montoEsperado),
+      montoContado: Number(corte.montoContado),
+      diferencia: Number(corte.diferencia),
+      createdAt: corte.createdAt.toISOString(),
+    })),
   };
 }
 

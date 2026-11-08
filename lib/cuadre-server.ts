@@ -8,6 +8,7 @@ import { CAJA_SELECT, serializarCaja } from "@/lib/caja";
 import { isConfirmedPaymentInRange } from "@/lib/cuadre-date";
 import { ZONA_HORARIA, obtenerRangoEcuador } from "@/lib/fecha-ecuador";
 import { RETIRO_SELECT, serializarRetiro } from "@/lib/retiros";
+import { calcularResumenCuadre } from "@/types/cuadre";
 
 /**
  * Fuente unica del cuadre diario. La API administrativa y el cierre de caja
@@ -125,4 +126,20 @@ export async function obtenerDatosCuadre(
     retiros: retiros.map(serializarRetiro),
     caja: caja ? serializarCaja(caja) : null,
   };
+}
+
+/** Resumen del dia con los mismos datos que ve el cuadre; lo usan el cierre y el corte de turno. */
+export function resumirDatosCuadre(
+  datos: NonNullable<Awaited<ReturnType<typeof obtenerDatosCuadre>>>,
+) {
+  return calcularResumenCuadre(
+    datos.ordenes.map((orden) => ({
+      ...orden,
+      total: Number(orden.total),
+      costoEnvio: orden.costoEnvio === null ? null : Number(orden.costoEnvio),
+      montoPagado: Number(orden.montoPagado),
+    })),
+    datos.retiros,
+    datos.caja?.montoInicial ?? 0,
+  );
 }

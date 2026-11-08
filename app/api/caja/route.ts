@@ -5,7 +5,7 @@ import {
   validarAperturaCaja,
   validarCierreCaja,
 } from "@/lib/caja-validaciones";
-import { obtenerDatosCuadre } from "@/lib/cuadre-server";
+import { obtenerDatosCuadre, resumirDatosCuadre } from "@/lib/cuadre-server";
 import { prisma } from "@/lib/db";
 import { obtenerFechaEcuador, obtenerRangoEcuador } from "@/lib/fecha-ecuador";
 import { getAuthenticatedUser } from "@/lib/session";
@@ -15,7 +15,6 @@ import {
   ROL_ABRE_CAJA,
   ROL_CIERRA_CAJA,
 } from "@/types/caja";
-import { calcularResumenCuadre } from "@/types/cuadre";
 
 class CierreCajaConflictError extends Error {
   constructor(
@@ -187,17 +186,7 @@ export async function PATCH(request: Request) {
         );
       }
 
-      const resumen = calcularResumenCuadre(
-        datos.ordenes.map((orden) => ({
-          ...orden,
-          total: Number(orden.total),
-          costoEnvio:
-            orden.costoEnvio === null ? null : Number(orden.costoEnvio),
-          montoPagado: Number(orden.montoPagado),
-        })),
-        datos.retiros,
-        caja.montoInicial,
-      );
+      const resumen = resumirDatosCuadre(datos);
       if (resumen.ordenesConSaldoPendiente > 0) {
         throw new CierreCajaConflictError(
           "No se puede cerrar: existen órdenes con pagos parciales y saldo pendiente",

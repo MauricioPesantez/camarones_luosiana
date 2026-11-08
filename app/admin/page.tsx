@@ -149,6 +149,11 @@ export default function AdminPage() {
       setRetiros(data.retiros || []);
       setConsumosEmpleados(data.consumosEmpleados || []);
       setSesionCaja(data.caja ?? null);
+      // El mesero del último turno ya contó: el admin confirma ese conteo o lo corrige.
+      const ultimoCorte = data.caja?.estado === "abierta" ? data.caja.cortes.at(-1) : undefined;
+      if (ultimoCorte) {
+        setMontoCierre((actual) => actual || ultimoCorte.montoContado.toFixed(2));
+      }
     } catch (error) {
       console.error("Error al cargar órdenes:", error);
     } finally {
@@ -886,6 +891,55 @@ export default function AdminPage() {
                   )}
                 </div>
               )}
+            </div>
+          )}
+
+          {sesionCaja && sesionCaja.cortes.length > 0 && (
+            <div className="mt-5 overflow-x-auto">
+              <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-gray-600">
+                Cortes de turno
+              </h3>
+              <table className="w-full min-w-[520px] text-sm">
+                <thead className="text-left text-xs text-gray-500">
+                  <tr>
+                    <th className="py-1">Turno</th>
+                    <th>Mesero</th>
+                    <th>Hora</th>
+                    <th className="text-right">Recibió</th>
+                    <th className="text-right">Esperado</th>
+                    <th className="text-right">Contado</th>
+                    <th className="text-right">Diferencia</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 text-gray-800">
+                  {sesionCaja.cortes.map((corte) => (
+                    <tr key={corte.id}>
+                      <td className="py-2 font-semibold">{corte.numero}</td>
+                      <td>{corte.usuarioNombre}</td>
+                      <td>
+                        {new Date(corte.createdAt).toLocaleTimeString("es-EC", {
+                          timeStyle: "short",
+                        })}
+                      </td>
+                      <td className="text-right">${corte.fondoInicial.toFixed(2)}</td>
+                      <td className="text-right">${corte.montoEsperado.toFixed(2)}</td>
+                      <td className="text-right">${corte.montoContado.toFixed(2)}</td>
+                      <td
+                        className={`text-right font-bold ${
+                          corte.diferencia === 0 ? "text-emerald-700" : "text-red-700"
+                        }`}
+                      >
+                        {corte.diferencia > 0 ? "+" : ""}${corte.diferencia.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-xs text-gray-500">
+                El dinero queda en la caja: cada turno recibe lo contado por el
+                anterior. Una corrección hecha después de un corte (cambio de
+                método de pago, retiro anulado) aparece en el turno siguiente.
+              </p>
             </div>
           )}
         </div>

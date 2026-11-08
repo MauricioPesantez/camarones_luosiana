@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { comprimirImagen } from "@/lib/imagen-cliente";
@@ -85,6 +85,11 @@ export default function CobrarOrdenClient({
     "idle" | "subiendo" | "cobrando" | "fallo"
   >("idle");
   const [modoActivo, setModoActivo] = useState<"transferencia" | "mixto" | null>(null);
+  const seccionModo = useRef<HTMLElement>(null);
+  // En el celular el recuadro aparece fuera de pantalla y el botón parece no hacer nada.
+  useEffect(() => {
+    if (modoActivo) seccionModo.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [modoActivo]);
   const [montoEfectivoMixto, setMontoEfectivoMixto] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -401,7 +406,7 @@ export default function CobrarOrdenClient({
         </section>
 
         {modoActivo && (
-          <section className="rounded-2xl border border-blue-200 bg-white p-5 shadow">
+          <section ref={seccionModo} className="scroll-mt-4 rounded-2xl border border-blue-200 bg-white p-5 shadow">
             <h2 className="text-lg font-bold">
               {modoActivo === "mixto" ? "Cobro mixto" : "Comprobante de transferencia"}
             </h2>

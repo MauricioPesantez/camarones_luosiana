@@ -25,6 +25,20 @@ export interface SesionCaja {
   cerradaPorId: string | null;
   cerradaPorNombre: string | null;
   cerradaAt: string | null;
+  /** Relevos de turno del dia, en orden. */
+  cortes: CorteTurno[];
+}
+
+export interface CorteTurno {
+  id: string;
+  numero: number;
+  /** Lo que recibio el turno: lo contado en el corte anterior o el fondo inicial. */
+  fondoInicial: number;
+  montoEsperado: number;
+  montoContado: number;
+  diferencia: number;
+  usuarioNombre: string;
+  createdAt: string;
 }
 
 export interface AbrirCajaRequest {

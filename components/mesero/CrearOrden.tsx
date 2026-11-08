@@ -67,6 +67,7 @@ export default function CrearOrden() {
   const [tipoDescuento, setTipoDescuento] = useState<TipoDescuento>("monto");
   const [valorDescuento, setValorDescuento] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("Todas");
+  const [busqueda, setBusqueda] = useState("");
   const [loading, setLoading] = useState(false);
   // Se activa al tocar "Enviar" con datos faltantes; desde ahí se marca el campo.
   const [mostrarErrores, setMostrarErrores] = useState(false);
@@ -190,10 +191,15 @@ export default function CrearOrden() {
     ...Array.from(new Set(productos.map((p) => p.categoria))),
   ];
 
-  const productosFiltrados =
-    categoriaActiva === "Todas"
-      ? productos
-      : productos.filter((p) => p.categoria === categoriaActiva);
+  // Sin tildes ni mayúsculas: "camaron" encuentra "Camarón".
+  const sinTildes = (texto: string) =>
+    texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const textoBusqueda = sinTildes(busqueda.trim());
+  const productosFiltrados = productos.filter(
+    (p) =>
+      (categoriaActiva === "Todas" || p.categoria === categoriaActiva) &&
+      sinTildes(p.nombre).includes(textoBusqueda),
+  );
 
   const agregarAlCarrito = (producto: Producto) => {
     const itemExistente = carrito.find(
@@ -778,6 +784,15 @@ export default function CrearOrden() {
               </div>
             )}
 
+            <input
+              type="search"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="🔍 Buscar producto..."
+              aria-label="Buscar producto"
+              className="w-full mb-3 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+
             {/* Filtros de categoría */}
             <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
               {categorias.map((cat) => (
@@ -799,9 +814,14 @@ export default function CrearOrden() {
             {categoriaActiva === "Todas" ? (
               // Vista agrupada por categoría
               <div className="space-y-6">
-                {Array.from(new Set(productos.map((p) => p.categoria))).map(
+                {productosFiltrados.length === 0 && textoBusqueda && (
+                  <p className="text-center text-gray-500 py-8">
+                    Sin productos para &quot;{busqueda}&quot;
+                  </p>
+                )}
+                {Array.from(new Set(productosFiltrados.map((p) => p.categoria))).map(
                   (categoria) => {
-                    const grupoProductos = productos.filter(
+                    const grupoProductos = productosFiltrados.filter(
                       (p) => p.categoria === categoria,
                     );
                     const esCombos = categoria === "Combos";

@@ -18,6 +18,15 @@ export default function InicioCaja({ requerida = false }: { requerida?: boolean 
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [confirmacion, setConfirmacion] = useState("");
+  const [montoContado, setMontoContado] = useState("");
+  const [cortando, setCortando] = useState(false);
+  const [errorCorte, setErrorCorte] = useState("");
+  const [corteHecho, setCorteHecho] = useState<{
+    montoEsperado: number;
+    montoContado: number;
+    diferencia: number;
+    ordenesConSaldoPendiente: number;
+  } | null>(null);
 
   useEffect(() => {
     let vigente = true;
@@ -67,6 +76,42 @@ export default function InicioCaja({ requerida = false }: { requerida?: boolean 
       setGuardando(false);
     }
   };
+
+  const hacerCorte = async (evento: React.FormEvent) => {
+    evento.preventDefault();
+    if (!caja) return;
+    setErrorCorte("");
+    setCorteHecho(null);
+    setCortando(true);
+    try {
+      const res = await fetch("/api/caja/corte", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          numero: caja.cortes.length + 1,
+          montoContado: Number(montoContado),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al hacer el corte");
+      setCorteHecho({
+        ...data.corte,
+        ordenesConSaldoPendiente: data.ordenesConSaldoPendiente,
+      });
+      setMontoContado("");
+    } catch (err) {
+      setErrorCorte(err instanceof Error ? err.message : "Error al hacer el corte");
+    } finally {
+      setCortando(false);
+      // Recarga siempre: tras un choque con otro mesero el número de turno cambia.
+      fetch("/api/caja", { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => data && setCaja(data.caja ?? null))
+        .catch(() => {});
+    }
+  };
+
+  const ultimoCorte = caja?.cortes.at(-1);
 
   if (cargando) {
     return <div className="p-8 text-center text-gray-500">Cargando caja...</div>;
@@ -144,6 +189,101 @@ export default function InicioCaja({ requerida = false }: { requerida?: boolean 
                 >
                   Continuar a crear orden
                 </Link>
+              )}
+              {caja.estado === "abierta" && (
+                <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5">
+                  <h3 className="text-xl font-bold text-gray-900">🔁 Corte de turno</h3>
+                  <p className="mt-1 text-sm text-gray-700">
+                    Turno {caja.cortes.length + 1} · recibió{" "}
+                    <strong>
+                      ${(ultimoCorte?.montoContado ?? caja.montoInicial).toFixed(2)}
+                    </strong>{" "}
+                    {ultimoCorte
+                      ? `de ${ultimoCorte.usuarioNombre} · ${formatearFechaHora(ultimoCorte.createdAt)}`
+                      : "de fondo inicial"}
+                  </p>
+                  <p className="mt-2 text-sm text-gray-700">
+                    Al terminar tu turno, cuenta todo el efectivo de la caja y
+                    escríbelo. El dinero se queda en la caja para el siguiente turno.
+                  </p>
+
+                  {corteHecho && (
+                    <div
+                      role="status"
+                      className={`mt-4 rounded-lg border p-4 text-sm ${
+                        corteHecho.diferencia === 0
+                          ? "border-green-300 bg-green-50 text-green-800"
+                          : "border-red-300 bg-red-50 text-red-800"
+                      }`}
+                    >
+                      <p className="text-base font-bold">
+                        {corteHecho.diferencia === 0
+                          ? "✅ Caja cuadrada"
+                          : corteHecho.diferencia > 0
+                            ? `Sobran $${corteHecho.diferencia.toFixed(2)}`
+                            : `Faltan $${Math.abs(corteHecho.diferencia).toFixed(2)}`}
+                      </p>
+                      <p className="mt-1">
+                        Debía haber ${corteHecho.montoEsperado.toFixed(2)} · contaste $
+                        {corteHecho.montoContado.toFixed(2)}
+                      </p>
+                      {corteHecho.ordenesConSaldoPendiente > 0 && (
+                        <p className="mt-2">
+                          Hay {corteHecho.ordenesConSaldoPendiente} orden(es) con saldo
+                          pendiente: su efectivo puede aparecer en el siguiente turno.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {errorCorte && (
+                    <p className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {errorCorte}
+                    </p>
+                  )}
+
+                  <form onSubmit={hacerCorte} className="mt-4 space-y-3">
+                    <label className="block text-sm font-semibold text-gray-800">
+                      Efectivo contado en caja
+                      <div className="mt-2 flex rounded-lg border border-gray-300 bg-white focus-within:border-amber-500 focus-within:ring-2 focus-within:ring-amber-100">
+                        <span className="px-4 py-3 text-xl font-bold text-gray-500">$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="9999.99"
+                          step="0.01"
+                          required
+                          value={montoContado}
+                          onChange={(e) => setMontoContado(e.target.value)}
+                          className="min-w-0 flex-1 rounded-r-lg px-3 py-3 text-xl font-bold text-gray-900 outline-none"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={cortando || montoContado === ""}
+                      className="min-h-12 w-full rounded-lg bg-amber-600 px-5 font-bold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                    >
+                      {cortando ? "Guardando..." : "Hacer corte de turno"}
+                    </button>
+                  </form>
+
+                  {caja.cortes.length > 0 && (
+                    <ul className="mt-5 divide-y divide-amber-200 text-sm text-gray-700">
+                      {caja.cortes.map((corte) => (
+                        <li key={corte.id} className="flex justify-between gap-3 py-2">
+                          <span>
+                            Turno {corte.numero} · {corte.usuarioNombre} ·{" "}
+                            {formatearFechaHora(corte.createdAt)}
+                          </span>
+                          <span className="font-semibold">
+                            ${corte.montoContado.toFixed(2)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )}
             </div>
           ) : (

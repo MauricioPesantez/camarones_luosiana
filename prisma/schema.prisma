@@ -263,6 +263,7 @@ model Usuario {
   retirosAnulados     RetiroCaja[]               @relation("RetirosAnulados")
   cajasAbiertas       SesionCaja[]               @relation("CajasAbiertas")
   cajasCerradas       SesionCaja[]               @relation("CajasCerradas")
+  cortesTurno         CorteTurno[]               @relation("CortesRealizados")
   whatsappEntradas    WhatsappEntrada[]
 }
 
@@ -402,11 +403,42 @@ model SesionCaja {
   cerradaPorNombre    String?
   cerradaAt           DateTime?
 
+  cortes CorteTurno[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([estado])
   @@index([abiertaPorId])
+}
+
+// Relevo de turno sobre la caja compartida del dia. El dinero queda en la caja:
+// el turno siguiente arranca con lo contado aqui. `esperadoDia` es la foto del
+// esperado del dia completo al cortar; el esperado del turno siguiente sale de
+// la diferencia entre fotos, asi un cobro que entra justo al cortar no se
+// pierde ni se cuenta dos veces.
+model CorteTurno {
+  id           String     @id @default(cuid())
+  sesionCajaId String
+  sesionCaja   SesionCaja @relation(fields: [sesionCajaId], references: [id], onDelete: Cascade)
+  numero       Int
+
+  fondoInicial  Decimal @db.Decimal(10, 2)
+  esperadoDia   Decimal @db.Decimal(10, 2)
+  montoEsperado Decimal @db.Decimal(10, 2)
+  montoContado  Decimal @db.Decimal(10, 2)
+  diferencia    Decimal @db.Decimal(10, 2)
+
+  usuarioId     String
+  usuario       Usuario @relation("CortesRealizados", fields: [usuarioId], references: [id])
+  usuarioNombre String
+  usuarioRol    String
+
+  createdAt DateTime @default(now())
+
+  // Dos meseros cortando a la vez: el segundo choca aqui en vez de duplicar el turno.
+  @@unique([sesionCajaId, numero])
+  @@index([usuarioId])
 }
 
 model HistorialOrden {
