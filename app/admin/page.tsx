@@ -135,6 +135,7 @@ export default function AdminPage() {
   const [ordenAAnular, setOrdenAAnular] = useState<Orden | null>(null);
   const [razonAnulacionOrden, setRazonAnulacionOrden] = useState("");
   const [loadingAnularOrden, setLoadingAnularOrden] = useState(false);
+  const [reimprimiendoId, setReimprimiendoId] = useState<string | null>(null);
 
   const cargarOrdenes = async () => {
     setLoading(true);
@@ -341,6 +342,20 @@ export default function AdminPage() {
       alert(error instanceof Error ? error.message : "Error al anular la orden");
     } finally {
       setLoadingAnularOrden(false);
+    }
+  };
+
+  const reimprimirOrden = async (ordenId: string) => {
+    setReimprimiendoId(ordenId);
+    try {
+      const res = await fetch(`/api/ordenes/${ordenId}/reimprimir`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al reimprimir");
+      alert(data.impresionEnCola ? "Ticket enviado a la cola de impresión" : "Ticket enviado a la impresora");
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Error al reimprimir");
+    } finally {
+      setReimprimiendoId(null);
     }
   };
 
@@ -1596,15 +1611,24 @@ export default function AdminPage() {
                               </span>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => {
-                                setOrdenAAnular(orden);
-                                setRazonAnulacionOrden("");
-                              }}
-                              className="bg-red-100 text-red-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-red-200"
-                            >
-                              🚫 Anular
-                            </button>
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => {
+                                  setOrdenAAnular(orden);
+                                  setRazonAnulacionOrden("");
+                                }}
+                                className="bg-red-100 text-red-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-red-200"
+                              >
+                                🚫 Anular
+                              </button>
+                              <button
+                                onClick={() => void reimprimirOrden(orden.id)}
+                                disabled={reimprimiendoId === orden.id}
+                                className="bg-gray-100 text-gray-700 px-3 py-1 rounded-lg text-xs font-bold hover:bg-gray-200 disabled:opacity-50"
+                              >
+                                {reimprimiendoId === orden.id ? "Enviando..." : "🖨️ Reimprimir"}
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>

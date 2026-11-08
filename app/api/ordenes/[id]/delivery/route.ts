@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getAuthenticatedUser } from '@/lib/session';
-import { cancelarRecordatorios } from '@/lib/whatsapp-salidas';
+import { cancelarRecordatorios, pedirMotoAhora } from '@/lib/whatsapp-salidas';
 
 const ESTADOS_SIN_PREPARACION = new Set(['cancelada', 'pendiente_aprobacion_stock']);
 
-/** Registra que alguien pidió motorizado fuera del sistema. No lo contrata ni toca el pago. */
+/**
+ * `solicitar`: registra que alguien pidió motorizado fuera del sistema.
+ * `pedir`: el POS manda ya el aviso al grupo Motos; la orden queda marcada cuando sale.
+ */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -17,7 +20,8 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    if (body?.accion !== 'solicitar') {
+    const accion = body?.accion;
+    if (accion !== 'solicitar' && accion !== 'pedir') {
       return NextResponse.json({ error: 'Acción de delivery no válida' }, { status: 400 });
     }
 
@@ -31,6 +35,15 @@ export async function PATCH(
         estado: true,
         creadorId: true,
         deliverySolicitadoAt: true,
+        numeroDiario: true,
+        fechaNumeroDiario: true,
+        nombreCliente: true,
+        telefonoCliente: true,
+        ubicacionUrl: true,
+        referenciaEntrega: true,
+        total: true,
+        costoEnvio: true,
+        montoPagado: true,
       },
     });
     if (!orden) {
@@ -50,6 +63,31 @@ export async function PATCH(
     }
     if (orden.deliverySolicitadoAt) {
       return NextResponse.json({ deliverySolicitadoAt: orden.deliverySolicitadoAt });
+    }
+
+    if (accion === 'pedir') {
+      const resultado = await prisma.$transaction(async (tx) => {
+        // Serializa dos clics simultáneos sobre el mismo aviso.
+        await tx.$queryRaw`SELECT id FROM "Orden" WHERE id = ${id} FOR UPDATE`;
+        const r = await pedirMotoAhora(tx, { ...orden, id });
+        if (r === 'encolada') {
+          await tx.historialOrden.create({
+            data: {
+              ordenId: id,
+              tipoAccion: 'moto_pedida_grupo',
+              descripcion: 'Moto pedida al grupo Motos desde el sistema',
+              usuarioNombre: usuario.nombre,
+              usuarioRol: usuario.rol,
+              diferenciaTotal: 0,
+            },
+          });
+        }
+        return r;
+      });
+      if (resultado === 'sin_configuracion') {
+        return NextResponse.json({ error: 'WhatsApp no está configurado para avisar a Motos' }, { status: 409 });
+      }
+      return NextResponse.json({ pedidoMoto: resultado });
     }
 
     const deliverySolicitadoAt = new Date();

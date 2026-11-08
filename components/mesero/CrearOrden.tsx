@@ -60,6 +60,8 @@ export default function CrearOrden() {
   const [observaciones, setObservaciones] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("Todas");
   const [loading, setLoading] = useState(false);
+  // Se activa al tocar "Enviar" con datos faltantes; desde ahí se marca el campo.
+  const [mostrarErrores, setMostrarErrores] = useState(false);
   const [itemsSinStock, setItemsSinStock] = useState<ItemSinStock[]>([]);
   const [mostrarModalStock, setMostrarModalStock] = useState(false);
   const [agregadoReciente, setAgregadoReciente] = useState<Set<string>>(
@@ -301,40 +303,52 @@ export default function CrearOrden() {
     }
   };
 
-  const validarCampos = (): string | null => {
-    if (carrito.length === 0) return "Agrega al menos un producto al carrito";
+  // `campo` es el id del elemento a enfocar cuando falta ese dato.
+  const validarCampos = (): { campo: string; mensaje: string } | null => {
+    const falta = (campo: string, mensaje: string) => ({ campo, mensaje });
+    if (carrito.length === 0)
+      return falta("panel-productos", "Agrega al menos un producto al carrito");
     const comboSinPicante = carrito.find(
       (item) => esCategoriaCombo(item.categoria) && !item.nivelPicante,
     );
     if (comboSinPicante) {
-      return `Selecciona el nivel de picante para ${comboSinPicante.nombre}`;
+      return falta(
+        `picante-${comboSinPicante.productoId}`,
+        `Selecciona el nivel de picante para ${comboSinPicante.nombre}`,
+      );
     }
     if (tipoOrden === "local" && !numeroMesa)
-      return "Ingresa el número de mesa";
+      return falta("numero-mesa", "Ingresa el número de mesa");
     if (tipoOrden === "para_llevar" && !nombreCliente.trim())
-      return "Ingresa el nombre del cliente";
+      return falta("nombre-cliente", "Ingresa el nombre del cliente");
     if (tipoOrden === "domicilio" && !telefonoCliente.trim())
-      return "Ingresa el teléfono del cliente";
+      return falta("telefono-cliente", "Ingresa el teléfono del cliente");
     if (
       tipoOrden === "domicilio" &&
       (!costoEnvio || parseFloat(costoEnvio) < 0)
     )
-      return "Ingresa el costo de envío";
+      return falta("costo-envio", "Ingresa el costo de envío");
     if (tipoOrden === "domicilio" && !metodoPagoPrevisto)
-      return "Selecciona la modalidad de pago";
+      return falta("metodo-pago", "Selecciona la modalidad de pago");
     if (
       tipoOrden === "domicilio" &&
       metodoPagoPrevisto === "transferencia" &&
       !transferenciaConfirmada
     )
-      return "Confirma que la transferencia ya fue recibida";
+      return falta(
+        "transferencia-confirmada",
+        "Confirma que la transferencia ya fue recibida",
+      );
     return null;
   };
 
   const enviarOrden = async (solicitarAprobacion = false) => {
     const errorValidacion = validarCampos();
     if (errorValidacion) {
-      alert(errorValidacion);
+      setMostrarErrores(true);
+      const campo = document.getElementById(errorValidacion.campo);
+      campo?.scrollIntoView({ behavior: "smooth", block: "center" });
+      campo?.focus({ preventScroll: true });
       return;
     }
 
@@ -409,6 +423,7 @@ export default function CrearOrden() {
         setObservaciones("");
         setMostrarModalStock(false);
         setItemsSinStock([]);
+        setMostrarErrores(false);
         // Recargar productos para actualizar stock
         await cargarProductos();
       } else {
@@ -449,12 +464,28 @@ export default function CrearOrden() {
     return null;
   };
 
+  const pendiente = validarCampos();
+  const errorActual = mostrarErrores ? pendiente : null;
+  const claseError = (campo: string) =>
+    errorActual?.campo === campo ? " border-red-500 ring-2 ring-red-200" : "";
+  const mensajeError = (campo: string) =>
+    errorActual?.campo === campo ? (
+      <p role="alert" className="mt-1 text-sm font-semibold text-red-600">
+        {errorActual.mensaje}
+      </p>
+    ) : null;
+
   return (
-    <div ref={inicioRef} className="min-h-screen bg-gray-100 p-4">
+    <div ref={inicioRef} className="min-h-screen bg-gray-100 p-4 pb-32 lg:pb-4">
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Panel de productos */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
+          <div
+            id="panel-productos"
+            tabIndex={-1}
+            className="lg:col-span-2 bg-white rounded-lg shadow p-6 scroll-mt-4 focus:outline-none"
+          >
+            {mensajeError("panel-productos")}
             {/* Selector de tipo de orden: solo visible para el agente digital */}
             {usuario?.rol === "digital" && (
               <div className="mb-4">
@@ -496,16 +527,20 @@ export default function CrearOrden() {
             {/* Campos según tipo */}
             {tipoOrden === "local" && (
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2 text-gray-800">
+                <label htmlFor="numero-mesa" className="block text-sm font-medium mb-2 text-gray-800">
                   Número de Mesa
                 </label>
                 <input
+                  id="numero-mesa"
                   type="number"
+                  inputMode="numeric"
                   value={numeroMesa}
                   onChange={(e) => setNumeroMesa(e.target.value)}
-                  className="w-full border rounded-lg px-4 py-2 text-black"
+                  aria-invalid={errorActual?.campo === "numero-mesa"}
+                  className={`w-full border rounded-lg px-4 py-2 text-black${claseError("numero-mesa")}`}
                   placeholder="Ej: 5"
                 />
+                {mensajeError("numero-mesa")}
               </div>
             )}
 
@@ -516,13 +551,16 @@ export default function CrearOrden() {
                   {tipoOrden === "domicilio" ? " (opcional)" : " *"}
                 </label>
                 <input
+                  id="nombre-cliente"
                   type="text"
                   value={nombreCliente}
                   onChange={(e) => setNombreCliente(e.target.value)}
                   required={tipoOrden === "para_llevar"}
-                  className="w-full border rounded-lg px-4 py-2 text-black"
+                  aria-invalid={errorActual?.campo === "nombre-cliente"}
+                  className={`w-full border rounded-lg px-4 py-2 text-black${claseError("nombre-cliente")}`}
                   placeholder="Ej: Juan Pérez"
                 />
+                {mensajeError("nombre-cliente")}
               </div>
             )}
 
@@ -533,27 +571,34 @@ export default function CrearOrden() {
                     Teléfono *
                   </label>
                   <input
+                    id="telefono-cliente"
                     type="tel"
                     value={telefonoCliente}
                     onChange={(e) => setTelefonoCliente(e.target.value)}
                     required
-                    className="w-full border rounded-lg px-4 py-2 text-black"
+                    aria-invalid={errorActual?.campo === "telefono-cliente"}
+                    className={`w-full border rounded-lg px-4 py-2 text-black${claseError("telefono-cliente")}`}
                     placeholder="Ej: 0991234567"
                   />
+                  {mensajeError("telefono-cliente")}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2 text-gray-800">
                     Costo de Envío ($)
                   </label>
                   <input
+                    id="costo-envio"
                     type="number"
+                    inputMode="decimal"
                     step="0.01"
                     min="0"
                     value={costoEnvio}
                     onChange={(e) => setCostoEnvio(e.target.value)}
-                    className="w-full border rounded-lg px-4 py-2 text-black"
+                    aria-invalid={errorActual?.campo === "costo-envio"}
+                    className={`w-full border rounded-lg px-4 py-2 text-black${claseError("costo-envio")}`}
                     placeholder="Ej: 1.50"
                   />
+                  {mensajeError("costo-envio")}
                 </div>
                 <div>
                   <label htmlFor="ubicacion-url" className="block text-sm font-medium mb-2 text-gray-800">
@@ -592,7 +637,11 @@ export default function CrearOrden() {
                 <label className="block text-sm font-medium mb-2 text-gray-800">
                   Modalidad de Pago <span className="text-red-600">*</span>
                 </label>
-                <div className="flex gap-2">
+                <div
+                  id="metodo-pago"
+                  tabIndex={-1}
+                  className={`flex gap-2 rounded-lg focus:outline-none${claseError("metodo-pago")}`}
+                >
                   {(["efectivo", "transferencia"] as MetodoPago[]).map(
                     (metodo) => (
                       <button
@@ -619,6 +668,7 @@ export default function CrearOrden() {
                     ),
                   )}
                 </div>
+                {mensajeError("metodo-pago")}
                 {metodoPagoPrevisto === "efectivo" && (
                   <p className="text-xs text-gray-600 mt-2">
                     El motorizado cobra ${calcularTotal().toFixed(2)} al cliente
@@ -633,8 +683,9 @@ export default function CrearOrden() {
                       local le entrega ${calcularCostoEnvio().toFixed(2)} al
                       motorizado.
                     </p>
-                    <label className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-900">
+                    <label className={`flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-900${claseError("transferencia-confirmada")}`}>
                       <input
+                        id="transferencia-confirmada"
                         type="checkbox"
                         checked={transferenciaConfirmada}
                         onChange={(event) =>
@@ -644,6 +695,7 @@ export default function CrearOrden() {
                       />
                       Confirmo que la transferencia ya fue recibida por el local
                     </label>
+                    {mensajeError("transferencia-confirmada")}
                   </div>
                 )}
               </div>
@@ -789,7 +841,7 @@ export default function CrearOrden() {
           {/* Carrito */}
           <div
             ref={carritoRef}
-            className="scroll-mt-4 bg-white rounded-lg shadow p-6"
+            className="scroll-mb-32 bg-white rounded-lg shadow p-6"
           >
             <h2 className="text-xl font-bold mb-4 text-gray-800">Carrito</h2>
 
@@ -845,7 +897,10 @@ export default function CrearOrden() {
                               event.target.value as NivelPicante | "",
                             )
                           }
-                          className="w-full border rounded-lg px-3 py-2 text-black bg-white"
+                          aria-invalid={
+                            errorActual?.campo === `picante-${item.productoId}`
+                          }
+                          className={`w-full border rounded-lg px-3 py-2 text-black bg-white${claseError(`picante-${item.productoId}`)}`}
                           required
                         >
                           <option value="" disabled>
@@ -857,6 +912,7 @@ export default function CrearOrden() {
                             </option>
                           ))}
                         </select>
+                        {mensajeError(`picante-${item.productoId}`)}
                       </div>
                     )}
                   </div>
@@ -903,9 +959,18 @@ export default function CrearOrden() {
               </div>
             </div>
 
+            {pendiente && (
+              <p
+                className={`mb-2 text-center text-sm ${
+                  mostrarErrores ? "font-semibold text-red-600" : "text-gray-500"
+                }`}
+              >
+                Falta: {pendiente.mensaje}
+              </p>
+            )}
             <button
               onClick={() => enviarOrden(false)}
-              disabled={loading || !!validarCampos()}
+              disabled={loading}
               className="w-full bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               {loading ? "Enviando..." : "Enviar a Cocina"}
@@ -916,10 +981,13 @@ export default function CrearOrden() {
         <button
           type="button"
           onClick={() => {
-            const destino = carritoAlcanzado
-              ? inicioRef.current
-              : carritoRef.current;
-            destino?.scrollIntoView({ behavior: "smooth", block: "start" });
+            // Al bajar se alinea el final del carrito para que "Enviar a Cocina"
+            // quede visible y por encima de este botón flotante.
+            if (carritoAlcanzado) {
+              inicioRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            } else {
+              carritoRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+            }
           }}
           className="lg:hidden fixed right-5 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 rounded-full bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-xl transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 md:bottom-5"
           aria-label={

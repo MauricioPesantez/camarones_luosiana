@@ -196,3 +196,48 @@ export async function registrarUbicacionWhatsapp(
   await refrescarRecordatorio(tx, orden);
   await registrarCambioWhatsapp(tx, orden.id, `ubicacion:${historialId}`, textoActualizacionUbicacion(orden));
 }
+
+export type ResultadoPedirMoto = 'encolada' | 'en_curso' | 'ya_enviada' | 'sin_configuracion';
+
+/** Pedido manual de moto: adelanta (o crea) el aviso a Motos; al enviarse, el agente marca la orden. */
+export async function pedirMotoAhora(
+  tx: Prisma.TransactionClient,
+  orden: PedidoMoto & { id: string },
+  ahora = new Date(),
+): Promise<ResultadoPedirMoto> {
+  const config = leerConfiguracion(process.env);
+  if (!config) return 'sin_configuracion';
+
+  const clave = `recordatorio:${orden.id}`;
+  const fresca = {
+    sessionId: config.sessionId,
+    destino: config.motosChatId,
+    texto: textoRecordatorio(orden),
+    disponibleAt: ahora,
+    venceAt: new Date(ahora.getTime() + LIMITE_RECORDATORIO_MS),
+  };
+  const actual = await tx.whatsappSalida.findUnique({ where: { clave }, select: { estado: true, intentos: true } });
+  if (!actual) {
+    await tx.whatsappSalida.create({ data: { ...fresca, ordenId: orden.id, tipo: 'RECORDATORIO_DELIVERY', clave } });
+    return 'encolada';
+  }
+  if (actual.estado === 'ENVIADA') return 'ya_enviada';
+  if (actual.estado === 'PROCESANDO') return 'en_curso';
+  if (SIN_SALIR.includes(actual.estado)) {
+    // Uno ya intentado conserva su texto (pudo llegar); solo se adelanta.
+    await tx.whatsappSalida.update({
+      where: { clave },
+      data: actual.intentos === 0 ? fresca : { disponibleAt: ahora, venceAt: fresca.venceAt },
+    });
+    return 'encolada';
+  }
+  // CANCELADA o REQUIERE_REVISION: alguien la pide de nuevo a propósito.
+  await tx.whatsappSalida.update({
+    where: { clave },
+    data: {
+      ...fresca, estado: 'PENDIENTE', intentos: 0, ultimoError: null, mensajeId: null,
+      reservaToken: null, reservaExpiraAt: null, revisadaPor: null, revisadaAt: null,
+    },
+  });
+  return 'encolada';
+}

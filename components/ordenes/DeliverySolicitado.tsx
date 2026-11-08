@@ -19,6 +19,7 @@ export default function DeliverySolicitado({
   const [registrado, setRegistrado] = useState(deliverySolicitadoAt);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
+  const [motoEnCola, setMotoEnCola] = useState(false);
 
   if (registrado) {
     return (
@@ -53,8 +54,47 @@ export default function DeliverySolicitado({
     }
   };
 
+  const pedirMoto = async () => {
+    setGuardando(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/ordenes/${ordenId}/delivery`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accion: "pedir" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "No se pudo pedir la moto");
+        return;
+      }
+      if (data.deliverySolicitadoAt) {
+        setRegistrado(data.deliverySolicitadoAt);
+        onRegistrado?.(data.deliverySolicitadoAt);
+        return;
+      }
+      setMotoEnCola(true);
+    } catch {
+      setError("No se pudo pedir la moto");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  if (motoEnCola) {
+    return <p className="text-sm text-purple-700 mt-1">🛵 Pidiendo moto al grupo Motos…</p>;
+  }
+
   return (
-    <div className="mt-2">
+    <div className="mt-2 flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={pedirMoto}
+        disabled={guardando}
+        className="text-sm font-semibold px-3 py-1.5 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+      >
+        📣 Pedir moto
+      </button>
       <button
         type="button"
         onClick={registrar}
@@ -63,9 +103,9 @@ export default function DeliverySolicitado({
       >
         {guardando ? "Guardando..." : "🛵 Ya pedí la moto"}
       </button>
-      <p className="text-xs text-gray-500 mt-1">Registra que ya la pediste; el POS no la pedirá al grupo Motos.</p>
+      <p className="w-full text-xs text-gray-500">&quot;Pedir moto&quot; avisa ya al grupo Motos por WhatsApp. &quot;Ya pedí&quot; solo registra que la pediste por fuera.</p>
       {error && (
-        <p role="alert" className="text-sm text-red-700 mt-1">
+        <p role="alert" className="w-full text-sm text-red-700">
           {error}
         </p>
       )}
