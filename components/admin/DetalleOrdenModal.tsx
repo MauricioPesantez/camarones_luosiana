@@ -250,6 +250,48 @@ export default function DetalleOrdenModal({
     p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase()),
   );
 
+  const [cambiandoPagoId, setCambiandoPagoId] = useState<string | null>(null);
+  const [errorPago, setErrorPago] = useState("");
+
+  const cambiarMetodoPago = async (pagoId: string, metodoActual: string) => {
+    const nuevo = metodoActual === "efectivo" ? "transferencia" : "efectivo";
+    if (!window.confirm(`¿Cambiar este pago a ${nuevo}?`)) return;
+    setCambiandoPagoId(pagoId);
+    setErrorPago("");
+    try {
+      const res = await fetch(`/api/admin/ordenes/${orden.id}/pagos/${pagoId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metodoPago: nuevo }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorPago(data.error || "Error al cambiar método de pago");
+        return;
+      }
+      // Se toca solo el pago cambiado: los del cuadre traen campos (enRango, estado) que el endpoint no envía.
+      const ordenActualizada = {
+        ...orden,
+        metodoPago: data.metodoPago,
+        pagos: orden.pagos?.map((p) =>
+          p.id === pagoId
+            ? {
+                ...p,
+                metodoPago: nuevo,
+                comprobanteTransferenciaKey: nuevo === "efectivo" ? null : p.comprobanteTransferenciaKey,
+              }
+            : p,
+        ),
+      };
+      setOrden(ordenActualizada);
+      onOrdenActualizada?.(ordenActualizada);
+    } catch {
+      setErrorPago("Error de red al cambiar método de pago");
+    } finally {
+      setCambiandoPagoId(null);
+    }
+  };
+
   const abrirComprobante = async (cobroId?: string) => {
     setAbriendoComprobante(true);
     try {
@@ -497,10 +539,22 @@ export default function DetalleOrdenModal({
                             ) : (
                               <span className="text-xs text-amber-700">sin comprobante</span>
                             ))}
+                          {adminId && !orden.anulada && (
+                            <button
+                              onClick={() => void cambiarMetodoPago(pago.id, pago.metodoPago)}
+                              disabled={cambiandoPagoId !== null}
+                              className="text-xs font-bold text-amber-700 underline disabled:opacity-50"
+                            >
+                              {cambiandoPagoId === pago.id
+                                ? "Cambiando…"
+                                : `🔁 A ${pago.metodoPago === "efectivo" ? "transferencia" : "efectivo"}`}
+                            </button>
+                          )}
                         </span>
                       </li>
                     ))}
                   </ul>
+                  {errorPago && <p className="mt-1 text-sm text-red-600">{errorPago}</p>}
                 </div>
               ) : (
                 orden.metodoPago === "transferencia" && (

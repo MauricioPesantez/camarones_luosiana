@@ -75,6 +75,8 @@ export default function HistorialOrdenTimeline({ ordenId }: HistorialOrdenTimeli
         return '📍';
       case 'delivery_solicitado':
         return '🛵';
+      case 'metodo_pago_cambiado':
+        return '🔁';
       default:
         return '📌';
     }
@@ -117,6 +119,8 @@ export default function HistorialOrdenTimeline({ ordenId }: HistorialOrdenTimeli
         return 'Ubicación Actualizada';
       case 'delivery_solicitado':
         return 'Delivery Solicitado';
+      case 'metodo_pago_cambiado':
+        return 'Método de Pago Cambiado';
       default:
         return tipoAccion;
     }
