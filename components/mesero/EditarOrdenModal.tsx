@@ -5,7 +5,9 @@ import {
   NIVELES_PICANTE,
   RECARGO_RECIPIENTES,
   type NivelPicante,
+  calcularDescuento,
   calcularRecargoEnvases,
+  descuentoDeOrden,
   esCategoriaCombo,
   obtenerEtiquetaNivelPicante,
 } from "@/types/orden";
@@ -38,6 +40,8 @@ interface Orden {
   telefonoCliente?: string | null;
   recargo: number | null;
   costoEnvio: number | null;
+  descuentoTipo?: string | null;
+  descuentoValor?: number | string | null;
   total: number;
   items: Item[];
 }
@@ -201,7 +205,9 @@ export default function EditarOrdenModal({
       })),
     );
     const envio = Number(orden.costoEnvio ?? 0);
-    return subtotal + recargo + envio;
+    // El servidor recalcula igual: un porcentaje sigue al nuevo subtotal.
+    const descuento = calcularDescuento(descuentoDeOrden(orden), subtotal);
+    return subtotal - descuento + recargo + envio;
   };
 
   const calcularSubtotalProductos = () => {
@@ -573,6 +579,18 @@ export default function EditarOrdenModal({
                       cantidad: item.cantidad,
                       categoria: item.producto.categoria,
                     })),
+                  ).toFixed(2)}
+                </span>
+              </div>
+            )}
+            {descuentoDeOrden(orden) && (
+              <div className="flex justify-between mb-2 text-sm">
+                <span className="text-amber-700">🏷️ Descuento:</span>
+                <span className="font-medium text-amber-700">
+                  -$
+                  {calcularDescuento(
+                    descuentoDeOrden(orden),
+                    calcularSubtotalProductos(),
                   ).toFixed(2)}
                 </span>
               </div>

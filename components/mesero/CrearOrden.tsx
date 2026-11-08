@@ -31,9 +31,14 @@ import {
   NIVELES_PICANTE,
   NivelPicante,
   RECARGO_RECIPIENTES,
+  ROLES_DESCUENTO,
+  TipoDescuento,
   TipoOrden,
+  calcularDescuento,
   calcularRecargoEnvases,
   esCategoriaCombo,
+  esDescuentoSolicitado,
+  etiquetaDescuento,
 } from "@/types/orden";
 
 export default function CrearOrden() {
@@ -59,6 +64,8 @@ export default function CrearOrden() {
   );
   const [transferenciaConfirmada, setTransferenciaConfirmada] = useState(false);
   const [observaciones, setObservaciones] = useState("");
+  const [tipoDescuento, setTipoDescuento] = useState<TipoDescuento>("monto");
+  const [valorDescuento, setValorDescuento] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState("Todas");
   const [loading, setLoading] = useState(false);
   // Se activa al tocar "Enviar" con datos faltantes; desde ahí se marca el campo.
@@ -313,8 +320,23 @@ export default function CrearOrden() {
   const calcularCostoEnvio = () =>
     tipoOrden === "domicilio" ? parseFloat(costoEnvio) || 0 : 0;
 
+  const puedeDescontar = ROLES_DESCUENTO.includes(usuario?.rol ?? "");
+  const descuentoEscrito = {
+    tipo: tipoDescuento,
+    valor: Number(valorDescuento.replace(",", ".")),
+  };
+  const descuentoSolicitado =
+    puedeDescontar && esDescuentoSolicitado(descuentoEscrito)
+      ? descuentoEscrito
+      : null;
+  const calcularDescuentoOrden = () =>
+    calcularDescuento(descuentoSolicitado, calcularSubtotalProductos());
+
   const calcularTotal = () =>
-    calcularSubtotalProductos() + calcularRecargo() + calcularCostoEnvio();
+    calcularSubtotalProductos() -
+    calcularDescuentoOrden() +
+    calcularRecargo() +
+    calcularCostoEnvio();
 
   const validarStock = async () => {
     try {
@@ -352,6 +374,22 @@ export default function CrearOrden() {
         return falta(
           `picante-${item.productoId}-${unidad}`,
           `Selecciona el nivel de picante para ${item.nombre}${item.cantidad > 1 ? ` #${unidad + 1}` : ""}`,
+        );
+    }
+    if (puedeDescontar && valorDescuento.trim()) {
+      if (!descuentoSolicitado)
+        return falta(
+          "descuento-valor",
+          "Descuento no válido: un monto en dólares o un porcentaje hasta 100%",
+        );
+      if (
+        descuentoSolicitado.tipo === "monto" &&
+        Math.round(descuentoSolicitado.valor * 100) >
+          Math.round(calcularSubtotalProductos() * 100)
+      )
+        return falta(
+          "descuento-valor",
+          "El descuento supera el subtotal de productos",
         );
     }
     if (tipoOrden === "local" && !numeroMesa)
@@ -430,6 +468,7 @@ export default function CrearOrden() {
           mesero: usuario?.nombre || "Desconocido",
           creadorId: usuario?.id,
           observaciones,
+          descuento: descuentoSolicitado ?? undefined,
           items: itemsParaEnviar(),
           solicitarAprobacion: solicitarAprobacion,
         }),
@@ -458,6 +497,7 @@ export default function CrearOrden() {
         setMetodoPagoPrevisto("");
         setTransferenciaConfirmada(false);
         setObservaciones("");
+        setValorDescuento("");
         setMostrarModalStock(false);
         setItemsSinStock([]);
         setMostrarErrores(false);
@@ -974,11 +1014,62 @@ export default function CrearOrden() {
               />
             </div>
 
+            {puedeDescontar && (
+              <div className="mb-4">
+                <label
+                  htmlFor="descuento-valor"
+                  className="block text-sm font-medium mb-2 text-gray-800"
+                >
+                  Descuento (opcional)
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    aria-label="Tipo de descuento"
+                    value={tipoDescuento}
+                    onChange={(e) =>
+                      setTipoDescuento(e.target.value as TipoDescuento)
+                    }
+                    className="border rounded-lg px-3 py-2 text-black bg-white"
+                  >
+                    <option value="monto">$</option>
+                    <option value="porcentaje">%</option>
+                  </select>
+                  <input
+                    id="descuento-valor"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    max={tipoDescuento === "porcentaje" ? 100 : undefined}
+                    value={valorDescuento}
+                    onChange={(e) => setValorDescuento(e.target.value)}
+                    aria-invalid={errorActual?.campo === "descuento-valor"}
+                    className={`w-full border rounded-lg px-3 py-2 text-black${claseError("descuento-valor")}`}
+                    placeholder={
+                      tipoDescuento === "porcentaje" ? "Ej: 10" : "Ej: 2.00"
+                    }
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Solo sobre productos; envases y envío no se descuentan.
+                </p>
+                {mensajeError("descuento-valor")}
+              </div>
+            )}
+
             <div className="border-t pt-4 mb-4 space-y-1">
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Subtotal productos:</span>
                 <span>${calcularSubtotalProductos().toFixed(2)}</span>
               </div>
+              {descuentoSolicitado && (
+                <div className="flex justify-between text-sm text-green-700">
+                  <span>
+                    Descuento ({etiquetaDescuento(descuentoSolicitado)}):
+                  </span>
+                  <span>-${calcularDescuentoOrden().toFixed(2)}</span>
+                </div>
+              )}
               {tipoOrden !== "local" && cantidadEnvases > 0 && (
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>

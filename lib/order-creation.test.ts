@@ -386,6 +386,22 @@ async function run() {
   assert.equal(commits, commitsPrevios + 1);
   assert.equal(propia.orden.creadorId, actor.id);
 
+  // Descuento: solo admin y digital, sobre productos; envases y envío quedan intactos.
+  const url = 'http://test.invalid/webhook';
+  const conDescuento = (descuento: object, quien = actor) =>
+    creacion.prepararOrden(quien, { ...paraLlevar, descuento } as never, url);
+  const diezPorCiento = await conDescuento({ tipo: 'porcentaje', valor: 10 });
+  assert.equal(diezPorCiento.descuento, Math.round(diezPorCiento.subtotalProductos * 10) / 100);
+  assert.equal(
+    diezPorCiento.totalFinal,
+    diezPorCiento.subtotalProductos - diezPorCiento.descuento + diezPorCiento.recargo + diezPorCiento.costoEnvio,
+  );
+  assert.equal((await conDescuento({ tipo: 'monto', valor: 2 }, { ...actor, rol: 'admin' })).descuento, 2);
+  await assert.rejects(conDescuento({ tipo: 'monto', valor: 2 }, { ...actor, rol: 'mesero' }), /Solo admin o digital/);
+  await assert.rejects(conDescuento({ tipo: 'monto', valor: 9999 }), /supera el subtotal/);
+  await assert.rejects(conDescuento({ tipo: 'porcentaje', valor: 150 }), /no válido/);
+  await assert.rejects(conDescuento({ tipo: 'monto', valor: 1.005 }), /no válido/);
+
   console.log('order-creation tests: ok (mesero, digital, caja, transferencia, stock, permisos, validaciones, numeracion, impresion)');
 }
 

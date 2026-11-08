@@ -7,6 +7,10 @@ import HistorialOrdenTimeline from "./HistorialOrdenTimeline";
 import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 import {
   type NivelPicante,
+  type TipoDescuento,
+  descuentoDeOrden,
+  esDescuentoSolicitado,
+  etiquetaDescuento,
   obtenerEtiquetaNivelPicante,
 } from "@/types/orden";
 
@@ -43,6 +47,11 @@ interface Orden {
   deliverySolicitadoAt?: string | null;
   recargo?: number | null;
   costoEnvio?: number | null;
+  descuento?: number | string | null;
+  descuentoTipo?: string | null;
+  descuentoValor?: number | string | null;
+  descuentoPor?: string | null;
+  montoPagado?: number | string | null;
   mesero: string;
   estado: string;
   total: number;
@@ -117,6 +126,64 @@ export default function DetalleOrdenModal({
     adminId && !orden.anulada && ESTADOS_EDITABLES.includes(orden.estado);
 
   const itemsCortesia = orden.items.filter((i) => i.esCortesia);
+
+  // Descuento: solo admin; con un pago registrado el total no puede bajar.
+  const descuentoActual = descuentoDeOrden(orden);
+  const montoDescuento = Number(orden.descuento ?? 0);
+  const puedeDescontar =
+    Boolean(adminId) && !orden.anulada && orden.estado !== "cancelada";
+  const [mostrarDescuento, setMostrarDescuento] = useState(false);
+  const [tipoDescuento, setTipoDescuento] = useState<TipoDescuento>("monto");
+  const [valorDescuento, setValorDescuento] = useState("");
+  const [razonDescuento, setRazonDescuento] = useState("");
+  const [loadingDescuento, setLoadingDescuento] = useState(false);
+  const [errorDescuento, setErrorDescuento] = useState("");
+
+  const abrirDescuento = () => {
+    setTipoDescuento(descuentoActual?.tipo ?? "monto");
+    setValorDescuento(descuentoActual ? String(descuentoActual.valor) : "");
+    setRazonDescuento("");
+    setErrorDescuento("");
+    setMostrarDescuento(true);
+  };
+
+  const guardarDescuento = async (quitar: boolean) => {
+    const descuento = quitar
+      ? null
+      : { tipo: tipoDescuento, valor: Number(valorDescuento.replace(",", ".")) };
+    if (descuento && !esDescuentoSolicitado(descuento)) {
+      setErrorDescuento(
+        "Descuento no válido: un monto en dólares o un porcentaje hasta 100%",
+      );
+      return;
+    }
+    setLoadingDescuento(true);
+    setErrorDescuento("");
+    try {
+      const res = await fetch(`/api/ordenes/${orden.id}/descuento`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descuento,
+          razon: razonDescuento.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorDescuento(data.error || "Error al aplicar descuento");
+        return;
+      }
+      // La respuesta no trae los pagos: se conservan los que ya tenía el modal.
+      const ordenActualizada = { ...orden, ...(data.orden as Orden) };
+      setOrden(ordenActualizada);
+      onOrdenActualizada?.(ordenActualizada);
+      setMostrarDescuento(false);
+    } catch {
+      setErrorDescuento("Error de red al aplicar descuento");
+    } finally {
+      setLoadingDescuento(false);
+    }
+  };
 
   const cargarProductos = async () => {
     if (productos.length > 0) return;
@@ -214,6 +281,14 @@ export default function DetalleOrdenModal({
                 className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2"
               >
                 🎁 Agregar Cortesía
+              </button>
+            )}
+            {puedeDescontar && (
+              <button
+                onClick={abrirDescuento}
+                className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2"
+              >
+                🏷️ Descuento
               </button>
             )}
             <button
@@ -458,6 +533,80 @@ export default function DetalleOrdenModal({
                 </div>
               )}
 
+              {mostrarDescuento && (
+                <div className="border border-amber-300 bg-amber-50 rounded-lg p-4 space-y-3">
+                  <h3 className="font-semibold text-gray-800">
+                    Descuento sobre productos
+                  </h3>
+                  <p className="text-xs text-gray-600">
+                    Envases y envío no se descuentan. Si la orden ya tiene un
+                    pago registrado, el total no puede bajar.
+                  </p>
+                  <div className="flex gap-2">
+                    <select
+                      aria-label="Tipo de descuento"
+                      value={tipoDescuento}
+                      onChange={(e) =>
+                        setTipoDescuento(e.target.value as TipoDescuento)
+                      }
+                      className="border rounded-lg px-3 py-2 text-black bg-white"
+                    >
+                      <option value="monto">$</option>
+                      <option value="porcentaje">%</option>
+                    </select>
+                    <input
+                      aria-label="Valor del descuento"
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={valorDescuento}
+                      onChange={(e) => setValorDescuento(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 text-black bg-white"
+                      placeholder={
+                        tipoDescuento === "porcentaje" ? "Ej: 10" : "Ej: 2.00"
+                      }
+                    />
+                  </div>
+                  <input
+                    aria-label="Razón del descuento"
+                    type="text"
+                    value={razonDescuento}
+                    onChange={(e) => setRazonDescuento(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-black bg-white"
+                    placeholder="Razón (opcional)"
+                  />
+                  {errorDescuento && (
+                    <p className="text-sm text-red-600">{errorDescuento}</p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => guardarDescuento(false)}
+                      disabled={loadingDescuento || !valorDescuento.trim()}
+                      className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-semibold"
+                    >
+                      {loadingDescuento ? "Guardando..." : "Aplicar descuento"}
+                    </button>
+                    {descuentoActual && (
+                      <button
+                        onClick={() => guardarDescuento(true)}
+                        disabled={loadingDescuento}
+                        className="border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50 px-4 py-2 rounded-lg font-semibold"
+                      >
+                        Quitar descuento
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setMostrarDescuento(false)}
+                      disabled={loadingDescuento}
+                      className="text-gray-600 px-4 py-2"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Items */}
               <div>
                 <h3 className="font-semibold text-gray-800 mb-3 text-lg">
@@ -564,7 +713,8 @@ export default function DetalleOrdenModal({
                         </tr>
                       )}
                       {(Number(orden.recargo) > 0 ||
-                        Number(orden.costoEnvio) > 0) && (
+                        Number(orden.costoEnvio) > 0 ||
+                        montoDescuento > 0) && (
                         <>
                           <tr className="border-t">
                             <td
@@ -578,10 +728,31 @@ export default function DetalleOrdenModal({
                               {(
                                 Number(orden.total) -
                                 Number(orden.recargo ?? 0) -
-                                Number(orden.costoEnvio ?? 0)
+                                Number(orden.costoEnvio ?? 0) +
+                                montoDescuento
                               ).toFixed(2)}
                             </td>
                           </tr>
+                          {montoDescuento > 0 && (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="px-4 py-2 text-right text-sm text-amber-700"
+                              >
+                                🏷️ Descuento
+                                {descuentoActual
+                                  ? ` (${etiquetaDescuento(descuentoActual)})`
+                                  : ""}
+                                {orden.descuentoPor
+                                  ? ` · ${orden.descuentoPor}`
+                                  : ""}
+                                :
+                              </td>
+                              <td className="px-4 py-2 text-right text-sm text-amber-700 font-semibold">
+                                -${montoDescuento.toFixed(2)}
+                              </td>
+                            </tr>
+                          )}
                           {Number(orden.recargo) > 0 && (
                             <tr>
                               <td

@@ -116,16 +116,20 @@ function paymentMethodLabel(
  */
 function amountLinesForOrder(order: PrintJobPayload['order']): string[] {
   const separator = '-'.repeat(LINE_WIDTH);
-  const subtotal = order.total - order.surcharge - order.deliveryCost;
+  const discount = order.discount ?? 0;
+  // El total ya trae el descuento restado; el ticket muestra los productos sin él.
+  const subtotal = order.total - order.surcharge - order.deliveryCost + discount;
+  const discountLines = discount > 0 ? [amountLine('Descuento:', -discount)] : [];
 
   if (order.type === 'local') {
-    return [separator, amountLine('TOTAL:', order.total)];
+    return [separator, ...discountLines, amountLine('TOTAL:', order.total)];
   }
 
   if (order.type === 'para_llevar') {
     return [
       separator,
       amountLine('Subtotal productos:', subtotal),
+      ...discountLines,
       amountLine('Recipientes:', order.surcharge),
       separator,
       amountLine('TOTAL:', order.total),
@@ -135,10 +139,11 @@ function amountLinesForOrder(order: PrintJobPayload['order']): string[] {
   const paymentMethod = paymentMethodLabel(order);
 
   if (paymentMethod === 'efectivo') {
-    const totalLocal = subtotal + order.surcharge;
+    const totalLocal = subtotal - discount + order.surcharge;
     return [
       separator,
       amountLine('Subtotal productos:', subtotal),
+      ...discountLines,
       amountLine('Recipientes:', order.surcharge),
       separator,
       amountLine('TOTAL:', totalLocal),

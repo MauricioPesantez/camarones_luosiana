@@ -114,7 +114,16 @@ async function run() {
     '@prisma/client': { Prisma }, '@/lib/db': { prisma },
     '@/lib/whatsapp-pedido': pedido, '@/lib/whatsapp-webhook': webhook,
   };
-  const ingreso = loadModule('lib/whatsapp-ingreso.ts', dependencias);
+  const ingreso = loadModule<{ unirLineas: (items: Fila[]) => Fila[] }>('lib/whatsapp-ingreso.ts', dependencias);
+
+  // Mismo combo, salsa y nota van en una línea; cambia algo y quedan separadas.
+  const unidad = (nivelPicante: string, observaciones: string | null = null) =>
+    ({ texto: 'combo', cantidad: 1, productoId: 'c1', nivelPicante, observaciones });
+  assert.deepEqual(
+    ingreso.unirLineas([unidad('picante_2'), unidad('natural'), unidad('picante_2'), unidad('picante_2', 'sin cebolla')])
+      .map((i) => [i.cantidad, i.nivelPicante, i.observaciones]),
+    [[2, 'picante_2', null], [1, 'natural', null], [1, 'picante_2', 'sin cebolla']],
+  );
   const { POST } = loadModule<{ POST: (request: Request) => Promise<Response> }>(
     'app/api/integraciones/whatsapp/webhook/route.ts',
     { ...dependencias, '@/lib/whatsapp-ingreso': ingreso },

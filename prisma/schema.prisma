@@ -82,6 +82,13 @@ model Orden {
   creadorRol                     String? // Snapshot del rol al crear la orden para reportes historicos
   estado                         String                     @default("pendiente") // "pendiente_aprobacion_stock", "pendiente", "en_preparacion", "lista", "entregada", "cobrada", "cancelada"
   observaciones                  String?
+  /// Descuento sobre los productos, nunca sobre envases ni envío. `descuentoTipo` es
+  /// "porcentaje" | "monto" con el valor escrito; `descuento` es el dólar aplicado,
+  /// recalculado cuando cambian los items.
+  descuentoTipo                  String?
+  descuentoValor                 Decimal?                   @db.Decimal(10, 2)
+  descuento                      Decimal                    @default(0) @db.Decimal(10, 2)
+  descuentoPor                   String?
   total                          Decimal                    @default(0) @db.Decimal(10, 2)
   /// Suma de los pagos confirmados. Materializado: `cobrada` se deriva de
   /// `montoPagado >= total` y los listados filtran por el sin agregar.

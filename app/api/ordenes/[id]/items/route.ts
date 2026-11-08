@@ -11,8 +11,10 @@ import {
 } from '@/lib/print-jobs';
 import { notificarClientes } from '@/lib/sse';
 import {
+  calcularDescuento,
   calcularRecargoEnvases,
   calcularSaldo,
+  descuentoDeOrden,
   esCategoriaCombo,
   esNivelPicante,
   RECARGO_RECIPIENTES,
@@ -539,8 +541,24 @@ export async function PATCH(
             diferenciaTotal: newSurcharge - previousSurcharge,
           });
         }
+        // Un porcentaje sigue al subtotal; un monto fijo se recorta si los productos bajan de él.
+        const newDiscount = calcularDescuento(descuentoDeOrden(order), productsSubtotal);
+        const previousDiscount = Number(order.descuento);
+        if (newDiscount !== previousDiscount) {
+          history.push({
+            tipoAccion: 'descuento_actualizado',
+            descripcion: `Descuento recalculado: $${previousDiscount.toFixed(2)} → $${newDiscount.toFixed(2)}`,
+            datosAntes: { descuento: previousDiscount },
+            datosDespues: { descuento: newDiscount },
+            usuarioNombre: body.usuario.nombre,
+            usuarioRol: body.usuario.rol,
+            razon: body.razon,
+            diferenciaTotal: previousDiscount - newDiscount,
+          });
+        }
         const newTotal =
-          productsSubtotal +
+          productsSubtotal -
+          newDiscount +
           newSurcharge +
           Number(order.costoEnvio ?? 0);
 
@@ -580,6 +598,7 @@ export async function PATCH(
           },
           data: {
             total: newTotal,
+            descuento: newDiscount,
             recargo: newSurcharge > 0 ? newSurcharge : null,
             tiempoEstimado: newEstimatedTime,
             modificada: true,

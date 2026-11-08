@@ -163,6 +163,19 @@ function run(): void {
   assert.doesNotMatch(domicilioLegacy, /TOTAL:/);
   assert.doesNotMatch(domicilioLegacy, /Envio:/);
 
+  // Con descuento: productos sin descontar, la línea Descuento y el TOTAL ya rebajado.
+  const domicilioDescuento = ticketText('domicilio', 'Carolina', {
+    paymentMethod: 'efectivo',
+    surcharge: 1.25,
+    deliveryCost: 5,
+    discount: 10,
+    total: 96.25,
+  });
+  assert.ok(domicilioDescuento.includes(amountLine('Subtotal productos:', '$100.00')));
+  assert.ok(domicilioDescuento.includes(amountLine('Descuento:', '-$10.00')));
+  assert.ok(domicilioDescuento.includes(amountLine('TOTAL:', '$91.25')));
+  assert.ok(domicilioDescuento.includes(amountLine('Cobra al cliente:', '$96.25')));
+
   // Domicilio en efectivo: desglose completo, el motorizado cobra el total.
   const domicilioEfectivo = ticketText('domicilio', 'Carolina', {
     paymentMethod: 'efectivo',

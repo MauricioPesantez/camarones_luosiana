@@ -117,6 +117,18 @@ function buscarOrdenDelCliente(tx: Prisma.TransactionClient, pedido: PedidoWhats
   });
 }
 
+/** El parser parte los combos en una línea por salsa; cocina los quiere juntos si coinciden. */
+export function unirLineas(items: ItemResuelto[]): ItemResuelto[] {
+  const lineas = new Map<string, ItemResuelto>();
+  for (const item of items) {
+    const clave = JSON.stringify([item.productoId, item.nivelPicante, item.observaciones]);
+    const previa = lineas.get(clave);
+    if (previa) previa.cantidad += item.cantidad;
+    else lineas.set(clave, { ...item });
+  }
+  return [...lineas.values()];
+}
+
 function construirSolicitud(
   pedido: PedidoWhatsapp,
   items: ItemResuelto[],
@@ -136,9 +148,10 @@ function construirSolicitud(
     transferenciaConfirmada: pagada,
     ubicacionUrl: pedido.ubicacionUrl ?? undefined,
     observaciones: pedido.observaciones ?? undefined,
+    descuento: pedido.descuento ?? undefined,
     solicitarAprobacion: pedido.solicitarAprobacion,
     mesero: actor.nombre,
-    items: items.map((item) => ({
+    items: unirLineas(items).map((item) => ({
       productoId: item.productoId,
       cantidad: item.cantidad,
       // El servicio siempre usa el precio del catálogo.
