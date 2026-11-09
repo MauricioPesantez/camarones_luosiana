@@ -240,3 +240,22 @@ export function textoAnulacion(orden: Encabezado): string {
 export function textoOrdenesSinUbicacion(ordenes: Encabezado[]): string {
   return `Ubicación no guardada: hay ${ordenes.length} órdenes sin ubicación (${ordenes.map(numero).join(', ')}). Complétala desde el POS.`;
 }
+
+export type OrdenPorCobrar = Encabezado & Pick<OrdenPublicable, 'tipoOrden' | 'nombreCliente' | 'telefonoCliente'> & {
+  numeroMesa: number | null;
+};
+
+function lugar(orden: OrdenPorCobrar): string {
+  if (orden.tipoOrden === 'local') return orden.numeroMesa != null ? `🍽️ Mesa ${orden.numeroMesa}` : '🍽️ Local';
+  const tipo = orden.tipoOrden === 'domicilio' ? '🛵 Domicilio' : '🥡 Para llevar';
+  return [tipo, orden.nombreCliente, orden.telefonoCliente].filter(Boolean).join(' · ');
+}
+
+/** Lo pide el admin a mano al cierre: el grupo cobra y cierra lo que siga abierto. */
+export function textoOrdenesPorCobrar(ordenes: OrdenPorCobrar[]): string {
+  return [
+    '⏰ ÓRDENES SIN COBRAR:',
+    ...ordenes.map((orden) => `🧾 ${numero(orden)} · ${lugar(orden)}`),
+    '🙏 Por favor cobren y cierren estas órdenes en el POS. ✅',
+  ].join('\n');
+}

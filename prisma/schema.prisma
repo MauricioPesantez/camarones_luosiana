@@ -509,7 +509,7 @@ model WhatsappSalida {
   orden           Orden?           @relation(fields: [ordenId], references: [id], onDelete: Restrict)
   entradaId       String?
   entrada         WhatsappEntrada? @relation(fields: [entradaId], references: [id], onDelete: Restrict)
-  tipo            String // "RESPUESTA_EMPLEADO" | "PUBLICACION_GRUPO" | "ACTUALIZACION_GRUPO" | "RECORDATORIO_DELIVERY"
+  tipo            String // "RESPUESTA_EMPLEADO" | "PUBLICACION_GRUPO" | "ACTUALIZACION_GRUPO" | "RECORDATORIO_DELIVERY" | "RECORDATORIO_COBRO"
   destino         String
   texto           String
   clave           String           @unique

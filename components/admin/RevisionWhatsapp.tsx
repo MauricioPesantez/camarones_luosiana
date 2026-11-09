@@ -21,6 +21,7 @@ const TIPOS: Record<string, string> = {
   PUBLICACION_GRUPO: "Publicación al grupo",
   ACTUALIZACION_GRUPO: "Cambio al grupo",
   RECORDATORIO_DELIVERY: "Aviso de delivery",
+  RECORDATORIO_COBRO: "Aviso de órdenes sin cobrar",
 };
 
 const hora = (fecha: string) =>

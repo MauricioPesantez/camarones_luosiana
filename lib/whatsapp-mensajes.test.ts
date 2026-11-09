@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   enlaceDePin, textoActualizacionItems, textoActualizacionMoto, textoActualizacionUbicacion, textoAnulacion, textoConfirmacion, textoConflicto, textoOrdenesSinUbicacion,
-  textoPendienteAprobacion, textoPublicacion, textoRechazo, textoRecordatorio, textoReenvio, textoUbicacionGuardada,
+  textoOrdenesPorCobrar, textoPendienteAprobacion, textoPublicacion, textoRechazo, textoRecordatorio, textoReenvio, textoUbicacionGuardada,
 } from './whatsapp-mensajes';
 
 const orden = {
@@ -110,3 +110,16 @@ assert.equal(textoAnulacion(orden), 'ANULADA orden #42 · 04/11/2026\nNo prepara
 assert.match(textoOrdenesSinUbicacion([orden, { ...orden, numeroDiario: 43 }]), /2 órdenes.*#42, #43.*POS/);
 
 console.log('whatsapp-mensajes tests: ok');
+
+{
+  const base = { fechaNumeroDiario: '2026-11-09', nombreCliente: null, telefonoCliente: null, numeroMesa: null };
+  assert.equal(textoOrdenesPorCobrar([
+    { ...base, numeroDiario: 7, tipoOrden: 'local', numeroMesa: 3 },
+    { ...base, numeroDiario: 9, tipoOrden: 'para_llevar', nombreCliente: 'Ana', telefonoCliente: '0987654321' },
+    { ...base, numeroDiario: 10, tipoOrden: 'domicilio', telefonoCliente: '0987654321' },
+  ]), `⏰ ÓRDENES SIN COBRAR:
+🧾 #7 · 🍽️ Mesa 3
+🧾 #9 · 🥡 Para llevar · Ana · 0987654321
+🧾 #10 · 🛵 Domicilio · 0987654321
+🙏 Por favor cobren y cierren estas órdenes en el POS. ✅`);
+}

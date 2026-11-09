@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 import AppShell from "@/components/shell/AppShell";
 import DetalleOrdenModal from "@/components/admin/DetalleOrdenModal";
 import RevisionWhatsapp from "@/components/admin/RevisionWhatsapp";
+import AvisoPorCobrar from "@/components/admin/AvisoPorCobrar";
 import { ProductoStockBajo } from "@/types/stock";
 import {
   OrdenPendienteAprobacion,
@@ -584,6 +585,7 @@ export default function AdminPage() {
         </div>
 
         <RevisionWhatsapp />
+        <AvisoPorCobrar />
 
         {/* Alertas y Notificaciones */}
         {(ordenesPendientes.length > 0 || productosStockBajo.length > 0) && (
