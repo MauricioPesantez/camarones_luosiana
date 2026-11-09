@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { calcularResumenCuadre } from "../types/cuadre";
+import { partesDeCobroMixto } from "../types/cobro";
 import { isConfirmedPaymentInRange } from "./cuadre-date";
 
 const resumen = calcularResumenCuadre([
@@ -591,5 +592,105 @@ assert.equal(
   5,
   "solo la parte pendiente de reembolso debe contar como deuda, no el total de la orden",
 );
+
+// --- Cobro mixto en domicilio, de punta a punta ---
+// El escenario real: orden de $22 con $2 de envio. El cliente le paga los $22
+// en efectivo al motorizado, que se queda los $2. El motorizado debe $20 al
+// local pero solo trae $12 en billete, asi que transfiere los $8 restantes.
+// Lo que el cobrador escribe en pantalla son esos $12 (lo que tiene delante);
+// `partesDeCobroMixto` le repone el envio para armar las partes que el
+// servidor exige. El cuadre tiene que devolver la caja fisica exacta.
+const partesMixtoDomicilio = partesDeCobroMixto({
+  tipoOrden: "domicilio",
+  saldo: 22,
+  costoEnvio: 2,
+  esPrimerPago: true,
+  efectivoEnCaja: 12,
+});
+const mixtoDomicilioDesdePantalla = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "domicilio",
+    total: 22,
+    costoEnvio: 2,
+    montoPagado: 22,
+    pagos: partesMixtoDomicilio.map((parte) => ({
+      metodoPago: parte.metodoPago,
+      monto: parte.monto,
+      enRango: true,
+    })),
+  },
+]);
+assert.equal(
+  mixtoDomicilioDesdePantalla.efectivoCobradoMotorizados,
+  12,
+  "la caja tiene que mostrar los $12 que el motorizado entrego en billete",
+);
+assert.equal(mixtoDomicilioDesdePantalla.efectivoEntregadoMotorizados, 0);
+assert.equal(
+  mixtoDomicilioDesdePantalla.depositosRecibidos,
+  8,
+  "al banco entraron $8, ni un centavo mas",
+);
+assert.equal(mixtoDomicilioDesdePantalla.transferenciasVentas, 8);
+assert.equal(mixtoDomicilioDesdePantalla.ventasCobradas, 20);
+assert.equal(mixtoDomicilioDesdePantalla.efectivoEnCaja, 12);
+assert.equal(mixtoDomicilioDesdePantalla.enviosMotorizados, 2);
+
+// El motorizado transfirio todo lo que debia y no trajo billete. No es lo
+// mismo que una transferencia pura: ahi el cliente deposita el envio y el
+// local se lo devuelve en efectivo, y aca el envio nunca toco la caja.
+const mixtoSinEfectivoEnCaja = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "domicilio",
+    total: 22,
+    costoEnvio: 2,
+    montoPagado: 22,
+    pagos: partesDeCobroMixto({
+      tipoOrden: "domicilio",
+      saldo: 22,
+      costoEnvio: 2,
+      esPrimerPago: true,
+      efectivoEnCaja: 0,
+    }).map((parte) => ({
+      metodoPago: parte.metodoPago,
+      monto: parte.monto,
+      enRango: true,
+    })),
+  },
+]);
+assert.equal(mixtoSinEfectivoEnCaja.efectivoEnCaja, 0);
+assert.equal(mixtoSinEfectivoEnCaja.efectivoEntregadoMotorizados, 0);
+assert.equal(mixtoSinEfectivoEnCaja.depositosRecibidos, 20);
+assert.equal(mixtoSinEfectivoEnCaja.transferenciasVentas, 20);
+assert.equal(mixtoSinEfectivoEnCaja.ventasCobradas, 20);
+
+// Mixto servido en el local: no hay envio que apartar, lo que se escribe es
+// lo que se guarda y lo que reporta el cuadre.
+const mixtoLocalDesdePantalla = calcularResumenCuadre([
+  {
+    cobrada: true,
+    tipoOrden: "local",
+    total: 30,
+    montoPagado: 30,
+    pagos: partesDeCobroMixto({
+      tipoOrden: "local",
+      saldo: 30,
+      costoEnvio: 0,
+      esPrimerPago: true,
+      efectivoEnCaja: 10,
+    }).map((parte) => ({
+      metodoPago: parte.metodoPago,
+      monto: parte.monto,
+      enRango: true,
+    })),
+  },
+]);
+assert.equal(mixtoLocalDesdePantalla.efectivoVentasDirectas, 10);
+assert.equal(mixtoLocalDesdePantalla.transferenciasVentas, 20);
+assert.equal(mixtoLocalDesdePantalla.depositosRecibidos, 20);
+assert.equal(mixtoLocalDesdePantalla.ventasCobradas, 30);
+assert.equal(mixtoLocalDesdePantalla.efectivoEnCaja, 10);
 
 console.log("cuadre.test.ts multipago OK");
