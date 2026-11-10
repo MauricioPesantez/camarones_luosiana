@@ -17,6 +17,8 @@ export interface PagoParaCuadre {
 
 export interface OrdenParaCuadre {
   tipoOperacion?: string;
+  /** Orden cargada a la cuenta de un empleado: no entra dinero al local. */
+  empleadoId?: string | null;
   cobrada: boolean;
   tipoOrden?: string | null;
   total: number | string;
@@ -113,7 +115,7 @@ export function calcularResumenCuadre(
   retiros: readonly RetiroParaCuadre[] = [],
   fondoInicial: number | string = 0,
 ): ResumenCuadre {
-  ordenes = ordenes.filter(orden => orden.tipoOperacion !== 'CONSUMO_EMPLEADO');
+  ordenes = ordenes.filter(orden => orden.tipoOperacion !== 'CONSUMO_EMPLEADO' && !orden.empleadoId);
   const ordenesAnuladas = ordenes.filter((orden) => orden.anulada === true);
   const ordenesVigentes = ordenes.filter((orden) => orden.anulada !== true);
   const ventasAnuladas = ordenesAnuladas.reduce(

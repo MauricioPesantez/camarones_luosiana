@@ -8,7 +8,11 @@ import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
 import RetiroCaja from "@/components/mesero/RetiroCaja";
 import InicioCaja from "@/components/mesero/InicioCaja";
-import { montoACobrarEnCaja } from "@/types/cobro";
+import {
+  montoACobrarEnCaja,
+  montoARepartirEnMixto,
+  partesDeCobroMixto,
+} from "@/types/cobro";
 import {
   MetodoPago,
   type NivelPicante,
@@ -95,8 +99,30 @@ function MeseroContenido() {
       )
     : 0;
   const saldo = saldoCentavos / 100;
+  // El envio solo se neta la PRIMERA vez que se cobra la orden: en una orden
+  // reabierta ya se liquido con el motorizado en el pago anterior.
+  const esPrimerPago = Number(ordenACobrar?.montoPagado ?? 0) <= 0;
+  // Un cobro mixto reparte lo que ENTRA al local, no lo que pago el cliente: en
+  // domicilio el motorizado ya se quedo el envio, asi que pedirselo para
+  // devolverselo enseguida es plata en circulo. El envio se repone al armar las
+  // partes, que si tienen que sumar el saldo completo.
+  const montoMixto = montoARepartirEnMixto({
+    tipoOrden: ordenACobrar?.tipoOrden,
+    saldo,
+    costoEnvio: ordenACobrar?.costoEnvio,
+    esPrimerPago,
+  });
+  const montoMixtoCentavos = Math.round(montoMixto * 100);
+  const envioRepuestoCentavos = saldoCentavos - montoMixtoCentavos;
   const efectivoMixtoCentavos = Math.round(Number(montoEfectivoMixto || 0) * 100);
-  const transferenciaMixtoCentavos = saldoCentavos - efectivoMixtoCentavos;
+  const transferenciaMixtoCentavos = montoMixtoCentavos - efectivoMixtoCentavos;
+  // El efectivo en caja puede ser 0 y seguir siendo mixto: en domicilio la parte
+  // de efectivo carga igual el envio que paso por manos del motorizado, y eso no
+  // es lo mismo que una transferencia pura (ahi el local le entrega el envio).
+  const mixtoValido =
+    efectivoMixtoCentavos >= 0 &&
+    efectivoMixtoCentavos + envioRepuestoCentavos > 0 &&
+    transferenciaMixtoCentavos > 0;
 
   const cargarOrdenes = async () => {
     setLoadingOrdenes(true);
@@ -434,12 +460,17 @@ function MeseroContenido() {
             </p>
             <p className="text-2xl font-bold text-green-600 mb-1">
               $
-              {montoACobrarEnCaja({
-                tipoOrden: ordenACobrar.tipoOrden,
-                total: saldo,
-                costoEnvio: ordenACobrar.costoEnvio,
-                metodoPago: metodoPagoSeleccionado === "mixto" ? "efectivo" : metodoPagoSeleccionado,
-              }).toFixed(2)}
+              {(metodoPagoSeleccionado === "mixto"
+                ? montoMixto
+                : esPrimerPago
+                  ? montoACobrarEnCaja({
+                      tipoOrden: ordenACobrar.tipoOrden,
+                      total: saldo,
+                      costoEnvio: ordenACobrar.costoEnvio,
+                      metodoPago: metodoPagoSeleccionado,
+                    })
+                  : saldo
+              ).toFixed(2)}
               {ordenACobrar.montoPagado > 0 && (
                 <span className="ml-2 text-sm font-normal text-gray-500">
                   saldo de ${Number(ordenACobrar.total).toFixed(2)}
@@ -452,10 +483,9 @@ function MeseroContenido() {
                   {metodoPagoSeleccionado === "efectivo"
                     ? `El cliente paga $${Number(ordenACobrar.total).toFixed(2)}; el motorizado conserva $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} del envío.`
                     : metodoPagoSeleccionado === "mixto"
-                      ? (efectivoMixtoCentavos >=
-                          Math.round(Number(ordenACobrar.costoEnvio ?? 0) * 100)
-                          ? `El motorizado te entrega $${((efectivoMixtoCentavos - Math.round(Number(ordenACobrar.costoEnvio ?? 0) * 100)) / 100).toFixed(2)}.`
-                          : `Le entregas $${((Math.round(Number(ordenACobrar.costoEnvio ?? 0) * 100) - efectivoMixtoCentavos) / 100).toFixed(2)} al motorizado.`)
+                      ? envioRepuestoCentavos > 0
+                        ? `El cliente pagó $${saldo.toFixed(2)} y el motorizado conserva $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} del envío: se reparten solo $${montoMixto.toFixed(2)}.`
+                        : `Se reparten $${montoMixto.toFixed(2)} entre efectivo y transferencia.`
                       : `Entra el total; luego se entregan $${Number(ordenACobrar.costoEnvio ?? 0).toFixed(2)} en efectivo al motorizado.`}
                 </p>
               )}
@@ -498,12 +528,15 @@ function MeseroContenido() {
             {metodoPagoSeleccionado === "mixto" && (
               <div className="mb-6 space-y-2 rounded-lg bg-gray-50 p-4">
                 <label className="block text-sm font-semibold text-gray-700">
-                  Monto en efectivo
+                  {envioRepuestoCentavos > 0
+                    ? "Efectivo que te entrega el motorizado"
+                    : "Monto en efectivo"}
                   <input
                     type="number"
                     inputMode="decimal"
                     step="0.01"
                     min="0"
+                    max={montoMixto}
                     value={montoEfectivoMixto}
                     onChange={(event) => setMontoEfectivoMixto(event.target.value)}
                     className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-xl font-bold"
@@ -515,6 +548,10 @@ function MeseroContenido() {
                   <span className="font-semibold">
                     ${Math.max(0, transferenciaMixtoCentavos / 100).toFixed(2)}
                   </span>
+                </div>
+                <div className="flex justify-between border-t border-gray-200 pt-2 text-sm font-bold">
+                  <span>Total a repartir</span>
+                  <span>${montoMixto.toFixed(2)}</span>
                 </div>
               </div>
             )}
@@ -541,14 +578,23 @@ function MeseroContenido() {
                     ]);
                     return;
                   }
-                  if (efectivoMixtoCentavos <= 0 || transferenciaMixtoCentavos <= 0) {
-                    alert("En un cobro mixto las dos partes deben ser mayores a cero.");
+                  if (!mixtoValido) {
+                    alert(
+                      `En un cobro mixto la transferencia debe ser mayor a cero y el efectivo no puede pasar de $${montoMixto.toFixed(2)}.`,
+                    );
                     return;
                   }
-                  void cobrarOrden([
-                    { metodoPago: "efectivo", monto: efectivoMixtoCentavos / 100 },
-                    { metodoPago: "transferencia", monto: transferenciaMixtoCentavos / 100 },
-                  ]);
+                  // Se escribe lo que entra a la caja; el helper le repone el
+                  // envio para que las partes sumen el saldo que exige el servidor.
+                  void cobrarOrden(
+                    partesDeCobroMixto({
+                      tipoOrden: ordenACobrar.tipoOrden,
+                      saldo,
+                      costoEnvio: ordenACobrar.costoEnvio,
+                      esPrimerPago,
+                      efectivoEnCaja: efectivoMixtoCentavos / 100,
+                    }),
+                  );
                 }}
                 disabled={loadingCobrar}
                 className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-2 rounded-lg font-bold transition-colors"

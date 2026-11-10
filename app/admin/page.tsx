@@ -46,6 +46,8 @@ interface Orden {
   tiempoEstimado: number;
   modificada: boolean;
   cobrada: boolean;
+  empleadoId?: string | null;
+  empleadoNombre?: string | null;
   metodoPago: string | null;
   metodoPagoPrevisto: string | null;
   comprobanteTransferenciaKey?: string | null;
@@ -1510,7 +1512,11 @@ export default function AdminPage() {
                           className="px-6 py-4 text-sm"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {orden.cobrada ? (
+                          {orden.empleadoId ? (
+                            <span className="px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
+                              👤 A cuenta de {orden.empleadoNombre}
+                            </span>
+                          ) : orden.cobrada ? (
                             <div className="flex flex-col gap-1">
                               {orden.pagos && orden.pagos.length > 0 ? (
                                 <>
@@ -1724,7 +1730,13 @@ export default function AdminPage() {
               queda visible como anulada y deja de contar en el cuadre y en los
               reportes.
             </p>
-            {ordenAAnular.cobrada && (
+            {ordenAAnular.empleadoId && (
+              <p className="mb-4 rounded-lg border border-purple-300 bg-purple-50 px-3 py-2 text-sm text-purple-800">
+                Orden a cuenta de {ordenAAnular.empleadoNombre}: al anularla se
+                abona el cargo en su cuenta.
+              </p>
+            )}
+            {ordenAAnular.cobrada && !ordenAAnular.empleadoId && (
               <p className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                 ⚠️ Esta orden ya fue cobrada
                 {ordenAAnular.metodoPago === "efectivo"

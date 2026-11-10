@@ -33,6 +33,7 @@ import { calcularMovimientosPago } from '@/types/cobro';
 import { bloquearCajaAbierta, exigirCajaAbierta } from '@/lib/caja';
 import { ROL_ABRE_CAJA } from '@/types/caja';
 import { UbicacionInvalidaError, parsearUbicacionEntrega } from '@/lib/delivery-location';
+import { appendEmployeeMovement, lockEmployeeAccount } from '@/lib/employee-account';
 
 export const ORDEN_INCLUDE = {
   items: {
@@ -89,7 +90,7 @@ export async function prepararOrden(
   if (tipoOrden === 'local' && !body.numeroMesa) {
     throw new OrdenInvalidaError('El número de mesa es requerido para órdenes locales');
   }
-  if (tipoOrden === 'para_llevar' && !body.nombreCliente?.trim()) {
+  if (tipoOrden === 'para_llevar' && !body.nombreCliente?.trim() && !body.empleadoId) {
     throw new OrdenInvalidaError('El nombre del cliente es requerido');
   }
   if (tipoOrden === 'domicilio' && !body.telefonoCliente?.trim()) {
@@ -118,6 +119,21 @@ export async function prepararOrden(
     }
     if (!esDescuentoSolicitado(descuentoSolicitado)) {
       throw new OrdenInvalidaError('Descuento no válido: usa un monto en dólares o un porcentaje hasta 100%');
+    }
+  }
+
+  // Orden completa a cuenta de un empleado: solo digital y para llevar, porque en
+  // domicilio el envío lo cobra el motorizado y no puede ir a la cuenta.
+  const empleadoId = body.empleadoId ?? null;
+  if (empleadoId !== null) {
+    if (actor.rol !== 'digital') {
+      throw new OrdenInvalidaError('Solo el canal digital crea órdenes a cuenta de empleado');
+    }
+    if (typeof empleadoId !== 'string' || !empleadoId.trim() || empleadoId.length > 150) {
+      throw new OrdenInvalidaError('Empleado no válido');
+    }
+    if (tipoOrden !== 'para_llevar') {
+      throw new OrdenInvalidaError('Las órdenes a cuenta de empleado solo pueden ser para llevar');
     }
   }
 
@@ -283,6 +299,7 @@ export async function prepararOrden(
   // aprobacion de stock. Si el admin la rechaza, el cobro queda como reembolso
   // pendiente y no desaparece del cuadre.
   const cobradaAlCrear =
+    empleadoId === null &&
     tipoOrden !== 'local' &&
     body.metodoPagoPrevisto === 'transferencia' &&
     body.transferenciaConfirmada === true;
@@ -292,7 +309,8 @@ export async function prepararOrden(
     await exigirCajaAbierta();
   }
 
-  if (hayStockInsuficiente && !solicitarAprobacion) {
+  // El cargo a la cuenta nace con la orden; una aprobación de stock pendiente lo dejaría colgado.
+  if (hayStockInsuficiente && (!solicitarAprobacion || empleadoId !== null)) {
     throw new StockInsuficienteError(itemsSinStock);
   }
 
@@ -317,6 +335,7 @@ export async function prepararOrden(
     paymentLink,
     cobradaAlCrear,
     requiereCajaAbierta,
+    empleadoId,
   };
 }
 
@@ -343,6 +362,7 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
     paymentLink,
     cobradaAlCrear,
     requiereCajaAbierta,
+    empleadoId,
   } = preparada;
   const creadorNombre = creador.nombre;
   const origenCobroAlCrear = `creacion_${tipoOrden}_transferencia`;
@@ -350,6 +370,8 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
   if (requiereCajaAbierta) {
     await bloquearCajaAbierta(tx);
   }
+  // Valida que el empleado esté activo y con cuenta abierta antes de crear nada.
+  const empleado = empleadoId ? await lockEmployeeAccount(tx, empleadoId) : null;
   const createdAt = new Date();
   const dailyNumber = await allocateDailyOrderNumber(tx, createdAt);
   const nuevaOrden = await tx.orden.create({
@@ -359,8 +381,9 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
       createdAt,
       tipoOrden,
       numeroMesa: tipoOrden === 'local' ? (body.numeroMesa ?? null) : null,
-      nombreCliente:
-        tipoOrden !== 'local' ? body.nombreCliente?.trim() || null : null,
+      nombreCliente: empleado
+        ? empleado.nombre
+        : tipoOrden !== 'local' ? body.nombreCliente?.trim() || null : null,
       telefonoCliente:
         tipoOrden === 'domicilio' ? body.telefonoCliente?.trim() : null,
       ...ubicacion,
@@ -375,6 +398,19 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
       cobradaPor: cobradaAlCrear ? creadorNombre : null,
       cobradaPorId: cobradaAlCrear ? creador.id : null,
       origenCobro: cobradaAlCrear ? origenCobroAlCrear : null,
+      // A cuenta de empleado: queda saldada sin `Cobro`, así no entra dinero al cuadre.
+      ...(empleado
+        ? {
+            empleadoId: empleado.id,
+            empleadoNombre: empleado.nombre,
+            montoPagado: totalFinal,
+            cobrada: true,
+            fechaCobro: createdAt,
+            cobradaPor: creadorNombre,
+            cobradaPorId: creador.id,
+            origenCobro: 'cuenta_empleado',
+          }
+        : {}),
       cobroTokenHash: paymentLink.tokenHash,
       cobroUrl: paymentLink.url,
       mesero: creadorNombre,
@@ -467,6 +503,33 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
       diferenciaTotal: Number(totalFinal),
     },
   });
+
+  if (empleado) {
+    // Con 100% de descuento no hay nada que cargar (un movimiento en cero no es válido).
+    if (Math.round(totalFinal * 100) > 0) {
+      await appendEmployeeMovement(tx, {
+        empleadoId: empleado.id,
+        tipo: 'CONSUMO',
+        monto: totalFinal.toFixed(2),
+        motivo: `Orden #${nuevaOrden.numeroDiario ?? nuevaOrden.id.slice(-6)} a cuenta`,
+        autor: creador,
+        origenClave: `orden-empleado:${nuevaOrden.id}`,
+        idempotencyKey: `orden-empleado:${nuevaOrden.id}`,
+        ordenId: nuevaOrden.id,
+      });
+    }
+    await tx.historialOrden.create({
+      data: {
+        ordenId: nuevaOrden.id,
+        tipoAccion: 'orden_cargada_empleado',
+        descripcion: `Total $${totalFinal.toFixed(2)} cargado a la cuenta de ${empleado.nombre}`,
+        datosDespues: { empleadoId: empleado.id, empleadoNombre: empleado.nombre, total: Number(totalFinal) },
+        usuarioNombre: creador.nombre,
+        usuarioRol: creador.rol,
+        diferenciaTotal: 0,
+      },
+    });
+  }
 
   if (cobradaAlCrear) {
     const movimientos = calcularMovimientosPago({

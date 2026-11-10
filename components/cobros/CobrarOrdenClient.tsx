@@ -5,18 +5,16 @@ import { useRouter } from "next/navigation";
 
 import { comprimirImagen } from "@/lib/imagen-cliente";
 import type { AuthenticatedUser } from "@/lib/session";
-import { montoACobrarEnCaja } from "@/types/cobro";
+import {
+  montoACobrarEnCaja,
+  montoARepartirEnMixto,
+  partesDeCobroMixto,
+  type PartePago,
+} from "@/types/cobro";
 import {
   obtenerEtiquetaNivelPicante,
-  type MetodoPago,
   type NivelPicante,
 } from "@/types/orden";
-
-interface ParteDePago {
-  metodoPago: MetodoPago;
-  monto: number;
-  comprobanteTransferenciaKey?: string;
-}
 
 interface CobroOrder {
   id: string;
@@ -128,22 +126,44 @@ export default function CobrarOrdenClient({
     : saldo;
   const esDomicilio = orden.tipoOrden === "domicilio";
 
+  // Un cobro mixto reparte lo que ENTRA al local, no lo que pago el cliente: en
+  // domicilio el motorizado ya se quedo el envio, asi que pedirselo para
+  // devolverselo enseguida es plata en circulo. El envio se repone al armar las
+  // partes, que si tienen que sumar el saldo completo.
+  const montoMixto = montoARepartirEnMixto({
+    tipoOrden: orden.tipoOrden,
+    saldo,
+    costoEnvio: orden.costoEnvio,
+    esPrimerPago,
+  });
+  const montoMixtoCentavos = Math.round(montoMixto * 100);
+  const envioRepuestoCentavos = saldoCentavos - montoMixtoCentavos;
+
   const efectivoMixtoCentavos = Math.round(Number(montoEfectivoMixto || 0) * 100);
-  const transferenciaMixtoCentavos = saldoCentavos - efectivoMixtoCentavos;
-  const mixtoValido = efectivoMixtoCentavos > 0 && transferenciaMixtoCentavos > 0;
+  const transferenciaMixtoCentavos = montoMixtoCentavos - efectivoMixtoCentavos;
+  // El efectivo en caja puede ser 0 y seguir siendo mixto: en domicilio la parte
+  // de efectivo carga igual el envio que paso por manos del motorizado, y eso no
+  // es lo mismo que una transferencia pura (ahi el local le entrega el envio).
+  const mixtoValido =
+    efectivoMixtoCentavos >= 0 &&
+    efectivoMixtoCentavos + envioRepuestoCentavos > 0 &&
+    transferenciaMixtoCentavos > 0;
 
   // Que partes arma este acto de cobro segun el modo activo. `objectKey` es
   // el resultado (posiblemente null) de la subida a S3.
-  const partesDelModo = (objectKey: string | null): ParteDePago[] =>
+  const partesDelModo = (objectKey: string | null): PartePago[] =>
     modoActivo === "mixto"
-      ? [
-          { metodoPago: "efectivo", monto: efectivoMixtoCentavos / 100 },
-          {
-            metodoPago: "transferencia",
-            monto: transferenciaMixtoCentavos / 100,
-            ...(objectKey ? { comprobanteTransferenciaKey: objectKey } : {}),
-          },
-        ]
+      ? partesDeCobroMixto({
+          tipoOrden: orden.tipoOrden,
+          saldo,
+          costoEnvio: orden.costoEnvio,
+          esPrimerPago,
+          efectivoEnCaja: efectivoMixtoCentavos / 100,
+        }).map((parte) =>
+          parte.metodoPago === "transferencia" && objectKey
+            ? { ...parte, comprobanteTransferenciaKey: objectKey }
+            : parte,
+        )
       : [
           {
             metodoPago: "transferencia",
@@ -153,7 +173,7 @@ export default function CobrarOrdenClient({
         ];
 
   const cobrar = async (
-    partes: ParteDePago[],
+    partes: PartePago[],
     etiqueta: string,
   ): Promise<boolean> => {
     setLoading(true);
@@ -259,7 +279,7 @@ export default function CobrarOrdenClient({
             <strong>
               $
               {(cobrado === "mixto"
-                ? saldo
+                ? montoMixto
                 : cobrado === "efectivo"
                   ? montoEfectivo
                   : montoTransferencia
@@ -401,7 +421,7 @@ export default function CobrarOrdenClient({
             className="rounded-2xl bg-amber-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-amber-700 disabled:bg-slate-400"
           >
             🔀 Mixto
-            <span className="block text-2xl">${saldo.toFixed(2)}</span>
+            <span className="block text-2xl">${montoMixto.toFixed(2)}</span>
           </button>
         </section>
 
@@ -414,16 +434,20 @@ export default function CobrarOrdenClient({
             {modoActivo === "mixto" && (
               <>
                 <p className="mt-1 text-sm text-slate-600">
-                  Escribe cuánto paga en efectivo. El resto se cobra por transferencia.
+                  {envioRepuestoCentavos > 0
+                    ? `Se reparten $${montoMixto.toFixed(2)}: el envío de $${orden.costoEnvio.toFixed(2)} ya se lo quedó el motorizado y no se cobra aquí.`
+                    : "Escribe cuánto entra en efectivo. El resto se cobra por transferencia."}
                 </p>
                 <label className="mt-4 block text-sm font-semibold text-slate-700">
-                  Monto en efectivo
+                  {envioRepuestoCentavos > 0
+                    ? "Efectivo que te entrega el motorizado"
+                    : "Monto en efectivo"}
                   <input
                     type="number"
                     inputMode="decimal"
                     step="0.01"
                     min="0"
-                    max={saldo}
+                    max={montoMixto}
                     value={montoEfectivoMixto}
                     onChange={(event) => setMontoEfectivoMixto(event.target.value)}
                     className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-2xl font-bold"
@@ -431,20 +455,20 @@ export default function CobrarOrdenClient({
                   />
                 </label>
                 <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-4 text-sm">
-                  <div className="flex justify-between"><span>Efectivo</span><span className="font-semibold">${(efectivoMixtoCentavos / 100).toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span>Efectivo en caja</span><span className="font-semibold">${(efectivoMixtoCentavos / 100).toFixed(2)}</span></div>
                   <div className="flex justify-between"><span>Transferencia</span><span className="font-semibold">${(transferenciaMixtoCentavos / 100).toFixed(2)}</span></div>
-                  <div className="flex justify-between border-t pt-1 font-bold"><span>Saldo</span><span>${saldo.toFixed(2)}</span></div>
+                  <div className="flex justify-between border-t pt-1 font-bold"><span>Total a repartir</span><span>${montoMixto.toFixed(2)}</span></div>
                 </div>
                 {transferenciaMixtoCentavos <= 0 && efectivoMixtoCentavos > 0 && (
                   <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">
-                    El efectivo cubre todo el saldo. Usa el botón de Efectivo.
+                    El efectivo cubre todo. Usa el botón de Efectivo.
                   </p>
                 )}
-                {esDomicilio && esPrimerPago && efectivoMixtoCentavos > 0 && (
+                {envioRepuestoCentavos > 0 && (
                   <p className="mt-3 rounded-lg bg-purple-50 p-3 text-sm text-purple-900">
-                    {efectivoMixtoCentavos >= Math.round(orden.costoEnvio * 100)
-                      ? `El motorizado te entrega $${((efectivoMixtoCentavos - Math.round(orden.costoEnvio * 100)) / 100).toFixed(2)}.`
-                      : `Le entregas $${((Math.round(orden.costoEnvio * 100) - efectivoMixtoCentavos) / 100).toFixed(2)} al motorizado.`}
+                    El cliente pagó ${saldo.toFixed(2)} y el motorizado conserva $
+                    {orden.costoEnvio.toFixed(2)} del envío: no le pidas ese
+                    valor ni se lo devuelvas después.
                   </p>
                 )}
               </>
@@ -510,7 +534,7 @@ export default function CobrarOrdenClient({
                   : loading
                     ? "Registrando…"
                     : modoActivo === "mixto"
-                      ? `Confirmar $${saldo.toFixed(2)} mixto`
+                      ? `Confirmar $${montoMixto.toFixed(2)} mixto`
                       : "Confirmar transferencia"}
               </button>
             )}

@@ -77,6 +77,13 @@ export default function CrearOrden() {
     new Set(),
   );
   const [carritoAlcanzado, setCarritoAlcanzado] = useState(false);
+  // Solo digital, para llevar: el total final se carga a la cuenta del empleado.
+  const [empleados, setEmpleados] = useState<{ id: string; nombre: string }[]>(
+    [],
+  );
+  const [paraEmpleado, setParaEmpleado] = useState(false);
+  const [empleadoId, setEmpleadoId] = useState("");
+  const aCuentaEmpleado = tipoOrden === "para_llevar" && paraEmpleado;
   const inicioRef = useRef<HTMLDivElement>(null);
   const carritoRef = useRef<HTMLDivElement>(null);
 
@@ -87,7 +94,8 @@ export default function CrearOrden() {
       try {
         const res = await fetch("/api/caja", { cache: "no-store" });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "No se pudo verificar la caja");
+        if (!res.ok)
+          throw new Error(data.error || "No se pudo verificar la caja");
         if (!vigente) return;
         if (data.caja?.estado !== "abierta") {
           router.replace("/mesero?vista=caja&requerida=1");
@@ -96,12 +104,16 @@ export default function CrearOrden() {
         setCajaVerificada(true);
       } catch (err) {
         if (vigente) {
-          setErrorCaja(err instanceof Error ? err.message : "No se pudo verificar la caja");
+          setErrorCaja(
+            err instanceof Error ? err.message : "No se pudo verificar la caja",
+          );
         }
       }
     };
     void verificarCaja();
-    return () => { vigente = false; };
+    return () => {
+      vigente = false;
+    };
   }, [authLoading, usuario?.rol, usuario?.id, router, intentoCaja]);
 
   const cargarProductos = async () => {
@@ -127,6 +139,14 @@ export default function CrearOrden() {
       cargarProductos();
     }
   }, [usuario]);
+
+  useEffect(() => {
+    if (usuario?.rol !== "digital") return;
+    fetch("/api/consumos-empleados?empleados=1")
+      .then((res) => (res.ok ? res.json() : { empleados: [] }))
+      .then((data) => setEmpleados(data.empleados ?? []))
+      .catch((error) => console.error("Error al cargar empleados:", error));
+  }, [usuario?.rol]);
 
   useEffect(() => {
     const actualizarDestinoScroll = () => {
@@ -166,7 +186,10 @@ export default function CrearOrden() {
     return (
       <div className="mx-auto max-w-2xl p-6">
         {errorCaja ? (
-          <div role="alert" className="rounded-xl border border-red-200 bg-white p-6">
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-white p-6"
+          >
             <p className="text-red-700">{errorCaja}</p>
             <button
               type="button"
@@ -180,7 +203,9 @@ export default function CrearOrden() {
             </button>
           </div>
         ) : (
-          <p role="status" className="text-center text-gray-600">Verificando la caja de hoy...</p>
+          <p role="status" className="text-center text-gray-600">
+            Verificando la caja de hoy...
+          </p>
         )}
       </div>
     );
@@ -193,7 +218,10 @@ export default function CrearOrden() {
 
   // Sin tildes ni mayúsculas: "camaron" encuentra "Camarón".
   const sinTildes = (texto: string) =>
-    texto.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+    texto
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase();
   const textoBusqueda = sinTildes(busqueda.trim());
   const productosFiltrados = productos.filter(
     (p) =>
@@ -213,7 +241,10 @@ export default function CrearOrden() {
             ? {
                 ...item,
                 cantidad: item.cantidad + 1,
-                nivelesPicante: item.nivelesPicante && [...item.nivelesPicante, ""],
+                nivelesPicante: item.nivelesPicante && [
+                  ...item.nivelesPicante,
+                  "",
+                ],
               }
             : item,
         ),
@@ -230,7 +261,9 @@ export default function CrearOrden() {
             typeof producto.precio === "string"
               ? parseFloat(producto.precio)
               : producto.precio,
-          nivelesPicante: esCategoriaCombo(producto.categoria) ? [""] : undefined,
+          nivelesPicante: esCategoriaCombo(producto.categoria)
+            ? [""]
+            : undefined,
         },
       ]);
     }
@@ -281,8 +314,7 @@ export default function CrearOrden() {
     );
   };
 
-  const calcularRecargo = () =>
-    calcularRecargoEnvases(tipoOrden, carrito);
+  const calcularRecargo = () => calcularRecargoEnvases(tipoOrden, carrito);
 
   const cantidadEnvases = carrito.reduce(
     (total, item) =>
@@ -400,7 +432,13 @@ export default function CrearOrden() {
     }
     if (tipoOrden === "local" && !numeroMesa)
       return falta("numero-mesa", "Ingresa el número de mesa");
-    if (tipoOrden === "para_llevar" && !nombreCliente.trim())
+    if (aCuentaEmpleado && !empleadoId)
+      return falta("empleado-cuenta", "Selecciona el empleado");
+    if (
+      tipoOrden === "para_llevar" &&
+      !aCuentaEmpleado &&
+      !nombreCliente.trim()
+    )
       return falta("nombre-cliente", "Ingresa el nombre del cliente");
     if (tipoOrden === "domicilio" && !telefonoCliente.trim())
       return falta("telefono-cliente", "Ingresa el teléfono del cliente");
@@ -467,14 +505,14 @@ export default function CrearOrden() {
           metodoPagoPrevisto:
             tipoOrden === "domicilio" ? metodoPagoPrevisto : undefined,
           transferenciaConfirmada:
-            tipoOrden === "domicilio" &&
-            metodoPagoPrevisto === "transferencia"
+            tipoOrden === "domicilio" && metodoPagoPrevisto === "transferencia"
               ? transferenciaConfirmada
               : false,
           mesero: usuario?.nombre || "Desconocido",
           creadorId: usuario?.id,
           observaciones,
           descuento: descuentoSolicitado ?? undefined,
+          empleadoId: aCuentaEmpleado ? empleadoId : undefined,
           items: itemsParaEnviar(),
           solicitarAprobacion: solicitarAprobacion,
         }),
@@ -492,6 +530,13 @@ export default function CrearOrden() {
         } else {
           alert("Orden guardada pero falló la impresión");
         }
+        if (aCuentaEmpleado) {
+          alert(
+            `Total $${Number(data.orden.total).toFixed(2)} cargado a la cuenta de ${data.orden.empleadoNombre}.`,
+          );
+        }
+        setParaEmpleado(false);
+        setEmpleadoId("");
         // Limpiar formulario
         setCarrito([]);
         setNumeroMesa("");
@@ -510,7 +555,10 @@ export default function CrearOrden() {
         // Recargar productos para actualizar stock
         await cargarProductos();
       } else {
-        if (data.code === "CAJA_NO_DISPONIBLE" && usuario.rol === ROL_ABRE_CAJA) {
+        if (
+          data.code === "CAJA_NO_DISPONIBLE" &&
+          usuario.rol === ROL_ABRE_CAJA
+        ) {
           router.replace("/mesero?vista=caja&requerida=1");
           return;
         }
@@ -582,10 +630,12 @@ export default function CrearOrden() {
                       type="button"
                       onClick={() => {
                         setTipoOrden(tipo);
+                        setParaEmpleado(false);
+                        setEmpleadoId("");
                         setNombreCliente("");
                         setTelefonoCliente("");
-        setUbicacionUrl("");
-        setReferenciaEntrega("");
+                        setUbicacionUrl("");
+                        setReferenciaEntrega("");
                         setCostoEnvio("");
                         setMetodoPagoPrevisto("");
                         setTransferenciaConfirmada(false);
@@ -610,7 +660,10 @@ export default function CrearOrden() {
             {/* Campos según tipo */}
             {tipoOrden === "local" && (
               <div className="mb-4">
-                <label htmlFor="numero-mesa" className="block text-sm font-medium mb-2 text-gray-800">
+                <label
+                  htmlFor="numero-mesa"
+                  className="block text-sm font-medium mb-2 text-gray-800"
+                >
                   Número de Mesa
                 </label>
                 <input
@@ -627,25 +680,89 @@ export default function CrearOrden() {
               </div>
             )}
 
-            {(tipoOrden === "para_llevar" || tipoOrden === "domicilio") && (
+            {usuario?.rol === "digital" && tipoOrden === "para_llevar" && (
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-2 text-gray-800">
-                  Nombre del Cliente
-                  {tipoOrden === "domicilio" ? " (opcional)" : " *"}
-                </label>
-                <input
-                  id="nombre-cliente"
-                  type="text"
-                  value={nombreCliente}
-                  onChange={(e) => setNombreCliente(e.target.value)}
-                  required={tipoOrden === "para_llevar"}
-                  aria-invalid={errorActual?.campo === "nombre-cliente"}
-                  className={`w-full border rounded-lg px-4 py-2 text-black${claseError("nombre-cliente")}`}
-                  placeholder="Ej: Juan Pérez"
-                />
-                {mensajeError("nombre-cliente")}
+                <span className="block text-sm font-medium mb-2 text-gray-800">
+                  Pedido para
+                </span>
+                <div
+                  className="flex gap-2"
+                  role="group"
+                  aria-label="Pedido para"
+                >
+                  {[false, true].map((esEmpleado) => (
+                    <button
+                      key={String(esEmpleado)}
+                      type="button"
+                      aria-pressed={paraEmpleado === esEmpleado}
+                      onClick={() => {
+                        setParaEmpleado(esEmpleado);
+                        setEmpleadoId("");
+                      }}
+                      className={`flex-1 py-2 px-3 rounded-lg font-semibold text-sm transition-colors ${
+                        paraEmpleado === esEmpleado
+                          ? esEmpleado
+                            ? "bg-purple-600 text-white"
+                            : "bg-blue-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                    >
+                      {esEmpleado ? "👤 Empleado" : "🙋 Cliente"}
+                    </button>
+                  ))}
+                </div>
+                {aCuentaEmpleado && (
+                  <div className="mt-3">
+                    <label
+                      htmlFor="empleado-cuenta"
+                      className="block text-sm font-medium mb-2 text-gray-800"
+                    >
+                      Empleado *
+                    </label>
+                    <select
+                      id="empleado-cuenta"
+                      value={empleadoId}
+                      onChange={(e) => setEmpleadoId(e.target.value)}
+                      aria-invalid={errorActual?.campo === "empleado-cuenta"}
+                      className={`w-full border rounded-lg px-4 py-2 text-black bg-white${claseError("empleado-cuenta")}`}
+                    >
+                      <option value="">Selecciona el empleado</option>
+                      {empleados.map((empleado) => (
+                        <option key={empleado.id} value={empleado.id}>
+                          {empleado.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    {mensajeError("empleado-cuenta")}
+                    <p className="mt-1 text-xs text-purple-800">
+                      No se cobra: el total con descuento se carga a la cuenta
+                      del empleado.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
+
+            {(tipoOrden === "para_llevar" || tipoOrden === "domicilio") &&
+              !aCuentaEmpleado && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2 text-gray-800">
+                    Nombre del Cliente
+                    {tipoOrden === "domicilio" ? " (opcional)" : " *"}
+                  </label>
+                  <input
+                    id="nombre-cliente"
+                    type="text"
+                    value={nombreCliente}
+                    onChange={(e) => setNombreCliente(e.target.value)}
+                    required={tipoOrden === "para_llevar"}
+                    aria-invalid={errorActual?.campo === "nombre-cliente"}
+                    className={`w-full border rounded-lg px-4 py-2 text-black${claseError("nombre-cliente")}`}
+                    placeholder="Ej: Juan Pérez"
+                  />
+                  {mensajeError("nombre-cliente")}
+                </div>
+              )}
 
             {tipoOrden === "domicilio" && (
               <div className="grid grid-cols-2 gap-4 mb-4">
@@ -684,7 +801,10 @@ export default function CrearOrden() {
                   {mensajeError("costo-envio")}
                 </div>
                 <div>
-                  <label htmlFor="ubicacion-url" className="block text-sm font-medium mb-2 text-gray-800">
+                  <label
+                    htmlFor="ubicacion-url"
+                    className="block text-sm font-medium mb-2 text-gray-800"
+                  >
                     Enlace de Google Maps
                   </label>
                   <input
@@ -697,7 +817,10 @@ export default function CrearOrden() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="referencia-entrega" className="block text-sm font-medium mb-2 text-gray-800">
+                  <label
+                    htmlFor="referencia-entrega"
+                    className="block text-sm font-medium mb-2 text-gray-800"
+                  >
                     Referencia de entrega
                   </label>
                   <input
@@ -755,8 +878,9 @@ export default function CrearOrden() {
                 {metodoPagoPrevisto === "efectivo" && (
                   <p className="text-xs text-gray-600 mt-2">
                     El motorizado cobra ${calcularTotal().toFixed(2)} al cliente
-                    y paga ${(calcularTotal() - calcularCostoEnvio()).toFixed(2)}{" "}
-                    en el local.
+                    y paga $
+                    {(calcularTotal() - calcularCostoEnvio()).toFixed(2)} en el
+                    local.
                   </p>
                 )}
                 {metodoPagoPrevisto === "transferencia" && (
@@ -766,7 +890,9 @@ export default function CrearOrden() {
                       local le entrega ${calcularCostoEnvio().toFixed(2)} al
                       motorizado.
                     </p>
-                    <label className={`flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-900${claseError("transferencia-confirmada")}`}>
+                    <label
+                      className={`flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-semibold text-blue-900${claseError("transferencia-confirmada")}`}
+                    >
                       <input
                         id="transferencia-confirmada"
                         type="checkbox"
@@ -790,7 +916,7 @@ export default function CrearOrden() {
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="🔍 Buscar producto..."
               aria-label="Buscar producto"
-              className="w-full mb-3 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full mb-3 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-blue-400"
             />
 
             {/* Filtros de categoría */}
@@ -819,76 +945,72 @@ export default function CrearOrden() {
                     Sin productos para &quot;{busqueda}&quot;
                   </p>
                 )}
-                {Array.from(new Set(productosFiltrados.map((p) => p.categoria))).map(
-                  (categoria) => {
-                    const grupoProductos = productosFiltrados.filter(
-                      (p) => p.categoria === categoria,
-                    );
-                    const esCombos = categoria === "Combos";
-                    return (
-                      <div key={categoria}>
-                        <div
-                          className={`flex items-center gap-3 mb-3 pb-2 border-b-2 ${esCombos ? "border-blue-500" : "border-orange-400"}`}
+                {Array.from(
+                  new Set(productosFiltrados.map((p) => p.categoria)),
+                ).map((categoria) => {
+                  const grupoProductos = productosFiltrados.filter(
+                    (p) => p.categoria === categoria,
+                  );
+                  const esCombos = categoria === "Combos";
+                  return (
+                    <div key={categoria}>
+                      <div
+                        className={`flex items-center gap-3 mb-3 pb-2 border-b-2 ${esCombos ? "border-blue-500" : "border-orange-400"}`}
+                      >
+                        <span
+                          className={`text-lg font-bold ${esCombos ? "text-blue-700" : "text-orange-600"}`}
                         >
-                          <span
-                            className={`text-lg font-bold ${esCombos ? "text-blue-700" : "text-orange-600"}`}
-                          >
-                            {esCombos ? "🦐" : "➕"} {categoria}
-                          </span>
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full font-semibold ${esCombos ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}
-                          >
-                            {grupoProductos.length} items
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {grupoProductos.map((producto) => {
-                            const fueAgregado = agregadoReciente.has(
-                              producto.id,
-                            );
-                            return (
-                              <button
-                                key={producto.id}
-                                onClick={() => agregarAlCarrito(producto)}
-                                className={`text-white p-4 rounded-lg transition-all duration-200 shadow-lg relative ${
-                                  fueAgregado
-                                    ? "bg-linear-to-br from-green-500 to-green-600 scale-95"
-                                    : esCombos
-                                      ? "bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                                      : "bg-linear-to-br from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600"
-                                }`}
-                              >
-                                {fueAgregado && (
-                                  <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-green-500">
-                                    <span className="text-3xl font-bold">
-                                      ✓
-                                    </span>
-                                  </div>
-                                )}
-                                <div className="font-semibold text-sm mb-2">
-                                  {producto.nombre}
-                                </div>
-                                <div className="text-lg font-bold mb-1">
-                                  ${Number(producto.precio).toFixed(2)}
-                                </div>
-                                <div
-                                  className={`text-xs font-semibold ${getStockColor(producto)}`}
-                                >
-                                  Stock: {producto.stock}
-                                </div>
-                                {getStockBadge(producto) && (
-                                  <div className="absolute top-2 right-2">
-                                    {getStockBadge(producto)}
-                                  </div>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
+                          {esCombos ? "🦐" : "➕"} {categoria}
+                        </span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-semibold ${esCombos ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"}`}
+                        >
+                          {grupoProductos.length} items
+                        </span>
                       </div>
-                    );
-                  },
-                )}
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {grupoProductos.map((producto) => {
+                          const fueAgregado = agregadoReciente.has(producto.id);
+                          return (
+                            <button
+                              key={producto.id}
+                              onClick={() => agregarAlCarrito(producto)}
+                              className={`text-white p-4 rounded-lg transition-all duration-200 shadow-lg relative ${
+                                fueAgregado
+                                  ? "bg-linear-to-br from-green-500 to-green-600 scale-95"
+                                  : esCombos
+                                    ? "bg-linear-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                                    : "bg-linear-to-br from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600"
+                              }`}
+                            >
+                              {fueAgregado && (
+                                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-green-500">
+                                  <span className="text-3xl font-bold">✓</span>
+                                </div>
+                              )}
+                              <div className="font-semibold text-sm mb-2">
+                                {producto.nombre}
+                              </div>
+                              <div className="text-lg font-bold mb-1">
+                                ${Number(producto.precio).toFixed(2)}
+                              </div>
+                              <div
+                                className={`text-xs font-semibold ${getStockColor(producto)}`}
+                              >
+                                Stock: {producto.stock}
+                              </div>
+                              {getStockBadge(producto) && (
+                                <div className="absolute top-2 right-2">
+                                  {getStockBadge(producto)}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               // Vista filtrada por categoría (lista plana)
@@ -986,7 +1108,9 @@ export default function CrearOrden() {
                             className="block text-xs font-semibold mb-1 text-gray-700"
                           >
                             Nivel de picante
-                            {item.cantidad > 1 ? ` · combo ${unidad + 1}` : ""}{" "}
+                            {item.cantidad > 1
+                              ? ` · combo ${unidad + 1}`
+                              : ""}{" "}
                             <span className="text-red-600">*</span>
                           </label>
                           <select
@@ -1114,7 +1238,9 @@ export default function CrearOrden() {
             {pendiente && (
               <p
                 className={`mb-2 text-center text-sm ${
-                  mostrarErrores ? "font-semibold text-red-600" : "text-gray-500"
+                  mostrarErrores
+                    ? "font-semibold text-red-600"
+                    : "text-gray-500"
                 }`}
               >
                 Falta: {pendiente.mensaje}
@@ -1136,9 +1262,15 @@ export default function CrearOrden() {
             // Al bajar se alinea el final del carrito para que "Enviar a Cocina"
             // quede visible y por encima de este botón flotante.
             if (carritoAlcanzado) {
-              inicioRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              inicioRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
             } else {
-              carritoRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+              carritoRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "end",
+              });
             }
           }}
           className="lg:hidden fixed right-5 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 rounded-full bg-gray-900 px-4 py-3 text-sm font-bold text-white shadow-xl transition-colors hover:bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900 md:bottom-5"

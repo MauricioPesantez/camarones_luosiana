@@ -69,6 +69,75 @@ export function montoACobrarEnCaja(input: {
 }
 
 /**
+ * Cuanto se reparte entre efectivo y transferencia en un cobro mixto.
+ *
+ * Es lo que el local REALMENTE recibe, no lo que pago el cliente. En un
+ * domicilio el motorizado ya cobro el total al cliente y se quedo el envio,
+ * asi que lo unico que trae al local es la venta propia; el mixto reparte esa
+ * venta propia. Sumarle el envio seria pedirselo solo para devolverselo
+ * enseguida: plata en circulo y un dato falso en el cuadre.
+ *
+ * `esPrimerPago` es lo que distingue una orden reabierta: ahi el envio ya se
+ * liquido con el motorizado en el pago anterior, asi que el saldo nuevo se
+ * reparte tal cual. Misma regla que usa `montoACobrarEnCaja` en las pantallas.
+ */
+export function montoARepartirEnMixto(input: {
+  tipoOrden?: string | null;
+  saldo: number | string;
+  costoEnvio?: number | string | null;
+  esPrimerPago: boolean;
+}): number {
+  return aDolares(
+    aCentavos(input.saldo) - envioNoRepartidoEnCentavos(input),
+  );
+}
+
+/**
+ * Traduce el reparto de un mixto del espacio en que trabaja el cobrador -lo que
+ * tiene fisicamente delante- al espacio que exige el servidor: `PartePago[]`
+ * que suman EXACTAMENTE el saldo de la orden, envio incluido.
+ *
+ * `efectivoEnCaja` es el billete que entra al cajon. La parte de efectivo le
+ * repone el envio que el motorizado ya se habia quedado, de modo que
+ * `calcularLiquidacionDomicilio` en el cuadre vuelva a descontarlo y devuelva
+ * justo el efectivo que de verdad esta en la caja.
+ */
+export function partesDeCobroMixto(input: {
+  tipoOrden?: string | null;
+  saldo: number | string;
+  costoEnvio?: number | string | null;
+  esPrimerPago: boolean;
+  efectivoEnCaja: number | string;
+}): PartePago[] {
+  const saldoCentavos = aCentavos(input.saldo);
+  const envioCentavos = envioNoRepartidoEnCentavos(input);
+  const efectivoCentavos = aCentavos(input.efectivoEnCaja) + envioCentavos;
+
+  return [
+    { metodoPago: 'efectivo', monto: aDolares(efectivoCentavos) },
+    {
+      metodoPago: 'transferencia',
+      monto: aDolares(saldoCentavos - efectivoCentavos),
+    },
+  ];
+}
+
+/**
+ * El envio que el mixto NO reparte y que hay que reponer al armar las partes.
+ * Cero fuera de domicilio y en cualquier pago que no sea el primero. Acotado al
+ * saldo para que el reparto nunca quede negativo.
+ */
+function envioNoRepartidoEnCentavos(input: {
+  tipoOrden?: string | null;
+  saldo: number | string;
+  costoEnvio?: number | string | null;
+  esPrimerPago: boolean;
+}): number {
+  if (input.tipoOrden !== 'domicilio' || !input.esPrimerPago) return 0;
+  return Math.min(aCentavos(input.saldo), aCentavos(input.costoEnvio));
+}
+
+/**
  * Dato de presentacion que se materializa en `Orden.metodoPago`. El cuadre no
  * lo usa: el dinero se cuenta sumando las filas de `Cobro`.
  */

@@ -38,6 +38,7 @@ export async function POST(
     }
 
     if (orden.tipoOperacion === 'CONSUMO_EMPLEADO') return NextResponse.json({ error: 'Utiliza la gestion de consumos de empleados' }, { status: 409 });
+    if (orden.empleadoId) return NextResponse.json({ error: 'Orden a cuenta de empleado: anúlala y créala de nuevo' }, { status: 409 });
 
     if (orden.anulada) {
       return NextResponse.json(

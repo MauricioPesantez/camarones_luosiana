@@ -160,7 +160,7 @@ export default function OrdenCard({ orden, onMarcarLista }: OrdenCardProps) {
         ></div>
       </div>
 
-      {orden.tipoOperacion === 'CONSUMO_EMPLEADO' && <div className="mb-3 rounded bg-purple-100 px-3 py-2 font-bold text-purple-900">EMPLEADO · {orden.empleadoNombre}</div>}
+      {(orden.tipoOperacion === 'CONSUMO_EMPLEADO' || orden.empleadoNombre) && <div className="mb-3 rounded bg-purple-100 px-3 py-2 font-bold text-purple-900">EMPLEADO · {orden.empleadoNombre}</div>}
       {/* Badge de estado en la esquina superior derecha */}
       <div className="absolute top-4 right-4 flex items-center gap-2">
         <span className="text-2xl">{estado.icono}</span>

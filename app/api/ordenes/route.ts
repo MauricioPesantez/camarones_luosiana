@@ -12,6 +12,7 @@ import {
 import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
 import { obtenerFechaEcuador, obtenerRangoEcuador } from '@/lib/fecha-ecuador';
 import { CajaNoDisponibleError } from '@/lib/caja';
+import { AccountError } from '@/lib/employee-account';
 
 function withoutPaymentSecrets<T extends { cobroTokenHash?: string | null }>(order: T) {
   const { cobroTokenHash: _privateTokenHash, ...safeOrder } = order;
@@ -86,6 +87,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof OrdenInvalidaError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof AccountError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
     if (error instanceof CajaNoDisponibleError) {
       return NextResponse.json(

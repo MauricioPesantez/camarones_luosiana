@@ -9,6 +9,12 @@ export async function GET(request: Request) {
   const user = await getAuthenticatedUser();
   if (!user) return NextResponse.json({ error: 'Sesión requerida' }, { status: 401 });
   try {
+    // Beneficiarios para la orden completa a cuenta que crea el canal digital.
+    if (new URL(request.url).searchParams.get('empleados') === '1') {
+      if (user.rol !== 'digital') return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      const empleados = await prisma.usuario.findMany({ where: { activo: true, cuentaActivadaAt: { not: null } }, select: { id: true, nombre: true }, orderBy: { nombre: 'asc' } });
+      return NextResponse.json({ empleados });
+    }
     if (new URL(request.url).searchParams.get('catalogo') === '1') {
       if (!['admin', 'mesero'].includes(user.rol)) return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
       const [productos, empleados] = await Promise.all([
