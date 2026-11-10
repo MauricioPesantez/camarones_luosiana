@@ -69,7 +69,7 @@ export async function obtenerDatosCuadre(
       where: { fecha },
       select: CAJA_SELECT,
     }),
-    db.orden.findMany({ where: { tipoOperacion: 'CONSUMO_EMPLEADO', createdAt: { gte: rango.inicio, lt: rango.fin } }, select: { id: true, empleadoNombre: true, estado: true, total: true, anulada: true }, orderBy: { createdAt: 'desc' } }),
+    db.orden.findMany({ where: { OR: [{ tipoOperacion: 'CONSUMO_EMPLEADO' }, { empleadoId: { not: null } }], createdAt: { gte: rango.inicio, lt: rango.fin } }, select: { id: true, empleadoNombre: true, estado: true, total: true, anulada: true }, orderBy: { createdAt: 'desc' } }),
   ]);
 
   const usuariosPorNombre = new Map(

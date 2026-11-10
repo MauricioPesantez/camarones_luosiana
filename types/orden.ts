@@ -228,6 +228,8 @@ export interface CrearOrdenRequest {
   observaciones?: string;
   /** Solo roles en `ROLES_DESCUENTO`. */
   descuento?: DescuentoSolicitado;
+  /** Solo digital, para llevar: el total final se carga a la cuenta de este empleado. */
+  empleadoId?: string;
   items: {
     productoId: string;
     cantidad: number;

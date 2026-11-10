@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { validarAnulacionOrden } from '@/lib/ordenes-anulacion';
 import { PRINT_JOB_STATUSES } from '@/lib/print-jobs';
 import { getAuthenticatedUser } from '@/lib/session';
+import { appendEmployeeMovement } from '@/lib/employee-account';
 import { registrarAnulacionWhatsapp } from '@/lib/whatsapp-salidas';
 
 class AnulacionConflictError extends Error {}
@@ -60,6 +61,7 @@ export async function PATCH(
       select: {
         id: true,
         tipoOperacion: true,
+        empleadoId: true,
         anulada: true,
         estado: true,
         cobrada: true,
@@ -124,6 +126,27 @@ export async function PATCH(
           diferenciaTotal: -Number(existente.total),
         },
       });
+
+      // A cuenta de empleado: el cargo se revierte en su cuenta, conservando ambos movimientos.
+      if (existente.empleadoId) {
+        const cargo = await tx.movimientoCuentaEmpleado.findFirst({
+          where: { ordenId: id, empleadoId: existente.empleadoId, tipo: 'CONSUMO' },
+        });
+        if (cargo) {
+          await appendEmployeeMovement(tx, {
+            empleadoId: existente.empleadoId,
+            tipo: 'REVERSO_CONSUMO',
+            monto: cargo.monto.neg(),
+            motivo: `Orden anulada: ${razon}`,
+            autor: admin,
+            origenClave: `orden-empleado:${id}:anulada`,
+            idempotencyKey: `orden-empleado:${id}:anulada`,
+            ordenId: id,
+            movimientoOrigenId: cargo.id,
+            requireActive: false,
+          });
+        }
+      }
 
       // El dinero que ya entro no se puede hacer desaparecer con la orden: se
       // convierte en una deuda visible hasta que alguien lo devuelva.

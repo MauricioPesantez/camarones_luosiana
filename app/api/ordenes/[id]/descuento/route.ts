@@ -62,6 +62,7 @@ export async function PATCH(
         if (actual.tipoOperacion === 'CONSUMO_EMPLEADO') {
           throw new DescuentoError('Utiliza la gestion de consumos de empleados', 409);
         }
+        if (actual.empleadoId) throw new DescuentoError('Orden a cuenta de empleado: anúlala y créala de nuevo', 409);
         if (actual.anulada || actual.estado === 'cancelada') {
           throw new DescuentoError('No se puede aplicar descuento a una orden anulada o rechazada', 409);
         }

@@ -194,7 +194,7 @@ export function buildOrderTicketLines(orden: OrdenComanda): string[] {
   const lines = [
     STRONG_SEPARATOR,
     centered(`ORDEN #${visibleOrderNumber}`),
-    ...(orden.tipoOperacion === 'CONSUMO_EMPLEADO' ? ['EMPLEADO - A CUENTA', ...ticketTextLines(`Empleado: ${orden.empleadoNombre ?? ''}`)] : []),
+    ...(orden.tipoOperacion === 'CONSUMO_EMPLEADO' || orden.empleadoNombre ? ['EMPLEADO - A CUENTA', ...ticketTextLines(`Empleado: ${orden.empleadoNombre ?? ''}`)] : []),
     STRONG_SEPARATOR,
     ...(tipoOrden === 'local' ? [] : [`Tipo: ${labelTipo}`]),
     ...(metodoPagoPrevisto ? [`Pago: ${metodoPagoPrevisto.toUpperCase()}`] : []),

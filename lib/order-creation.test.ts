@@ -42,6 +42,7 @@ async function run() {
   const impresas: Record<string, unknown>[] = [];
   const ordenes: Record<string, unknown>[] = [];
   const pagos: Record<string, unknown>[] = [];
+  const movimientosEmpleado: Record<string, unknown>[] = [];
   const producto = {
     id: 'combo-duo', nombre: 'Combo Duo', categoria: 'Combos',
     stock: 92, precio: 21, disponible: true, tiempoPreparacion: 20,
@@ -127,6 +128,11 @@ async function run() {
         assert.equal(cliente, tx, 'El trabajo se confirma en la transacción de la orden');
         trabajos.push({ ordenId: orden.id, ...opciones });
       },
+    },
+    '@/lib/employee-account': {
+      AccountError: class extends Error { status = 409; },
+      lockEmployeeAccount: async (_tx: unknown, id: string) => ({ id, nombre: 'Ana Empleada' }),
+      appendEmployeeMovement: async (_tx: unknown, movimiento: Record<string, unknown>) => { movimientosEmpleado.push(movimiento); },
     },
     '@/lib/print-config': { isDirectPrintEnabled: () => impresionDirecta },
     '@/lib/printer': { PrinterService: class {
@@ -401,6 +407,27 @@ async function run() {
   await assert.rejects(conDescuento({ tipo: 'monto', valor: 9999 }), /supera el subtotal/);
   await assert.rejects(conDescuento({ tipo: 'porcentaje', valor: 150 }), /no válido/);
   await assert.rejects(conDescuento({ tipo: 'monto', valor: 1.005 }), /no válido/);
+
+  // Orden completa a cuenta de empleado: total con descuento a la cuenta, sin `Cobro`.
+  const aCuenta = { ...paraLlevar, nombreCliente: undefined, empleadoId: 'emp-1', descuento: { tipo: 'porcentaje', valor: 50 } };
+  const pagosPrevios = pagos.length;
+  const cargada = await creacion.crearOrden(actor, aCuenta as never, url);
+  assert.equal(cargada.orden.empleadoId, 'emp-1');
+  assert.equal(cargada.orden.nombreCliente, 'Ana Empleada');
+  assert.equal(cargada.orden.cobrada, true);
+  assert.equal(cargada.orden.montoPagado, cargada.orden.total);
+  assert.equal(pagos.length, pagosPrevios, 'No entra dinero a caja');
+  assert.deepEqual(
+    { tipo: movimientosEmpleado.at(-1)?.tipo, monto: movimientosEmpleado.at(-1)?.monto, empleadoId: movimientosEmpleado.at(-1)?.empleadoId },
+    { tipo: 'CONSUMO', monto: Number(cargada.orden.total).toFixed(2), empleadoId: 'emp-1' },
+  );
+  assert.ok(Number(cargada.orden.total) < 21, 'El cargo es el total después del descuento');
+  await assert.rejects(creacion.prepararOrden({ ...actor, rol: 'mesero' }, { ...aCuenta, descuento: undefined } as never, url), /Solo el canal digital/);
+  await assert.rejects(creacion.prepararOrden(actor, { ...domicilio, empleadoId: 'emp-1' } as never, url), /solo pueden ser para llevar/);
+  const conTransferencia = await creacion.prepararOrden(
+    actor, { ...aCuenta, metodoPagoPrevisto: 'transferencia', transferenciaConfirmada: true } as never, url,
+  );
+  assert.equal(conTransferencia.cobradaAlCrear, false);
 
   console.log('order-creation tests: ok (mesero, digital, caja, transferencia, stock, permisos, validaciones, numeracion, impresion)');
 }

@@ -183,6 +183,7 @@ export async function PATCH(
         }
 
         if (order.tipoOperacion === 'CONSUMO_EMPLEADO') throw new ModificationRequestError('Utiliza la gestion de consumos de empleados', 409);
+        if (order.empleadoId) throw new ModificationRequestError('Orden a cuenta de empleado: anúlala y créala de nuevo', 409);
 
         if (order.anulada) {
           throw new ModificationRequestError(

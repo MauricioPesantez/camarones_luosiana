@@ -354,7 +354,7 @@ function buildOrderSnapshot(order: PrintOrderSource): PrintOrderSnapshot {
   return {
     id,
     shortCode: id.slice(-6),
-    ...(order.tipoOperacion === 'CONSUMO_EMPLEADO' ? { employeeConsumption: true, employeeName: order.empleadoNombre ?? null } : {}),
+    ...(order.tipoOperacion === 'CONSUMO_EMPLEADO' || order.empleadoNombre ? { employeeConsumption: true, employeeName: order.empleadoNombre ?? null } : {}),
     dailyNumber,
     dailyDate: normalizeDailyDate(order.fechaNumeroDiario),
     type: normalizeOrderType(order.tipoOrden),

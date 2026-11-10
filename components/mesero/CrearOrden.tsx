@@ -77,6 +77,10 @@ export default function CrearOrden() {
     new Set(),
   );
   const [carritoAlcanzado, setCarritoAlcanzado] = useState(false);
+  // Solo digital, para llevar: el total final se carga a la cuenta del empleado.
+  const [empleados, setEmpleados] = useState<{ id: string; nombre: string }[]>([]);
+  const [empleadoId, setEmpleadoId] = useState("");
+  const aCuentaEmpleado = tipoOrden === "para_llevar" && empleadoId !== "";
   const inicioRef = useRef<HTMLDivElement>(null);
   const carritoRef = useRef<HTMLDivElement>(null);
 
@@ -127,6 +131,14 @@ export default function CrearOrden() {
       cargarProductos();
     }
   }, [usuario]);
+
+  useEffect(() => {
+    if (usuario?.rol !== "digital") return;
+    fetch("/api/consumos-empleados?empleados=1")
+      .then((res) => (res.ok ? res.json() : { empleados: [] }))
+      .then((data) => setEmpleados(data.empleados ?? []))
+      .catch((error) => console.error("Error al cargar empleados:", error));
+  }, [usuario?.rol]);
 
   useEffect(() => {
     const actualizarDestinoScroll = () => {
@@ -400,7 +412,7 @@ export default function CrearOrden() {
     }
     if (tipoOrden === "local" && !numeroMesa)
       return falta("numero-mesa", "Ingresa el número de mesa");
-    if (tipoOrden === "para_llevar" && !nombreCliente.trim())
+    if (tipoOrden === "para_llevar" && !aCuentaEmpleado && !nombreCliente.trim())
       return falta("nombre-cliente", "Ingresa el nombre del cliente");
     if (tipoOrden === "domicilio" && !telefonoCliente.trim())
       return falta("telefono-cliente", "Ingresa el teléfono del cliente");
@@ -475,6 +487,7 @@ export default function CrearOrden() {
           creadorId: usuario?.id,
           observaciones,
           descuento: descuentoSolicitado ?? undefined,
+          empleadoId: aCuentaEmpleado ? empleadoId : undefined,
           items: itemsParaEnviar(),
           solicitarAprobacion: solicitarAprobacion,
         }),
@@ -492,6 +505,10 @@ export default function CrearOrden() {
         } else {
           alert("Orden guardada pero falló la impresión");
         }
+        if (aCuentaEmpleado) {
+          alert(`Total $${Number(data.orden.total).toFixed(2)} cargado a la cuenta de ${data.orden.empleadoNombre}.`);
+        }
+        setEmpleadoId("");
         // Limpiar formulario
         setCarrito([]);
         setNumeroMesa("");
@@ -582,6 +599,7 @@ export default function CrearOrden() {
                       type="button"
                       onClick={() => {
                         setTipoOrden(tipo);
+                        setEmpleadoId("");
                         setNombreCliente("");
                         setTelefonoCliente("");
         setUbicacionUrl("");
@@ -627,7 +645,33 @@ export default function CrearOrden() {
               </div>
             )}
 
-            {(tipoOrden === "para_llevar" || tipoOrden === "domicilio") && (
+            {usuario?.rol === "digital" && tipoOrden === "para_llevar" && (
+              <div className="mb-4">
+                <label htmlFor="empleado-cuenta" className="block text-sm font-medium mb-2 text-gray-800">
+                  A cuenta de empleado (opcional)
+                </label>
+                <select
+                  id="empleado-cuenta"
+                  value={empleadoId}
+                  onChange={(e) => setEmpleadoId(e.target.value)}
+                  className="w-full border rounded-lg px-4 py-2 text-black bg-white"
+                >
+                  <option value="">No, es un cliente</option>
+                  {empleados.map((empleado) => (
+                    <option key={empleado.id} value={empleado.id}>
+                      {empleado.nombre}
+                    </option>
+                  ))}
+                </select>
+                {aCuentaEmpleado && (
+                  <p className="mt-1 text-xs text-purple-800">
+                    No se cobra: el total con descuento se carga a la cuenta del empleado.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {(tipoOrden === "para_llevar" || tipoOrden === "domicilio") && !aCuentaEmpleado && (
               <div className="mb-4">
                 <label className="block text-sm font-medium mb-2 text-gray-800">
                   Nombre del Cliente
