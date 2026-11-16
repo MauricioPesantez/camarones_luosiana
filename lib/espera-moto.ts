@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 const PISO_TIEMPO_MIN = 15;
 const MIN_POR_ORDEN_EN_COCINA = 3;
 const LLEGADA_MOTO_MIN = 5;
+// shortcut: vigencia cuenta desde createdAt, así que una orden sin stock aprobada tarde envejece desde su creación, no desde la aprobación; mejorar si las aprobaciones se retrasan a menudo.
 const MARGEN_VIGENCIA_MIN = 10;
 const TOPE_ESPERA_MIN = 45;
 const COTA_CONSULTA_MS = 3 * 60 * 60_000;
