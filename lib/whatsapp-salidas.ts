@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { resolverEsperaMoto } from '@/lib/espera-moto';
 import {
   Encabezado,
   OrdenPublicable,
@@ -18,7 +19,7 @@ const SIN_SALIR = ['PENDIENTE', 'REINTENTO'];
 const MENSAJES_DE_ORDEN = ['PUBLICACION_GRUPO', 'ACTUALIZACION_GRUPO', 'RECORDATORIO_DELIVERY'];
 const LIMITE_RECORDATORIO_MS = 30 * 60 * 1000;
 
-type OrdenConId = OrdenPublicable & { id: string };
+type OrdenConId = OrdenPublicable & { id: string; tiempoEstimado: number | null };
 type Destinos = Pick<ConfiguracionWhatsapp, 'grupoChatId' | 'motosChatId'>;
 
 /** Cuenta desde que el POS acepta la orden para preparación; el pedido puede fijar otra espera. */
@@ -92,15 +93,19 @@ export async function registrarAprobacionWhatsapp(
   const { entrada, config } = origen;
   // La línea moto del pedido sigue vigente aunque la aprobación llegue después.
   const datos = entrada.datosNormalizados as { pedido?: Pick<PedidoWhatsapp, 'esperaMotoMin'> } | null;
-  const esperaMin = datos?.pedido?.esperaMotoMin;
-  const salidas = salidasDeOrdenAceptada(orden, entrada.sessionId, config, ahora, esperaMin);
+  const espera = await resolverEsperaMoto(tx, orden, ahora, datos?.pedido?.esperaMotoMin);
+  const salidas = salidasDeOrdenAceptada(orden, entrada.sessionId, config, ahora, espera?.minutos);
   salidas.push({
     sessionId: entrada.sessionId,
     ordenId: orden.id,
     entradaId: entrada.id,
     tipo: 'RESPUESTA_EMPLEADO',
     destino: entrada.remitente,
-    texto: textoConfirmacion(orden, { impresionEnCola, avisoDelivery: avisoDeDelivery(orden, ahora, esperaMin) }),
+    texto: textoConfirmacion(orden, {
+      impresionEnCola,
+      avisoDelivery: avisoDeDelivery(orden, ahora, espera?.minutos),
+      enCocina: espera?.enCocina,
+    }),
     clave: `aprobacion:${orden.id}`,
   });
   await tx.whatsappSalida.createMany({ data: salidas });

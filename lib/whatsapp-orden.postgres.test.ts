@@ -154,6 +154,21 @@ async function pruebas() {
   assert.match(respuesta.texto, /Impresión: en cola/);
   assert.deepEqual(eventos.at(-1), 'nueva-orden');
 
+  // Sin línea moto la espera sale de la carga: 10 + 3 min por orden en cocina; una olvidada no cuenta.
+  await reiniciar(10);
+  const enCocina = { tipoOrden: 'local', mesero: 'Mesa', creadorId: 'digital', total: 5, estado: 'pendiente' };
+  await prisma.orden.createMany({ data: [
+    { ...enCocina, createdAt: ahora }, { ...enCocina, createdAt: ahora },
+    { ...enCocina, createdAt: new Date(ahora.getTime() - 40 * 60 * 1000), tiempoEstimado: 0 },
+  ] });
+  await procesar(mensaje(plantilla('Carga')), ahora);
+  const conCarga = await prisma.orden.findFirstOrThrow({ where: { tipoOrden: 'domicilio' } });
+  const salidasCarga = await salidasDe(conCarga.id);
+  const avisoCarga = salidasCarga.find((s) => s.tipo === 'RECORDATORIO_DELIVERY');
+  const respuestaCarga = salidasCarga.find((s) => s.tipo === 'RESPUESTA_EMPLEADO');
+  assert.equal(avisoCarga?.disponibleAt.getTime(), ahora.getTime() + 16 * 60 * 1000);
+  assert.match(respuestaCarga?.texto ?? '', /\(2 órdenes en cocina\)/);
+
   // Transferencia confirmada: un cobro; sigue elegible para el recordatorio.
   await reiniciar();
   await procesar(mensaje(plantilla('Ana').replace('efectivo $2', 'trans $2')));

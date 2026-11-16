@@ -106,6 +106,7 @@ async function run() {
       registrarOrden: async () => { ordenesCreadas++; return { orden: ordenGuardada, printJobQueued: true }; },
     },
     '@/lib/whatsapp-mensajes': mensajes,
+    '@/lib/espera-moto': { resolverEsperaMoto: async () => null },
     '@/lib/whatsapp-salidas': {
       avisoDeDelivery: () => null,
       salidasDeOrdenAceptada: (orden: { id: string }) => [{ tipo: 'PUBLICACION_GRUPO', clave: `publicacion:${orden.id}` }],
