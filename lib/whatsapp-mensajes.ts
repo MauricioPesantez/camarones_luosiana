@@ -103,9 +103,16 @@ function horaLocal(momento: Date): string {
   }).format(momento);
 }
 
+/** Carga de cocina al elegir la hora de la moto; null/ausente no muestra nada. */
+function sufijoCocina(enCocina: number | null | undefined): string {
+  if (typeof enCocina !== 'number') return '';
+  if (enCocina === 0) return ' (cocina libre)';
+  return enCocina === 1 ? ' (1 orden en cocina)' : ` (${enCocina} órdenes en cocina)`;
+}
+
 export function textoConfirmacion(
   orden: OrdenPublicable,
-  { impresionEnCola, avisoDelivery }: { impresionEnCola: boolean; avisoDelivery: Date | null },
+  { impresionEnCola, avisoDelivery, enCocina }: { impresionEnCola: boolean; avisoDelivery: Date | null; enCocina?: number | null },
 ): string {
   const domicilio = orden.tipoOrden === 'domicilio';
   const pago = orden.cobrada ? `${lineaPago(orden)} por ${orden.mesero}` : lineaPago(orden);
@@ -119,7 +126,7 @@ export function textoConfirmacion(
     `Total: ${dinero(orden.total)}`,
     'Publicación al grupo: pendiente',
     `Impresión: ${impresionEnCola ? 'en cola' : 'no está en cola; revisa el POS'}`,
-    ...(avisoDelivery ? [`Moto se pedirá al grupo: ${horaLocal(avisoDelivery)}`] : []),
+    ...(avisoDelivery ? [`Moto se pedirá al grupo: ${horaLocal(avisoDelivery)}${sufijoCocina(enCocina)}`] : []),
   ].join('\n');
 }
 

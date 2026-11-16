@@ -51,6 +51,10 @@ Total: $45.50
 Publicación al grupo: pendiente
 Impresión: en cola
 Moto se pedirá al grupo: 15:10`);
+assert.match(textoConfirmacion(orden, { impresionEnCola: true, avisoDelivery: aviso, enCocina: 3 }), /Moto se pedirá al grupo: 15:10 \(3 órdenes en cocina\)$/);
+assert.match(textoConfirmacion(orden, { impresionEnCola: true, avisoDelivery: aviso, enCocina: 1 }), /Moto se pedirá al grupo: 15:10 \(1 orden en cocina\)$/);
+assert.match(textoConfirmacion(orden, { impresionEnCola: true, avisoDelivery: aviso, enCocina: 0 }), /Moto se pedirá al grupo: 15:10 \(cocina libre\)$/);
+assert.match(textoConfirmacion(orden, { impresionEnCola: true, avisoDelivery: aviso, enCocina: null }), /Moto se pedirá al grupo: 15:10$/);
 const sinCola = textoConfirmacion(pendiente, { impresionEnCola: false, avisoDelivery: null });
 assert.match(sinCola, /Ubicación: pendiente\. Complétala desde el POS\./);
 assert.match(sinCola, /Pago: efectivo/);
