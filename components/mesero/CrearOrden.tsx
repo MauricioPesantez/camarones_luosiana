@@ -81,6 +81,7 @@ export default function CrearOrden() {
   const [empleados, setEmpleados] = useState<{ id: string; nombre: string }[]>(
     [],
   );
+  const [errorEmpleados, setErrorEmpleados] = useState("");
   const [paraEmpleado, setParaEmpleado] = useState(false);
   const [empleadoId, setEmpleadoId] = useState("");
   const aCuentaEmpleado = tipoOrden === "para_llevar" && paraEmpleado;
@@ -142,10 +143,19 @@ export default function CrearOrden() {
 
   useEffect(() => {
     if (usuario?.rol !== "digital") return;
-    fetch("/api/consumos-empleados?empleados=1")
-      .then((res) => (res.ok ? res.json() : { empleados: [] }))
-      .then((data) => setEmpleados(data.empleados ?? []))
-      .catch((error) => console.error("Error al cargar empleados:", error));
+    fetch("/api/consumos-empleados?empleados=1", { cache: "no-store" })
+      .then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || `Error ${res.status}`);
+        // Sin `empleados` la respuesta viene de una versión del servidor sin esta función.
+        if (!Array.isArray(data?.empleados)) throw new Error("El servidor no devolvió la lista de empleados");
+        setEmpleados(data.empleados);
+        setErrorEmpleados("");
+      })
+      .catch((error) => {
+        console.error("Error al cargar empleados:", error);
+        setErrorEmpleados(error instanceof Error ? error.message : "No se pudieron cargar los empleados");
+      });
   }, [usuario?.rol]);
 
   useEffect(() => {
@@ -734,6 +744,18 @@ export default function CrearOrden() {
                       ))}
                     </select>
                     {mensajeError("empleado-cuenta")}
+                    {errorEmpleados ? (
+                      <p role="alert" className="mt-1 text-sm font-semibold text-red-600">
+                        No se pudieron cargar los empleados: {errorEmpleados}
+                      </p>
+                    ) : (
+                      empleados.length === 0 && (
+                        <p className="mt-1 text-sm font-semibold text-amber-700">
+                          Ningún empleado tiene la cuenta abierta. El administrador
+                          debe activarla en Cuentas de empleados.
+                        </p>
+                      )
+                    )}
                     <p className="mt-1 text-xs text-purple-800">
                       No se cobra: el total con descuento se carga a la cuenta
                       del empleado.

@@ -68,7 +68,8 @@ const deps: Record<string, unknown> = {
   '@/lib/printer': { PrinterService: class { constructor() { throw new Error('WhatsApp no imprime directo'); } } },
   '@/lib/sse': { notificarClientes: (evento: string) => { eventos.push(evento); } },
   '@/lib/print-jobs': printJobs, '@/lib/print-config': printConfig, '@/lib/daily-order-number': dailyNumber,
-  '@/lib/payment-link': load('lib/payment-link.ts', {}), '@/lib/delivery-location': location,
+  '@/lib/payment-link': load('lib/payment-link.ts', {}), '@/lib/espera-moto': load('lib/espera-moto.ts', {}),
+  '@/lib/delivery-location': location,
   '@/lib/caja': { bloquearCajaAbierta: async () => {}, exigirCajaAbierta: async () => {} },
   '@/types/caja': cajaTypes, '@/types/cobro': cobroTypes, '@/types/orden': ordenTypes,
   '@/lib/whatsapp-mensajes': mensajes, '@/lib/whatsapp-pedido': pedido, '@/lib/whatsapp-webhook': webhook,
@@ -153,6 +154,25 @@ async function pruebas() {
   assert.match(grupo.texto, /Total: \$13\.25/);
   assert.match(respuesta.texto, /Impresión: en cola/);
   assert.deepEqual(eventos.at(-1), 'nueva-orden');
+
+  // Sin línea moto la espera sale de la carga: 15 + 3 min por orden en cocina − 5; no cuentan la olvidada, la anulada ni la lista.
+  // Cuentan 2 pendiente + 1 en_preparacion = 3, así que 15 + 9 − 5 = 19.
+  await reiniciar(10);
+  const enCocina = { tipoOrden: 'local', mesero: 'Mesa', creadorId: 'digital', total: 5, estado: 'pendiente' };
+  await prisma.orden.createMany({ data: [
+    { ...enCocina, createdAt: ahora }, { ...enCocina, createdAt: ahora },
+    { ...enCocina, createdAt: new Date(ahora.getTime() - 40 * 60 * 1000), tiempoEstimado: 0 },
+    { ...enCocina, createdAt: ahora, estado: 'en_preparacion' },
+    { ...enCocina, createdAt: ahora, anulada: true },
+    { ...enCocina, createdAt: ahora, estado: 'lista' },
+  ] });
+  await procesar(mensaje(plantilla('Carga')), ahora);
+  const conCarga = await prisma.orden.findFirstOrThrow({ where: { tipoOrden: 'domicilio' } });
+  const salidasCarga = await salidasDe(conCarga.id);
+  const avisoCarga = salidasCarga.find((s) => s.tipo === 'RECORDATORIO_DELIVERY');
+  const respuestaCarga = salidasCarga.find((s) => s.tipo === 'RESPUESTA_EMPLEADO');
+  assert.equal(avisoCarga?.disponibleAt.getTime(), ahora.getTime() + 19 * 60 * 1000);
+  assert.match(respuestaCarga?.texto ?? '', /\(3 órdenes en cocina\)/);
 
   // Transferencia confirmada: un cobro; sigue elegible para el recordatorio.
   await reiniciar();
@@ -314,6 +334,20 @@ async function pruebas() {
   assert.deepEqual(aprobadas.map((s) => s.tipo), ['PUBLICACION_GRUPO', 'RECORDATORIO_DELIVERY', 'RESPUESTA_EMPLEADO', 'RESPUESTA_EMPLEADO']);
   assert.ok(aprobadas[1].disponibleAt.getTime() >= inicio + 25 * 60 * 1000 - 1000, 'La espera cuenta desde la aprobación');
   assert.match(aprobadas[0].texto, /ORDEN #/);
+
+  // Aprobación sin línea moto: la espera sale de la carga al aprobar (15 + 3 × 1 − 5 = 13) y el texto lo dice.
+  await reiniciar(0);
+  await procesar(mensaje(plantilla('Aprobar carga', ['Solicitar aprobacion'])));
+  await prisma.orden.create({ data: { tipoOrden: 'local', mesero: 'Mesa', creadorId: 'digital', total: 5, estado: 'pendiente' } });
+  const porCarga = await prisma.orden.findFirstOrThrow({ where: { estado: 'pendiente_aprobacion_stock' } });
+  const inicioCarga = Date.now();
+  assert.equal((await pedirRuta(aprobar, { ordenId: porCarga.id })).status, 200);
+  const salidasAprobadas = await salidasDe(porCarga.id);
+  const avisoAprobado = salidasAprobadas.find((s) => s.tipo === 'RECORDATORIO_DELIVERY');
+  assert.ok(avisoAprobado && avisoAprobado.disponibleAt.getTime() >= inicioCarga + 13 * 60 * 1000 - 1000);
+  assert.ok(avisoAprobado.disponibleAt.getTime() <= Date.now() + 13 * 60 * 1000);
+  const respuestaAprobada = salidasAprobadas.filter((s) => s.tipo === 'RESPUESTA_EMPLEADO').at(-1);
+  assert.match(respuestaAprobada?.texto ?? '', /\(1 orden en cocina\)/);
 
   // Rechazo: avisa al empleado y conserva el tratamiento financiero.
   await reiniciar(0);

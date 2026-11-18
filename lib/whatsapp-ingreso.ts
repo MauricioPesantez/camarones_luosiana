@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { resolverEsperaMoto } from '@/lib/espera-moto';
 import {
   OrdenInvalidaError,
   StockInsuficienteError,
@@ -268,16 +269,18 @@ async function crearDesdePedido(contexto: Contexto, pedido: PedidoWhatsapp): Pro
   const { orden, printJobQueued } = await registrarOrden(tx, preparada);
 
   const aceptada = orden.estado === 'pendiente';
-  const avisoDelivery = avisoDeDelivery(orden, ahora, pedido.esperaMotoMin);
+  // Una sola lectura de la carga: el texto y el aviso muestran el mismo tiempo.
+  const espera = aceptada ? await resolverEsperaMoto(tx, orden, ahora, pedido.esperaMotoMin) : null;
+  const avisoDelivery = avisoDeDelivery(orden, ahora, espera?.minutos);
   return {
     estado: 'CREADA',
     requestHash,
     ordenId: orden.id,
     datosNormalizados: { pedido, items: productos.items },
     respuesta: aceptada
-      ? textoConfirmacion(orden, { impresionEnCola: printJobQueued, avisoDelivery })
+      ? textoConfirmacion(orden, { impresionEnCola: printJobQueued, avisoDelivery, enCocina: espera?.enCocina })
       : textoPendienteAprobacion(orden),
-    salidas: aceptada ? salidasDeOrdenAceptada(orden, mensaje.sessionId, config, ahora, pedido.esperaMotoMin) : [],
+    salidas: aceptada ? salidasDeOrdenAceptada(orden, mensaje.sessionId, config, ahora, espera?.minutos) : [],
     ordenCreada: orden,
   };
 }
