@@ -434,6 +434,11 @@ model CorteTurno {
   usuarioNombre String
   usuarioRol    String
 
+  // Anulado por el admin: se conserva, pero el siguiente corte parte del ultimo vigente.
+  anuladoPorNombre String?
+  razonAnulacion   String?
+  anuladoAt        DateTime?
+
   createdAt DateTime @default(now())
 
   // Dos meseros cortando a la vez: el segundo choca aqui en vez de duplicar el turno.
@@ -509,7 +514,7 @@ model WhatsappSalida {
   orden           Orden?           @relation(fields: [ordenId], references: [id], onDelete: Restrict)
   entradaId       String?
   entrada         WhatsappEntrada? @relation(fields: [entradaId], references: [id], onDelete: Restrict)
-  tipo            String // "RESPUESTA_EMPLEADO" | "PUBLICACION_GRUPO" | "ACTUALIZACION_GRUPO" | "RECORDATORIO_DELIVERY" | "RECORDATORIO_COBRO"
+  tipo            String // "RESPUESTA_EMPLEADO" | "PUBLICACION_GRUPO" | "ACTUALIZACION_GRUPO" | "RECORDATORIO_DELIVERY" | "RECORDATORIO_COBRO" | "RESUMEN_CIERRE"
   destino         String
   texto           String
   clave           String           @unique

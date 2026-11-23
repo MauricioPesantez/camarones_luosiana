@@ -49,7 +49,7 @@ function fecha({ fechaNumeroDiario }: Encabezado): string {
   return fechaNumeroDiario?.split('-').reverse().join('/') ?? '';
 }
 
-const dinero = (valor: unknown) => `$${Number(valor).toFixed(2)}`;
+export const dinero = (valor: unknown) => `$${Number(valor).toFixed(2)}`;
 
 const lineasDescuento = (orden: Pick<OrdenPublicable, 'descuento'>) =>
   Number(orden.descuento ?? 0) > 0 ? [`Descuento: -${dinero(orden.descuento)}`] : [];
@@ -94,7 +94,7 @@ export function textoPublicacion(orden: OrdenPublicable): string {
   ].join('\n');
 }
 
-function horaLocal(momento: Date): string {
+export function horaLocal(momento: Date): string {
   return new Intl.DateTimeFormat('es-EC', {
     timeZone: 'America/Guayaquil',
     hour: '2-digit',

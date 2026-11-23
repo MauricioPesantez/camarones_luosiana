@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import type { SesionCaja } from "@/types/caja";
+import { cortesVigentes, ultimoCorteVigente, type CorteTurno, type SesionCaja } from "@/types/caja";
 import type { ResumenCuadre } from "@/types/cuadre";
 import {
   ESTADO_RETIRO_ANULADO,
@@ -27,6 +27,11 @@ interface Props {
   onCambio: () => Promise<void>;
   onVerOrdenes: (filtro: FiltroCobro) => void;
 }
+
+const MOTIVOS_SIN_RESUMEN: Record<string, string> = {
+  sin_configuracion: "WhatsApp no está configurado",
+  sin_operador: "el operador todavía no ha enviado ningún pedido al bot",
+};
 
 const tarjeta = "rounded-xl border border-slate-200 bg-white p-5 sm:p-6";
 
@@ -93,13 +98,14 @@ export default function CierreCaja({
   const [errorCierre, setErrorCierre] = useState("");
   const [retiroAAnular, setRetiroAAnular] = useState<RetiroCaja | null>(null);
   const [razonAnulacion, setRazonAnulacion] = useState("");
+  const [corteAAnular, setCorteAAnular] = useState<CorteTurno | null>(null);
   const [anulando, setAnulando] = useState(false);
 
   const esperado = resumen.efectivoEnCaja;
   const diferencia =
     contado === "" ? null : Math.round((Number(contado) - esperado) * 100) / 100;
   const hayAbonos = resumen.ordenesConSaldoPendiente > 0;
-  const ultimoCorte = caja?.cortes.at(-1);
+  const ultimoCorte = caja ? ultimoCorteVigente(caja.cortes) : undefined;
 
   const cerrarCaja = async () => {
     if (!caja || diferencia === null) return;
@@ -111,6 +117,7 @@ export default function CierreCaja({
         explicarDiferencia(diferencia),
         porCobrar.cantidad > 0 &&
           `Quedan órdenes sin cobrar: ${porCobrar.cantidad} por ${dolares(porCobrar.monto)}.`,
+        "Se enviará el resumen del día por WhatsApp al operador.",
         "El cierre no se puede deshacer desde esta pantalla.",
       ]
         .filter(Boolean)
@@ -132,6 +139,11 @@ export default function CierreCaja({
       }
       onCajaCerrada(data.caja);
       setContado("");
+      if (data.resumenWhatsapp !== "encolado") {
+        alert(`La caja quedó cerrada, pero el resumen no se enviará por WhatsApp: ${
+          MOTIVOS_SIN_RESUMEN[data.resumenWhatsapp] ?? "hubo un error al prepararlo"
+        }.`);
+      }
       await onCambio();
     } catch (error) {
       setErrorCierre(
@@ -142,26 +154,30 @@ export default function CierreCaja({
     }
   };
 
-  const anularRetiro = async () => {
-    if (!retiroAAnular) return;
+  const anularSeleccion = async () => {
+    if (!retiroAAnular && !corteAAnular) return;
     setAnulando(true);
     try {
-      const res = await fetch(`/api/retiros/${retiroAAnular.id}/anular`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ razon: razonAnulacion }),
-      });
+      const res = await fetch(
+        corteAAnular
+          ? `/api/caja/corte/${corteAAnular.id}/anular`
+          : `/api/retiros/${retiroAAnular?.id}/anular`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ razon: razonAnulacion }),
+        },
+      );
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Error al anular el retiro");
+        throw new Error(data.error || "Error al anular");
       }
       setRetiroAAnular(null);
+      setCorteAAnular(null);
       setRazonAnulacion("");
       await onCambio();
     } catch (error) {
-      alert(
-        error instanceof Error ? error.message : "Error al anular el retiro",
-      );
+      alert(error instanceof Error ? error.message : "Error al anular");
     } finally {
       setAnulando(false);
     }
@@ -367,8 +383,9 @@ export default function CierreCaja({
             Cambios de turno
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            Cada turno recibe lo que contó el anterior. Una corrección hecha
-            después de un corte aparece en el turno siguiente.
+            El mesero no ve lo que debía haber ni la diferencia. Cada turno recibe
+            lo que contó el anterior. Si un conteo está mal, anúlalo para que el
+            mesero cuente otra vez.
           </p>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[520px] text-sm">
@@ -381,13 +398,31 @@ export default function CierreCaja({
                   <th className="text-right font-medium">Debía haber</th>
                   <th className="text-right font-medium">Contó</th>
                   <th className="text-right font-medium">Diferencia</th>
+                  <th>
+                    <span className="sr-only">Acciones</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 tabular-nums">
                 {caja.cortes.map((corte) => (
-                  <tr key={corte.id}>
-                    <td className="py-2 font-semibold">{corte.numero}</td>
-                    <td>{corte.usuarioNombre}</td>
+                  <tr
+                    key={corte.id}
+                    className={corte.anuladoAt ? "text-slate-600 line-through" : ""}
+                  >
+                    <td className="py-2 font-semibold">
+                      {corte.anuladoAt
+                        ? "—"
+                        : cortesVigentes(caja.cortes).indexOf(corte) + 1}
+                    </td>
+                    <td>
+                      {corte.usuarioNombre}
+                      {corte.anuladoAt && (
+                        <span className="inline-block w-full text-xs font-semibold no-underline">
+                          Anulado por {corte.anuladoPorNombre}:{" "}
+                          {corte.razonAnulacion}
+                        </span>
+                      )}
+                    </td>
                     <td>{horaCorta(corte.createdAt)}</td>
                     <td className="text-right">{dolares(corte.fondoInicial)}</td>
                     <td className="text-right">
@@ -396,13 +431,29 @@ export default function CierreCaja({
                     <td className="text-right">{dolares(corte.montoContado)}</td>
                     <td
                       className={`text-right font-semibold ${
-                        corte.diferencia === 0
-                          ? "text-emerald-700"
-                          : "text-red-700"
+                        corte.anuladoAt
+                          ? ""
+                          : corte.diferencia === 0
+                            ? "text-emerald-700"
+                            : "text-red-700"
                       }`}
                     >
                       {corte.diferencia > 0 && "+"}
                       {dolares(corte.diferencia)}
+                    </td>
+                    <td className="pl-3 text-right">
+                      {caja.estado === "abierta" && corte.id === ultimoCorte?.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCorteAAnular(corte);
+                            setRazonAnulacion("");
+                          }}
+                          className="min-h-11 rounded-lg border border-red-300 px-3 text-sm font-semibold text-red-700 hover:bg-red-50"
+                        >
+                          Anular
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -557,18 +608,31 @@ export default function CierreCaja({
         </section>
       </div>
 
-      {retiroAAnular && (
+      {(retiroAAnular || corteAAnular) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
             <h3 className="text-xl font-bold text-gray-800 mb-2">
-              Anular retiro
+              {corteAAnular ? "Anular corte de turno" : "Anular retiro"}
             </h3>
             <p className="text-sm text-gray-600 mb-4">
-              {retiroAAnular.usuarioNombre} registró{" "}
-              {dolares(Number(retiroAAnular.monto))} por{" "}
-              {obtenerEtiquetaCategoriaRetiro(retiroAAnular.categoria)}. El
-              retiro no se borra: queda visible como anulado y deja de restar de
-              la caja.
+              {corteAAnular ? (
+                <>
+                  {corteAAnular.usuarioNombre} contó{" "}
+                  {dolares(corteAAnular.montoContado)}. El corte queda visible como
+                  anulado y el mesero tendrá que contar otra vez, sin ver la
+                  diferencia.
+                </>
+              ) : (
+                retiroAAnular && (
+                  <>
+                    {retiroAAnular.usuarioNombre} registró{" "}
+                    {dolares(Number(retiroAAnular.monto))} por{" "}
+                    {obtenerEtiquetaCategoriaRetiro(retiroAAnular.categoria)}. El
+                    retiro no se borra: queda visible como anulado y deja de restar
+                    de la caja.
+                  </>
+                )
+              )}
             </p>
             <label className="block text-sm font-semibold text-gray-700 mb-4">
               Razón de la anulación *
@@ -577,12 +641,16 @@ export default function CierreCaja({
                 onChange={(e) => setRazonAnulacion(e.target.value)}
                 rows={3}
                 className="mt-1 block w-full border rounded-lg px-4 py-2 text-black"
-                placeholder="Ej: Se registró dos veces el mismo gasto"
+                placeholder={
+                  corteAAnular
+                    ? "Ej: Escribió mal el monto"
+                    : "Ej: Se registró dos veces el mismo gasto"
+                }
               />
             </label>
             <div className="flex gap-3">
               <button
-                onClick={anularRetiro}
+                onClick={anularSeleccion}
                 disabled={anulando || razonAnulacion.trim() === ""}
                 className="flex-1 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:bg-gray-400 font-semibold"
               >
@@ -591,6 +659,7 @@ export default function CierreCaja({
               <button
                 onClick={() => {
                   setRetiroAAnular(null);
+                  setCorteAAnular(null);
                   setRazonAnulacion("");
                 }}
                 disabled={anulando}
