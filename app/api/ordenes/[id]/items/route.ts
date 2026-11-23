@@ -17,28 +17,23 @@ import {
   descuentoDeOrden,
   esCategoriaCombo,
   esNivelPicante,
+  obtenerEtiquetaNivelPicante,
   RECARGO_RECIPIENTES,
-  type NivelPicante,
   type TipoOrden,
 } from '@/types/orden';
+import {
+  ESTADOS_EDITABLES,
+  MAX_OBSERVACIONES_ITEM,
+  motivoItemProtegido,
+  type CambioItem,
+} from '@/lib/edicion-orden';
 import { canUserModifyOrder } from '@/lib/order-payment';
 import { canCollectPayments, getAuthenticatedUser } from '@/lib/session';
 import { textoActualizacionItems, textoActualizacionMoto } from '@/lib/whatsapp-mensajes';
 import { refrescarRecordatorio, registrarCambioWhatsapp } from '@/lib/whatsapp-salidas';
 
-type ItemChange =
-  | { accion: 'eliminar'; itemId: string }
-  | {
-      accion: 'agregar';
-      productoId: string;
-      cantidad: number;
-      observaciones?: string;
-      nivelPicante?: NivelPicante;
-    }
-  | { accion: 'modificar'; itemId: string; cantidad: number };
-
 interface ModificationRequest {
-  items: ItemChange[];
+  items: CambioItem[];
   razon: string;
   expectedRevision: number;
   usuario: {
@@ -113,6 +108,13 @@ function validateRequest(body: ModificationRequest): void {
       }
       if (!Number.isInteger(change.cantidad) || change.cantidad < 1) {
         throw new ModificationRequestError('La cantidad debe ser mayor a cero', 400);
+      }
+      if (
+        change.observaciones !== undefined &&
+        (typeof change.observaciones !== 'string' ||
+          change.observaciones.length > MAX_OBSERVACIONES_ITEM)
+      ) {
+        throw new ModificationRequestError('La nota del producto es inválida', 400);
       }
     } else {
       if (!change.itemId?.trim()) {
@@ -225,13 +227,7 @@ export async function PATCH(
           );
         }
 
-        const editableStatuses = [
-          'pendiente',
-          'en_preparacion',
-          'lista',
-          'cobrada',
-        ];
-        if (!editableStatuses.includes(order.estado)) {
+        if (!ESTADOS_EDITABLES.includes(order.estado)) {
           throw new ModificationRequestError(
             'Solo se pueden modificar órdenes activas',
             400,
@@ -265,6 +261,21 @@ export async function PATCH(
         const amendmentChanges: AmendmentChangeSource[] = [];
 
         for (const change of body.items) {
+          if (change.accion !== 'agregar') {
+            const protectedItem = order.items.find(
+              (current) => current.id === change.itemId,
+            );
+            const reason =
+              protectedItem &&
+              motivoItemProtegido(
+                change,
+                protectedItem,
+                { estado: order.estado, montoPagado: order.montoPagado.toString() },
+                usuarioSesion.rol,
+              );
+            if (reason) throw new ModificationRequestError(reason, 409);
+          }
+
           if (change.accion === 'eliminar') {
             const item = order.items.find(
               (current) => current.id === change.itemId,
@@ -418,7 +429,11 @@ export async function PATCH(
           if (!item) {
             throw new ModificationRequestError('Item no encontrado', 404);
           }
-          if (change.cantidad === item.cantidad) continue;
+          const newSpice =
+            change.nivelPicante && change.nivelPicante !== item.nivelPicante
+              ? change.nivelPicante
+              : null;
+          if (change.cantidad === item.cantidad && !newSpice) continue;
 
           const quantityDifference = change.cantidad - item.cantidad;
           if (quantityDifference > 0) {
@@ -435,7 +450,7 @@ export async function PATCH(
                 409,
               );
             }
-          } else {
+          } else if (quantityDifference < 0) {
             await tx.producto.update({
               where: { id: item.productoId },
               data: { stock: { increment: -quantityDifference } },
@@ -450,12 +465,21 @@ export async function PATCH(
             data: {
               cantidad: change.cantidad,
               subtotal: newSubtotal,
+              ...(newSpice ? { nivelPicante: newSpice } : {}),
             },
           });
 
+          const spiceLabel = (level: unknown) =>
+            esNivelPicante(level) ? obtenerEtiquetaNivelPicante(level) : 'Sin picante';
+          const changeDetails = [
+            ...(quantityDifference !== 0 ? [`${item.cantidad} → ${change.cantidad}`] : []),
+            ...(newSpice
+              ? [`picante ${spiceLabel(item.nivelPicante)} → ${spiceLabel(newSpice)}`]
+              : []),
+          ].join(', ');
           history.push({
             tipoAccion: 'item_modificado',
-            descripcion: `Modificado: ${item.producto.nombre} (${item.cantidad} → ${change.cantidad})`,
+            descripcion: `Modificado: ${item.producto.nombre} (${changeDetails})`,
             itemAfectado: {
               id: item.id,
               nombre: item.producto.nombre,
@@ -465,34 +489,66 @@ export async function PATCH(
             datosAntes: {
               cantidad: item.cantidad,
               subtotal: previousSubtotal,
+              ...(newSpice ? { nivelPicante: item.nivelPicante } : {}),
             },
             datosDespues: {
               cantidad: change.cantidad,
               subtotal: newSubtotal,
+              ...(newSpice ? { nivelPicante: newSpice } : {}),
             },
             usuarioNombre: body.usuario.nombre,
             usuarioRol: body.usuario.rol,
             razon: body.razon,
             diferenciaTotal: newSubtotal - previousSubtotal,
           });
-          amendmentChanges.push({
-            action: 'UPDATE',
+          const surchargePerUnit =
+            packagingApplies && esCategoriaCombo(item.producto.categoria)
+              ? RECARGO_RECIPIENTES
+              : 0;
+          const amendmentBase = {
             itemId: item.id,
             productId: item.productoId,
             productName: item.producto.nombre,
-            previousQuantity: item.cantidad,
-            quantity: change.cantidad,
-            quantityDelta: quantityDifference,
             unitPrice,
-            amountDelta: newSubtotal - previousSubtotal,
-            surchargeDelta:
-              packagingApplies && esCategoriaCombo(item.producto.categoria)
-                ? quantityDifference * RECARGO_RECIPIENTES
-                : 0,
             observations: item.observaciones,
-            spiceLevel: item.nivelPicante,
             complimentary: item.esCortesia,
-          });
+          };
+          if (newSpice) {
+            // La comanda no tiene "cambio de salsa": se retira la anterior y se pide la nueva.
+            amendmentChanges.push(
+              {
+                ...amendmentBase,
+                action: 'REMOVE',
+                previousQuantity: item.cantidad,
+                quantity: 0,
+                quantityDelta: -item.cantidad,
+                amountDelta: -previousSubtotal,
+                surchargeDelta: -item.cantidad * surchargePerUnit,
+                spiceLevel: item.nivelPicante,
+              },
+              {
+                ...amendmentBase,
+                action: 'ADD',
+                previousQuantity: 0,
+                quantity: change.cantidad,
+                quantityDelta: change.cantidad,
+                amountDelta: newSubtotal,
+                surchargeDelta: change.cantidad * surchargePerUnit,
+                spiceLevel: newSpice,
+              },
+            );
+          } else {
+            amendmentChanges.push({
+              ...amendmentBase,
+              action: 'UPDATE',
+              previousQuantity: item.cantidad,
+              quantity: change.cantidad,
+              quantityDelta: quantityDifference,
+              amountDelta: newSubtotal - previousSubtotal,
+              surchargeDelta: quantityDifference * surchargePerUnit,
+              spiceLevel: item.nivelPicante,
+            });
+          }
         }
 
         if (history.length === 0) {

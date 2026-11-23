@@ -31,6 +31,8 @@
     "test:liquidacion": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/liquidacion-domicilio.test.ts",
     "test:cambio-metodo-pago": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/cambio-metodo-pago-route.test.ts",
     "test:corregir-cobro": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/corregir-cobro-route.test.ts",
+    "test:edicion-orden": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/edicion-orden.test.ts",
+    "test:edicion-orden-route": "node lib/edicion-orden-route.test.cjs",
     "test:ordenes-mesero": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/ordenes-mesero.test.ts",
     "test:cobro-validaciones": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/order-payment-validaciones.test.ts",
     "test:payment-link": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' lib/payment-link.test.ts",
