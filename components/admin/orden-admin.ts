@@ -33,6 +33,7 @@ export interface OrdenAdmin {
     origen: string;
     /** "CONFIRMADO" | "REEMBOLSO_PENDIENTE". La API ya excluye "REEMBOLSADO". */
     estado?: string | null;
+    createdAt: string;
     /** La API la incluye para el calculo del cuadre (Task 9); la UI no la usa. */
     enRango: boolean;
   }[];

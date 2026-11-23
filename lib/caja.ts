@@ -22,6 +22,8 @@ export const CAJA_SELECT = {
   cerradaPorId: true,
   cerradaPorNombre: true,
   cerradaAt: true,
+  ordenesHabilitadasAt: true,
+  ordenesHabilitadasPorNombre: true,
   cortes: {
     select: {
       id: true,
@@ -59,6 +61,7 @@ export function serializarCaja(caja: CajaSeleccionada): SesionCaja {
       caja.diferenciaCierre === null ? null : Number(caja.diferenciaCierre),
     abiertaAt: caja.abiertaAt.toISOString(),
     cerradaAt: caja.cerradaAt?.toISOString() ?? null,
+    ordenesHabilitadasAt: caja.ordenesHabilitadasAt?.toISOString() ?? null,
     cortes: caja.cortes.map((corte) => ({
       ...corte,
       fondoInicial: Number(corte.fondoInicial),
@@ -71,8 +74,10 @@ export function serializarCaja(caja: CajaSeleccionada): SesionCaja {
   };
 }
 
-export async function obtenerCajaDeHoy() {
-  return prisma.sesionCaja.findUnique({
+export async function obtenerCajaDeHoy(
+  db: Pick<Prisma.TransactionClient, "sesionCaja"> = prisma,
+) {
+  return db.sesionCaja.findUnique({
     where: { fecha: obtenerFechaEcuador() },
     select: CAJA_SELECT,
   });

@@ -379,6 +379,7 @@ function AdminContenido() {
               caja={dia.caja}
               resumen={resumen}
               porCobrar={porCobrar}
+              ordenes={dia.ordenes}
               retiros={dia.retiros}
               consumos={dia.consumos}
               onCajaCerrada={(caja) =>

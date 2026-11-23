@@ -25,6 +25,9 @@ export interface SesionCaja {
   cerradaPorId: string | null;
   cerradaPorNombre: string | null;
   cerradaAt: string | null;
+  /** Desde aqui quien entrego el conteo ve las ordenes y nadie vuelve a contar. */
+  ordenesHabilitadasAt: string | null;
+  ordenesHabilitadasPorNombre: string | null;
   /** Relevos de turno del dia, en orden. */
   cortes: CorteTurno[];
 }
@@ -55,7 +58,11 @@ export type CorteTurnoMesero = Omit<
 >;
 export type CajaMesero = Omit<
   SesionCaja,
-  "montoEsperadoCierre" | "montoCierre" | "diferenciaCierre" | "cortes"
+  | "montoEsperadoCierre"
+  | "montoCierre"
+  | "diferenciaCierre"
+  | "ordenesHabilitadasPorNombre"
+  | "cortes"
 > & { cortes: CorteTurnoMesero[] };
 
 /** Lista explicita y no un descarte: un campo nuevo no llega al mesero por descuido. */
@@ -72,6 +79,7 @@ export function ocultarCuadre(caja: SesionCaja): CajaMesero {
     cerradaPorId: caja.cerradaPorId,
     cerradaPorNombre: caja.cerradaPorNombre,
     cerradaAt: caja.cerradaAt,
+    ordenesHabilitadasAt: caja.ordenesHabilitadasAt,
     cortes: caja.cortes.map((corte) => ({
       id: corte.id,
       numero: corte.numero,

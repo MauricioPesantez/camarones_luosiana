@@ -51,6 +51,10 @@ export async function GET(request: Request) {
     const rangoHoy = obtenerRangoEcuador(hoyEcuador)!;
     const fechaFiltro = usuario.rol === 'admin' ? {} : { createdAt: { gte: rangoHoy.inicio, lt: rangoHoy.fin } };
 
+    // El mesero no las usa, y sumarlas le daría el efectivo que debe contar a ciegas.
+    const ocultasFiltro =
+      usuario.rol === 'mesero' ? { NOT: { estado: { in: ['cobrada', 'cancelada'] } } } : {};
+
     // Una orden anulada desaparece de la operacion: cocina no la prepara y el
     // mesero no la cobra. Solo el cuadre la sigue mostrando, tachada.
     const ordenes = await prisma.orden.findMany({
@@ -60,6 +64,7 @@ export async function GET(request: Request) {
         ...ownerFilter,
         ...(estadoFiltro ?? {}),
         ...fechaFiltro,
+        ...ocultasFiltro,
       },
       include: ORDEN_INCLUDE,
       orderBy: { createdAt: 'desc' },

@@ -32,6 +32,7 @@ async function run() {
   let actor = { id: 'ana', nombre: 'Ana', rol: 'mesero' };
   let esperadoDia = 150;
   let estado = 'abierta';
+  let ordenesHabilitadasAt: string | null = null;
   const cortes: Corte[] = [];
   let filtroSalidas: { createdAt: { gt: Date } } | null = null;
   let encolado: () => Promise<string> = async () => 'encolado';
@@ -40,10 +41,11 @@ async function run() {
   const caja = () => ({
     id: 'c1', fecha: '2026-11-22', estado, montoInicial: 50, abiertaPorId: 'ana', abiertaPorNombre: 'Ana',
     abiertaPorRol: 'mesero', abiertaAt, montoEsperadoCierre: 250, montoCierre: 247, diferenciaCierre: -3,
-    cerradaPorId: null, cerradaPorNombre: null, cerradaAt: null, cortes: [...cortes],
+    cerradaPorId: null, cerradaPorNombre: null, cerradaAt: null, ordenesHabilitadasAt,
+    ordenesHabilitadasPorNombre: ordenesHabilitadasAt && 'Admin', cortes: [...cortes],
   });
   const tx = {
-    $queryRaw: async () => [{ id: 'c1', estado }],
+    $queryRaw: async () => [{ id: 'c1', estado, ordenesHabilitadasAt }],
     sesionCaja: { findUnique: async () => caja(), update: async () => { estado = 'cerrada'; return caja(); } },
     historialOrden: { findMany: async () => [] },
     retiroCaja: {
@@ -173,6 +175,23 @@ async function run() {
   assert.equal((await cortar(4, 190)).status, 201);
   admin();
   assert.equal((await anular('k2')).status, 409);
+
+  // Mostradas las órdenes, nadie entrega otro conteo ni se anula el que hay.
+  ordenesHabilitadasAt = '2026-11-23T03:00:00.000Z';
+  res = await anular('k4');
+  assert.equal(res.status, 409);
+  assert.match((await res.json()).error, /órdenes del día/);
+  luis();
+  res = await cortar(5, 200);
+  assert.equal(res.status, 409);
+  assert.match((await res.json()).error, /órdenes del día/);
+  assert.equal(cortes.length, 4);
+  // El mesero sabe que hay órdenes por ver, no quién las habilitó.
+  res = await cajaRoute.GET(new Request('http://x/api/caja'));
+  const habilitada = (await res.json()).caja;
+  assert.equal(habilitada.ordenesHabilitadasAt, ordenesHabilitadasAt);
+  assert.equal('ordenesHabilitadasPorNombre' in habilitada, false);
+  admin();
 
   // Un fallo de WhatsApp no impide cerrar, y se avisa.
   encolado = async () => { throw new Error('sin base'); };

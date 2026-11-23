@@ -117,6 +117,12 @@ export async function POST(request: Request) {
           "Ya entregaste tu turno. Si hay un error, pide al administrador que anule el conteo.",
         );
       }
+      // Quien vio las órdenes puede sumar el esperado: ya no habría conteo a ciegas.
+      if (caja.ordenesHabilitadasAt) {
+        throw new CorteConflictoError(
+          "El administrador ya mostró las órdenes del día. No se puede entregar otro conteo.",
+        );
+      }
       if (numero !== (cortes.at(-1)?.numero ?? 0) + 1) {
         throw new CorteConflictoError(
           "Otro mesero ya hizo un corte. Recarga la caja e intenta nuevamente.",
