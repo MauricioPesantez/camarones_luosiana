@@ -105,6 +105,7 @@ export async function obtenerDatosCuadre(
           comprobanteTransferenciaKey: pago.comprobanteTransferenciaKey,
           origen: pago.origen,
           estado: pago.estado,
+          createdAt: pago.createdAt,
           enRango:
             pago.createdAt >= rango.inicio && pago.createdAt < rango.fin,
         })),

@@ -261,6 +261,12 @@ const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
               emoji: "🎁",
               href: "/admin/reportes?tab=cortesias",
             },
+            {
+              id: "bitacora",
+              label: "Bitácora de errores",
+              emoji: "📒",
+              href: "/admin/reportes?tab=bitacora",
+            },
           ],
         },
       ],

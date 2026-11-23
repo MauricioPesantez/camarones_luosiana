@@ -44,14 +44,22 @@ export async function PATCH(
       if (!corte) throw new AnularCorteError("Corte no encontrado", 404);
 
       // Mismo candado que el corte y el cierre: ninguno entra mientras se anula.
-      const [caja] = await tx.$queryRaw<Array<{ estado: string }>>`
-        SELECT "estado"
+      const [caja] = await tx.$queryRaw<
+        Array<{ estado: string; ordenesHabilitadasAt: Date | null }>
+      >`
+        SELECT "estado", "ordenesHabilitadasAt"
         FROM "SesionCaja"
         WHERE "id" = ${corte.sesionCajaId}
         FOR UPDATE
       `;
       if (caja?.estado !== ESTADO_CAJA_ABIERTA) {
         throw new AnularCorteError("La caja ya fue cerrada", 409);
+      }
+      if (caja.ordenesHabilitadasAt) {
+        throw new AnularCorteError(
+          "Ya se mostraron las órdenes del día: el conteo no se puede anular. Cuenta tú el efectivo al cerrar.",
+          409,
+        );
       }
       const cortes = await tx.corteTurno.findMany({
         where: { sesionCajaId: corte.sesionCajaId },

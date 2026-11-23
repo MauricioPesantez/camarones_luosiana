@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import OrdenesDelDia from "@/components/mesero/OrdenesDelDia";
 import {
   MONTO_MAXIMO_CAJA,
   cortesVigentes,
@@ -108,10 +109,28 @@ export default function CorteTurno({ caja, usuarioId, onCambio }: Props) {
             {hora(entregado.createdAt)}
           </p>
           <p className="mt-1 text-sm">
-            El administrador lo revisará. Si escribiste mal el monto, pídele que
-            anule el conteo.
+            {caja.ordenesHabilitadasAt
+              ? "Revisa las órdenes y dile al administrador qué no está bien. El conteo ya no se puede cambiar."
+              : "El administrador lo revisará. Si escribiste mal el monto, pídele que anule el conteo."}
           </p>
+          {!caja.ordenesHabilitadasAt && (
+            <button
+              type="button"
+              className={`${botonSecundario} mt-3`}
+              onClick={() => void onCambio()}
+            >
+              Actualizar
+            </button>
+          )}
         </div>
+      ) : caja.ordenesHabilitadasAt ? (
+        <p
+          role="status"
+          className="mt-4 rounded-lg border border-slate-300 bg-white p-4 text-sm text-gray-800"
+        >
+          El administrador está revisando el conteo de{" "}
+          {ultimo?.usuarioNombre ?? "otro mesero"}. Ya no se puede entregar otro.
+        </p>
       ) : (
         <>
           <p className="mt-1 text-sm text-gray-700">
@@ -266,6 +285,8 @@ export default function CorteTurno({ caja, usuarioId, onCambio }: Props) {
           )}
         </>
       )}
+
+      {entregado && caja.ordenesHabilitadasAt && <OrdenesDelDia />}
 
       {error && (
         <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">

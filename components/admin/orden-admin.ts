@@ -3,6 +3,7 @@ import type { NivelPicante } from "@/types/orden";
 /** Orden tal como la entrega /api/admin/cuadre. */
 export interface OrdenAdmin {
   id: string;
+  numeroDiario: number | null;
   cobroUrl: string | null;
   printRevision: number;
   tipoOrden: string;
@@ -33,6 +34,7 @@ export interface OrdenAdmin {
     origen: string;
     /** "CONFIRMADO" | "REEMBOLSO_PENDIENTE". La API ya excluye "REEMBOLSADO". */
     estado?: string | null;
+    createdAt: string;
     /** La API la incluye para el calculo del cuadre (Task 9); la UI no la usa. */
     enRango: boolean;
   }[];
@@ -47,7 +49,10 @@ export interface OrdenAdmin {
   updatedAt: string;
   observaciones?: string;
   items: {
+    id: string;
     cantidad: number;
+    esCortesia?: boolean;
+    nombreProducto?: string | null;
     producto: {
       nombre: string;
       categoria: string;
