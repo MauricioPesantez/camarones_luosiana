@@ -80,10 +80,9 @@ export default function AvisoPorCobrar() {
   const listaVigente = ordenes !== null && buscadoCon === minutos;
 
   return (
-    <section className="bg-white rounded-lg shadow p-6 mb-6" aria-labelledby="aviso-por-cobrar">
-      <h2 id="aviso-por-cobrar" className="text-xl font-bold text-gray-900">Órdenes sin cobrar</h2>
-      <p className="text-sm text-gray-500 mt-1">
-        Busca las órdenes de hoy sin cobrar con más de cierto tiempo y pide al grupo de pedidos que las cierren.
+    <div>
+      <p className="text-sm text-gray-600">
+        Busca las que llevan más de cierto tiempo y pide al grupo de pedidos que las cierre.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="text-sm text-gray-700">
@@ -137,6 +136,6 @@ export default function AvisoPorCobrar() {
             ))}
           </ul>
         ))}
-    </section>
+    </div>
   );
 }

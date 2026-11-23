@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ProductoConStock } from "@/types/stock";
+import { normalizarNombre } from "@/lib/admin-validaciones";
 import ModalFormulario from "./ModalFormulario";
 import FormularioProducto from "./FormularioProducto";
 
@@ -19,6 +20,7 @@ async function obtenerProductos(): Promise<ProductoConStock[]> {
 
 export default function GestionMenu() {
   const [productos, setProductos] = useState<ProductoConStock[]>([]);
+  const [busqueda, setBusqueda] = useState("");
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoEditando, setProductoEditando] = useState<ProductoConStock | null>(null);
@@ -49,6 +51,11 @@ export default function GestionMenu() {
   }, []);
 
   const categorias = Array.from(new Set(productos.map((p) => p.categoria))).sort();
+
+  const textoBusqueda = normalizarNombre(busqueda);
+  const productosFiltrados = productos.filter((p) =>
+    normalizarNombre(`${p.nombre} ${p.categoria}`).includes(textoBusqueda),
+  );
 
   const abrirCreacion = () => {
     setProductoEditando(null);
@@ -116,13 +123,28 @@ export default function GestionMenu() {
         </button>
       </div>
 
+      <input
+        type="search"
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder="🔍 Buscar por producto o categoría..."
+        aria-label="Buscar producto"
+        className="w-full mb-4 px-4 py-2 bg-white border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
       {loading ? (
         <div className="text-center py-12 text-gray-500">Cargando productos...</div>
       ) : (
         <>
+          {productosFiltrados.length === 0 && textoBusqueda && (
+            <div className="text-center py-12 text-gray-500">
+              Sin productos para &quot;{busqueda}&quot;
+            </div>
+          )}
+
           {/* === MOBILE: tarjetas === */}
           <div className="flex flex-col gap-3 sm:hidden">
-            {productos.map((producto) => (
+            {productosFiltrados.map((producto) => (
               <div
                 key={producto.id}
                 className={`bg-white rounded-xl shadow p-4 ${producto.disponible ? "" : "opacity-60"}`}
@@ -178,7 +200,7 @@ export default function GestionMenu() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {productos.map((producto) => (
+                {productosFiltrados.map((producto) => (
                   <tr key={producto.id} className={producto.disponible ? "" : "bg-gray-50"}>
                     <td className="px-5 py-4 text-sm font-medium text-gray-900">
                       {producto.nombre}

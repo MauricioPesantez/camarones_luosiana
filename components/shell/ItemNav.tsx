@@ -16,7 +16,7 @@ function etiquetaBadge(valor: number): string {
   return `${valor} pendiente${valor === 1 ? "" : "s"}`;
 }
 
-function Badge({ valor }: { valor: number }) {
+export function Badge({ valor }: { valor: number }) {
   return (
     <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-green-600 px-1.5 text-xs font-bold text-white">
       {valor}
@@ -68,14 +68,21 @@ export default function ItemNav({
         type="button"
         onClick={() => onNavegar(item)}
         aria-current={activo ? "page" : undefined}
-        className={`flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold transition-colors ${
+        className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-sm font-semibold transition-colors ${
           activo
             ? `${acento.fondo} ${acento.texto}`
             : "text-gray-600 hover:bg-gray-100"
         }`}
       >
         <span aria-hidden="true">{item.emoji}</span>
-        {item.label}
+        {item.labelCorto ? (
+          <>
+            <span className="xl:hidden">{item.labelCorto}</span>
+            <span className="hidden xl:inline">{item.label}</span>
+          </>
+        ) : (
+          item.label
+        )}
         {conBadge !== null && <Badge valor={conBadge} />}
       </button>
     );

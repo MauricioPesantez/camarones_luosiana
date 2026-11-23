@@ -224,7 +224,10 @@ function MeseroContenido() {
       {vistaActiva === "crear" && <CrearOrden />}
 
       {vistaActiva === "caja" && (
-        <InicioCaja requerida={searchParams.get("requerida") === "1"} />
+        <InicioCaja
+          usuarioId={usuario.id}
+          requerida={searchParams.get("requerida") === "1"}
+        />
       )}
 
       {vistaActiva === "retiro" && <RetiroCaja usuario={usuario} />}

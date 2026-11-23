@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { ProductoConStock } from "@/types/stock";
+import { normalizarNombre } from "@/lib/admin-validaciones";
 
 export default function GestionStock() {
   const [productos, setProductos] = useState<ProductoConStock[]>([]);
+  const [busqueda, setBusqueda] = useState("");
   const [loading, setLoading] = useState(false);
   const [productoEditando, setProductoEditando] = useState<string | null>(null);
   const [nuevoStock, setNuevoStock] = useState<{ [key: string]: number }>({});
@@ -101,6 +103,11 @@ export default function GestionStock() {
     );
   };
 
+  const textoBusqueda = normalizarNombre(busqueda);
+  const productosFiltrados = productos.filter((p) =>
+    normalizarNombre(`${p.nombre} ${p.categoria}`).includes(textoBusqueda),
+  );
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-4">
       {/* Selector de operación */}
@@ -136,15 +143,36 @@ export default function GestionStock() {
         </div>
       </div>
 
+      <input
+        type="search"
+        value={busqueda}
+        onChange={(e) => {
+          setBusqueda(e.target.value);
+          // El input de stock tiene autoFocus: si su fila reaparece al filtrar,
+          // robaría el foco y lo tecleado caería como cantidad.
+          setProductoEditando(null);
+          setNuevoStock({});
+        }}
+        placeholder="🔍 Buscar por producto o categoría..."
+        aria-label="Buscar producto"
+        className="w-full mb-4 px-4 py-2 bg-white border border-gray-300 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
       {loading ? (
         <div className="text-center py-12 text-gray-500">
           Cargando productos...
         </div>
       ) : (
         <>
+          {productosFiltrados.length === 0 && textoBusqueda && (
+            <div className="text-center py-12 text-gray-500">
+              Sin productos para &quot;{busqueda}&quot;
+            </div>
+          )}
+
           {/* === MOBILE: tarjetas === */}
           <div className="flex flex-col gap-3 sm:hidden">
-            {productos.map((producto) => (
+            {productosFiltrados.map((producto) => (
               <div
                 key={producto.id}
                 className={`bg-white rounded-xl shadow p-4 ${getStockBgColor(producto)}`}
@@ -247,7 +275,7 @@ export default function GestionStock() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {productos.map((producto) => (
+                {productosFiltrados.map((producto) => (
                   <tr key={producto.id} className={getStockBgColor(producto)}>
                     <td className="px-5 py-4 text-sm font-medium text-gray-900">
                       {producto.nombre}

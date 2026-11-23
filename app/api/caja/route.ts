@@ -8,13 +8,21 @@ import {
 import { obtenerDatosCuadre, resumirDatosCuadre } from "@/lib/cuadre-server";
 import { prisma } from "@/lib/db";
 import { obtenerFechaEcuador, obtenerRangoEcuador } from "@/lib/fecha-ecuador";
+import { ACCIONES_NOVEDAD, textosResumenCierre } from "@/lib/resumen-cierre";
 import { getAuthenticatedUser } from "@/lib/session";
+import {
+  registrarResumenCierre,
+  type ResultadoResumenCierre,
+} from "@/lib/whatsapp-salidas";
 import {
   ESTADO_CAJA_ABIERTA,
   ESTADO_CAJA_CERRADA,
   ROL_ABRE_CAJA,
   ROL_CIERRA_CAJA,
+  ocultarCuadre,
+  type SesionCaja,
 } from "@/types/caja";
+import { estaPorCobrar } from "@/types/cuadre";
 
 class CierreCajaConflictError extends Error {
   constructor(
@@ -22,6 +30,52 @@ class CierreCajaConflictError extends Error {
     readonly detalle: Record<string, unknown> = {},
   ) {
     super(message);
+  }
+}
+
+/** Después de cerrar: un fallo aquí se informa, pero no deshace el cierre. */
+async function encolarResumen(
+  caja: SesionCaja,
+  datos: NonNullable<Awaited<ReturnType<typeof obtenerDatosCuadre>>>,
+): Promise<ResultadoResumenCierre | "error"> {
+  try {
+    const { inicio, fin } = obtenerRangoEcuador(caja.fecha)!;
+    const novedades = await prisma.historialOrden.findMany({
+      where: {
+        tipoAccion: { in: ACCIONES_NOVEDAD },
+        createdAt: { gte: inicio, lt: fin },
+        orden: { tipoOperacion: "VENTA_CLIENTE" },
+      },
+      orderBy: { createdAt: "asc" },
+      select: {
+        tipoAccion: true,
+        descripcion: true,
+        usuarioNombre: true,
+        razon: true,
+        createdAt: true,
+        orden: { select: { numeroDiario: true, fechaNumeroDiario: true } },
+      },
+    });
+    const textos = textosResumenCierre({
+      fecha: caja.fecha,
+      caja,
+      resumen: resumirDatosCuadre(datos),
+      ventaPorCobrar: resumirDatosCuadre({
+        ...datos,
+        ordenes: datos.ordenes.filter(estaPorCobrar),
+      }).ventaPorCobrar,
+      retiros: datos.retiros,
+      consumos: datos.consumosEmpleados,
+      ordenes: datos.ordenes,
+      novedades,
+    });
+    return await registrarResumenCierre(prisma, caja.fecha, textos, new Date());
+  } catch (error) {
+    console.error(
+      "Error al encolar el resumen del cierre:",
+      error instanceof Error ? error.name : "desconocido",
+    );
+    return "error";
   }
 }
 
@@ -48,7 +102,12 @@ export async function GET(request: Request) {
       where: { fecha },
       select: CAJA_SELECT,
     });
-    return NextResponse.json({ fecha, caja: caja ? serializarCaja(caja) : null });
+    if (!caja) return NextResponse.json({ fecha, caja: null });
+    const completa = serializarCaja(caja);
+    return NextResponse.json({
+      fecha,
+      caja: usuario.rol === ROL_CIERRA_CAJA ? completa : ocultarCuadre(completa),
+    });
   } catch (error) {
     console.error("Error al obtener la caja:", error);
     return NextResponse.json(
@@ -88,7 +147,7 @@ export async function POST(request: Request) {
             existente.estado === ESTADO_CAJA_CERRADA
               ? "La caja de hoy ya fue cerrada"
               : "La caja de hoy ya fue iniciada",
-          caja: serializarCaja(existente),
+          caja: ocultarCuadre(serializarCaja(existente)),
         },
         { status: 409 },
       );
@@ -107,7 +166,10 @@ export async function POST(request: Request) {
         },
         select: CAJA_SELECT,
       });
-      return NextResponse.json({ caja: serializarCaja(caja) }, { status: 201 });
+      return NextResponse.json(
+        { caja: ocultarCuadre(serializarCaja(caja)) },
+        { status: 201 },
+      );
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -120,7 +182,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error: "La caja de hoy fue iniciada al mismo tiempo",
-            caja: caja ? serializarCaja(caja) : null,
+            caja: caja ? ocultarCuadre(serializarCaja(caja)) : null,
           },
           { status: 409 },
         );
@@ -157,7 +219,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
     }
 
-    const cajaCerrada = await prisma.$transaction(async (tx) => {
+    const { caja, datos } = await prisma.$transaction(async (tx) => {
       // Mismo candado usado por cobros y retiros. Al obtenerlo, todos los
       // movimientos iniciados terminaron y ninguno nuevo puede entrar.
       const filas = await tx.$queryRaw<Array<{ id: string }>>`
@@ -215,10 +277,13 @@ export async function PATCH(request: Request) {
         },
         select: CAJA_SELECT,
       });
-      return serializarCaja(cerrada);
+      return { caja: serializarCaja(cerrada), datos };
     });
 
-    return NextResponse.json({ caja: cajaCerrada });
+    return NextResponse.json({
+      caja,
+      resumenWhatsapp: await encolarResumen(caja, datos),
+    });
   } catch (error) {
     if (error instanceof CierreCajaConflictError) {
       return NextResponse.json(

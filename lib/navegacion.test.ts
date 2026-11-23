@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   resolverNav,
   itemsBarraInferior,
+  itemsTopBar,
   esItemActivo,
   ACENTO_POR_ROL,
 } from "./navegacion";
@@ -92,11 +93,37 @@ for (const rol of ["mesero", "digital", "cocina", "admin"] as const) {
 // Las pantallas internas no desplazan los cuatro accesos operativos del móvil.
 for (const rol of ["mesero", "digital", "cocina", "admin"]) {
   const nav = resolverNav(rol, ctxSinPermiso);
-  const items = nav.flatMap(s => s.items);
+  const items = nav.flatMap(s => s.items).flatMap(i => [i, ...(i.hijos ?? [])]);
   assert.ok(items.some(i => i.id === "mis-descuentos"));
   assert.equal(items.some(i => i.id === "consumos-empleados"), rol === "mesero" || rol === "admin");
   assert.equal(items.some(i => i.id === "cuentas-empleados"), rol === "admin");
   assert.ok(!itemsBarraInferior(nav).some(i => ["mis-descuentos", "consumos-empleados", "cuentas-empleados"].includes(i.id)));
 }
+
+// La topbar separa lo de la cuenta para que los destinos quepan en una linea.
+const barraAdmin = itemsTopBar(admin);
+assert.deepEqual(
+  barraAdmin.principales.map((i) => i.id),
+  ["cuadre", "empleados", "productos", "reportes", "usuarios"],
+);
+assert.deepEqual(
+  barraAdmin.principales
+    .find((i) => i.id === "empleados")
+    ?.hijos?.map((h) => h.id),
+  ["cuentas-empleados", "consumos-empleados"],
+);
+assert.deepEqual(
+  barraAdmin.cuenta.map((i) => i.id),
+  ["mis-descuentos", "logout"],
+);
+assert.deepEqual(
+  itemsTopBar(desconocido).cuenta.map((i) => i.id),
+  ["logout"],
+);
+// En escritorio no hay acciones de pagina: solo destinos.
+assert.deepEqual(
+  itemsTopBar(cocina).principales.map((i) => i.id),
+  ["monitor"],
+);
 
 console.log("navegacion tests passed");

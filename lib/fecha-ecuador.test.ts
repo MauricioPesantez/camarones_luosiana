@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { obtenerFechaEcuador, obtenerRangoEcuador } from "./fecha-ecuador";
+import { obtenerFechaEcuador, moverFecha, obtenerRangoEcuador } from "./fecha-ecuador";
 
 // Ecuador esta en UTC-5 todo el año: el dia local arranca a las 05:00 UTC.
 const rango = obtenerRangoEcuador("2026-08-01");
@@ -36,3 +36,7 @@ assert.equal(hoy, "2026-08-01");
 assert.ok(obtenerRangoEcuador(hoy));
 
 console.log("fecha-ecuador tests passed");
+
+assert.equal(moverFecha('2026-11-22', -1), '2026-11-21');
+assert.equal(moverFecha('2026-12-31', 1), '2027-01-01');
+assert.equal(moverFecha('2028-03-01', -1), '2028-02-29');

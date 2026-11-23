@@ -33,7 +33,8 @@ interface Props {
 
 const SIN_BADGES: Record<string, number> = {};
 
-const CONSULTA_MOVIL = "(max-width: 767px)";
+// Hasta tablet vertical: la topbar horizontal no cabe antes de `lg`.
+const CONSULTA_MOVIL = "(max-width: 1023px)";
 
 // El drawer y la barra inferior se sacan del DOM en escritorio, no se ocultan
 // solo con CSS: si se ocultaran, redimensionar con el drawer abierto dejaria
@@ -138,9 +139,9 @@ export default function AppShell({
   );
 
   return (
-    // El lienzo lo fija el shell: `globals.css` declara un fondo oscuro bajo
-    // `prefers-color-scheme: dark` que ninguna pantalla contempla.
-    <div className="min-h-screen bg-gray-100">
+    // El lienzo lo fija el shell: `globals.css` declara un fondo oscuro y un
+    // texto claro bajo `prefers-color-scheme: dark` que ninguna pantalla contempla.
+    <div className="min-h-screen bg-gray-100 text-gray-900">
       <TopBar
         titulo={titulo}
         secciones={secciones}
@@ -167,7 +168,7 @@ export default function AppShell({
         />
       )}
 
-      <main inert={drawerAbierto ? true : undefined} className="pb-20 md:pb-0">
+      <main inert={drawerAbierto ? true : undefined} className="pb-20 lg:pb-0">
         {children}
       </main>
 

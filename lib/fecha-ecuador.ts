@@ -31,6 +31,13 @@ export function obtenerRangoEcuador(
   return { inicio, fin: new Date(inicio.getTime() + 24 * 60 * 60 * 1000) };
 }
 
+/** Suma dias a una fecha YYYY-MM-DD. Al mediodia UTC ningun huso cambia el dia. */
+export function moverFecha(fecha: string, dias: number): string {
+  const movida = new Date(`${fecha}T12:00:00Z`);
+  movida.setUTCDate(movida.getUTCDate() + dias);
+  return movida.toISOString().slice(0, 10);
+}
+
 /** Fecha de hoy en Ecuador, en el formato que aceptan las rutas. */
 export function obtenerFechaEcuador(referencia: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', {

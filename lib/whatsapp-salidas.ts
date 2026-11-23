@@ -202,6 +202,46 @@ export async function registrarUbicacionWhatsapp(
   await registrarCambioWhatsapp(tx, orden.id, `ubicacion:${historialId}`, textoActualizacionUbicacion(orden));
 }
 
+// Más que la vigencia común: el agente puede estar fuera de horario al cerrar la caja.
+const VIGENCIA_RESUMEN_MS = 24 * 60 * 60 * 1000;
+
+export type ResultadoResumenCierre = 'encolado' | 'sin_configuracion' | 'sin_operador';
+
+/**
+ * Resumen del cierre al chat del operador. Usa el remitente del último pedido
+ * entre los operadores vigentes: es la forma (`@lid` o `@c.us`) que funciona hoy.
+ */
+export async function registrarResumenCierre(
+  db: Pick<Prisma.TransactionClient, 'whatsappEntrada' | 'whatsappSalida'>,
+  fecha: string,
+  textos: string[],
+  ahora: Date,
+): Promise<ResultadoResumenCierre> {
+  const config = leerConfiguracion(process.env);
+  if (!config) return 'sin_configuracion';
+
+  const ultima = await db.whatsappEntrada.findFirst({
+    where: { sessionId: config.sessionId, remitente: { in: [...config.operadores] } },
+    orderBy: { recibidaAt: 'desc' },
+    select: { remitente: true },
+  });
+  if (!ultima) return 'sin_operador';
+
+  await db.whatsappSalida.createMany({
+    data: textos.map((texto, i) => ({
+      sessionId: config.sessionId,
+      tipo: 'RESUMEN_CIERRE',
+      destino: ultima.remitente,
+      texto,
+      clave: `cierre:${fecha}:${i + 1}`,
+      // Escalonado: con la misma hora el agente los enviaría en cualquier orden.
+      disponibleAt: new Date(ahora.getTime() + i),
+      venceAt: new Date(ahora.getTime() + VIGENCIA_RESUMEN_MS),
+    })),
+  });
+  return 'encolado';
+}
+
 export type ResultadoProgramarMoto = 'encolada' | 'en_curso' | 'ya_enviada' | 'sin_configuracion';
 
 export type AvisoMoto = { estado: string; disponibleAt: Date } | null;
