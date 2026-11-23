@@ -1,8 +1,14 @@
 "use client";
 
-import type { Acento, EntradaNav, SeccionNav } from "@/lib/navegacion";
+import {
+  itemsTopBar,
+  type Acento,
+  type EntradaNav,
+  type SeccionNav,
+} from "@/lib/navegacion";
 import type { Usuario } from "@/lib/auth";
 import ItemNav from "./ItemNav";
+import MenuNav from "./MenuNav";
 
 interface Props {
   titulo: string;
@@ -29,16 +35,8 @@ export default function TopBar({
   onAbrirDrawer,
   onNavegar,
 }: Props) {
-  const itemLogout = secciones
-    .flatMap((s) => s.items)
-    .find((item) => item.id === "logout");
-
-  // En escritorio no hay grupos plegables: los hijos se rinden al mismo nivel.
-  const itemsHorizontales = secciones
-    .filter((s) => s.titulo !== "Sesión")
-    .flatMap((s) => s.items)
-    .flatMap((item) => (item.hijos?.length ? item.hijos : [item]))
-    .filter((item) => !item.href.startsWith("#"));
+  const { principales, cuenta } = itemsTopBar(secciones);
+  const comunes = { activoId, acento, badges, onNavegar };
 
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
@@ -49,46 +47,53 @@ export default function TopBar({
           aria-label="Abrir menú"
           aria-expanded={drawerAbierto}
           aria-controls="drawer-navegacion"
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-xl text-gray-700 hover:bg-gray-100 md:hidden"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-xl text-gray-700 hover:bg-gray-100 lg:hidden"
         >
           ☰
         </button>
 
-        <h1 className="truncate text-base font-semibold text-gray-900 md:hidden">
+        <h1 className="truncate text-base font-semibold text-gray-900 lg:hidden">
           {titulo}
         </h1>
 
         <nav
           aria-label="Navegación principal"
-          className="hidden items-center gap-1 md:flex"
+          className="hidden items-center gap-1 lg:flex"
         >
-          {itemsHorizontales.map((item) => (
-            <ItemNav
-              key={item.id}
-              item={item}
-              variante="topbar"
-              activo={item.id === activoId}
-              acento={acento}
-              badge={badges[item.id]}
-              onNavegar={onNavegar}
-            />
-          ))}
+          {principales.map((item) =>
+            item.hijos?.length ? (
+              <MenuNav
+                key={item.id}
+                etiqueta={item.label}
+                emoji={item.emoji}
+                items={item.hijos}
+                {...comunes}
+              />
+            ) : (
+              <ItemNav
+                key={item.id}
+                item={item}
+                variante="topbar"
+                activo={item.id === activoId}
+                acento={acento}
+                badge={badges[item.id]}
+                onNavegar={onNavegar}
+              />
+            ),
+          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
           {acciones}
-          <span className="hidden text-sm text-gray-600 md:inline">
-            {usuario.nombre}
-          </span>
-          {itemLogout && (
-            <button
-              type="button"
-              onClick={() => onNavegar(itemLogout)}
-              className="hidden min-h-11 rounded-lg bg-red-500 px-4 text-sm font-semibold text-white hover:bg-red-600 md:block"
-            >
-              Cerrar sesión
-            </button>
-          )}
+          <div className="hidden lg:block">
+            <MenuNav
+              etiqueta={usuario.nombre}
+              emoji="👤"
+              items={cuenta}
+              alFinal
+              {...comunes}
+            />
+          </div>
         </div>
       </div>
     </header>

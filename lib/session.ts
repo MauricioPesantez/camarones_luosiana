@@ -122,6 +122,6 @@ export function roleOrdersHome(rol: string, reason?: string): string {
   const suffix = reason ? `&cobro=${encodeURIComponent(reason)}` : '';
   if (rol === 'mesero') return `/mesero?vista=ordenes${suffix}`;
   if (rol === 'digital') return `/digital?vista=pedidos${suffix}`;
-  if (rol === 'admin') return reason ? `/admin?cobro=${encodeURIComponent(reason)}` : '/admin';
+  if (rol === 'admin') return `/admin?tab=ordenes${suffix}`;
   return roleHome(rol);
 }

@@ -76,7 +76,7 @@ const SESION: SeccionNav = {
 
 const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
   mesero: [
-    { titulo: "Empleados", items: [{ id: "consumos-empleados", label: "Consumos de empleados", emoji: "🍽️", href: "/consumos-empleados" }] },
+    { titulo: "Empleados", items: [{ id: "consumos-empleados", label: "Consumos de empleados", labelCorto: "Consumos", emoji: "🍽️", href: "/consumos-empleados" }] },
     {
       titulo: "Operación",
       items: [
@@ -175,7 +175,6 @@ const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
     SESION,
   ],
   admin: [
-    { titulo: "Cuentas de empleados", items: [{ id: "cuentas-empleados", label: "Cuentas de empleados", emoji: "🧾", href: "/admin/empleados" }, { id: "consumos-empleados", label: "Consumos de empleados", emoji: "🍽️", href: "/consumos-empleados" }] },
     {
       titulo: "Cuadre",
       items: [
@@ -186,6 +185,31 @@ const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
           emoji: "💵",
           href: "/admin",
           enBarraInferior: true,
+        },
+      ],
+    },
+    {
+      titulo: "Empleados",
+      items: [
+        {
+          id: "empleados",
+          label: "Empleados",
+          emoji: "🧾",
+          href: "/admin/empleados",
+          hijos: [
+            {
+              id: "cuentas-empleados",
+              label: "Cuentas de empleados",
+              emoji: "🧾",
+              href: "/admin/empleados",
+            },
+            {
+              id: "consumos-empleados",
+              label: "Consumos de empleados",
+              emoji: "🍽️",
+              href: "/consumos-empleados",
+            },
+          ],
         },
       ],
     },
@@ -290,6 +314,24 @@ export function esItemActivo(item: EntradaNav, activoId: string): boolean {
     item.id === activoId ||
     (item.hijos?.some((hijo) => hijo.id === activoId) ?? false)
   );
+}
+
+const SECCIONES_DE_CUENTA = ["Mi cuenta", SESION.titulo];
+
+// La topbar de escritorio solo navega: las acciones de pagina ("#...") se
+// quedan en el drawer, salvo cerrar sesion.
+export function itemsTopBar(secciones: SeccionNav[]): {
+  principales: EntradaNav[];
+  cuenta: EntradaNav[];
+} {
+  const esCuenta = (s: SeccionNav) => SECCIONES_DE_CUENTA.includes(s.titulo);
+  return {
+    principales: secciones
+      .filter((s) => !esCuenta(s))
+      .flatMap((s) => s.items)
+      .filter((item) => !item.href.startsWith("#")),
+    cuenta: secciones.filter(esCuenta).flatMap((s) => s.items),
+  };
 }
 
 export function itemsBarraInferior(secciones: SeccionNav[]): EntradaNav[] {

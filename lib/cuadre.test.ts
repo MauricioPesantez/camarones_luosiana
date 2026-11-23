@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { calcularResumenCuadre } from "../types/cuadre";
+import { calcularResumenCuadre, estaPorCobrar } from "../types/cuadre";
 import { partesDeCobroMixto } from "../types/cobro";
 import { isConfirmedPaymentInRange } from "./cuadre-date";
 
@@ -48,6 +48,7 @@ assert.deepEqual(resumen, {
   ventasAnuladas: 0,
   ventasTotales: 199,
   ventasSinCobrar: 100,
+  ventaPorCobrar: 100,
   ventasCobradas: 99,
   efectivoVentasDirectas: 25,
   efectivoCobradoMotorizados: 25,
@@ -694,3 +695,50 @@ assert.equal(mixtoLocalDesdePantalla.ventasCobradas, 30);
 assert.equal(mixtoLocalDesdePantalla.efectivoEnCaja, 10);
 
 console.log("cuadre.test.ts multipago OK");
+
+// Lo que falta cobrar descuenta los abonos del dia y nunca incluye el envio.
+const conAbonos = calcularResumenCuadre([
+  {
+    cobrada: false,
+    tipoOrden: "local",
+    total: 33.75,
+    montoPagado: 20,
+    pagos: [{ metodoPago: "efectivo", monto: 20, enRango: true }],
+  },
+  { cobrada: false, tipoOrden: "domicilio", total: 18.5, costoEnvio: 2 },
+  {
+    // El abono supera la venta propia: el resto es envio, no una deuda negativa.
+    cobrada: false,
+    tipoOrden: "domicilio",
+    total: 20,
+    costoEnvio: 2,
+    montoPagado: 19,
+    pagos: [{ metodoPago: "transferencia", monto: 19, enRango: true }],
+  },
+  {
+    // Se pago otro dia: en este reporte todavia faltaba.
+    cobrada: false,
+    tipoOrden: "local",
+    total: 10,
+    montoPagado: 10,
+    pagos: [{ metodoPago: "efectivo", monto: 10, enRango: false }],
+  },
+  { cobrada: true, tipoOrden: "local", total: 50, metodoPago: "efectivo" },
+  { cobrada: false, anulada: true, tipoOrden: "local", total: 99 },
+  { cobrada: false, empleadoId: "e1", tipoOrden: "local", total: 99 },
+]);
+assert.equal(conAbonos.ventaPorCobrar, 40.25);
+
+console.log("cuadre.test.ts falta por cobrar OK");
+
+// Solo se pide cobrar lo que de verdad se puede cobrar.
+const porCobrar = { cobrada: false, anulada: false, estado: "lista" };
+assert.equal(estaPorCobrar(porCobrar), true);
+assert.equal(estaPorCobrar({ ...porCobrar, cobrada: true }), false);
+assert.equal(estaPorCobrar({ ...porCobrar, anulada: true }), false);
+assert.equal(estaPorCobrar({ ...porCobrar, empleadoId: "e1" }), false);
+assert.equal(estaPorCobrar({ ...porCobrar, estado: "cancelada" }), false);
+assert.equal(
+  estaPorCobrar({ ...porCobrar, estado: "pendiente_aprobacion_stock" }),
+  false,
+);

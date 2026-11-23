@@ -125,7 +125,7 @@ export default function DrawerNav({
   return (
     <>
       <div
-        className="fixed inset-0 z-50 bg-black/50 motion-safe:animate-[fadeIn_150ms_ease-out] md:hidden"
+        className="fixed inset-0 z-50 bg-black/50 motion-safe:animate-[fadeIn_150ms_ease-out] lg:hidden"
         onClick={onCerrar}
         aria-hidden="true"
       />
@@ -135,7 +135,7 @@ export default function DrawerNav({
         role="dialog"
         aria-modal="true"
         aria-label="Menú de navegación"
-        className="fixed inset-y-0 left-0 z-[51] flex w-[82%] max-w-xs flex-col overflow-y-auto bg-white motion-safe:animate-[slideIn_180ms_ease-out] md:hidden"
+        className="fixed inset-y-0 left-0 z-[51] flex w-[82%] max-w-xs flex-col overflow-y-auto bg-white motion-safe:animate-[slideIn_180ms_ease-out] lg:hidden"
       >
         <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-4">
           <div

@@ -51,6 +51,8 @@ export interface ResumenCuadre {
   /** Venta del local: totales sin el envio, cobradas y no cobradas. */
   ventasTotales: number;
   ventasSinCobrar: number;
+  /** Venta que todavia falta recibir: la de las no cobradas menos sus abonos del rango. */
+  ventaPorCobrar: number;
   ventasCobradas: number;
   efectivoVentasDirectas: number;
   efectivoCobradoMotorizados: number;
@@ -77,6 +79,25 @@ export interface ResumenCuadre {
    */
   ordenesConSaldoPendiente: number;
   montoSaldoPendiente: number;
+}
+
+/**
+ * Orden que alguien todavia puede cobrar: el mismo criterio con el que el
+ * aviso al grupo (`/api/admin/ordenes/por-cobrar`) arma su lista.
+ */
+export function estaPorCobrar(orden: {
+  cobrada: boolean;
+  anulada?: boolean | null;
+  empleadoId?: string | null;
+  estado: string;
+}): boolean {
+  return (
+    !orden.cobrada &&
+    !orden.anulada &&
+    !orden.empleadoId &&
+    orden.estado !== "cancelada" &&
+    orden.estado !== "pendiente_aprobacion_stock"
+  );
 }
 
 function aCentavos(valor: number | string | null | undefined): number {
@@ -203,6 +224,10 @@ export function calcularResumenCuadre(
       if (!orden.cobrada) {
         acumulado.ordenesSinCobrar += 1;
         acumulado.ventasSinCobrar += ventaPropia;
+        acumulado.ventaPorCobrar += Math.max(
+          0,
+          ventaPropia - efectivoEnRango - transferenciaEnRango,
+        );
         return acumulado;
       }
 
@@ -256,6 +281,7 @@ export function calcularResumenCuadre(
       ordenesSinCobrar: 0,
       ventasTotales: 0,
       ventasSinCobrar: 0,
+      ventaPorCobrar: 0,
       ventasCobradas: 0,
       efectivoVentasDirectas: 0,
       efectivoCobradoMotorizados: 0,
@@ -287,6 +313,7 @@ export function calcularResumenCuadre(
     ventasAnuladas: aDolares(ventasAnuladas),
     ventasTotales: aDolares(resumen.ventasTotales),
     ventasSinCobrar: aDolares(resumen.ventasSinCobrar),
+    ventaPorCobrar: aDolares(resumen.ventaPorCobrar),
     ventasCobradas: aDolares(resumen.ventasCobradas),
     efectivoVentasDirectas: aDolares(resumen.efectivoVentasDirectas),
     efectivoCobradoMotorizados: aDolares(

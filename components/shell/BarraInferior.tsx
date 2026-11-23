@@ -23,7 +23,7 @@ export default function BarraInferior({
   return (
     <nav
       aria-label="Navegación principal"
-      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-200 bg-white md:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-200 bg-white lg:hidden"
       // El home indicator de iPhone se come el ultimo item sin esto.
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
