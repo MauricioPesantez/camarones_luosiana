@@ -5,6 +5,12 @@ export async function abrirComprobanteFirmado(
   ordenId: string,
   cobroId?: string,
 ): Promise<void> {
+  // La pestaña se abre antes del primer await: después ya pasó la ventana de
+  // activación del usuario y Safari/iOS bloquean `window.open` (devuelve `null`).
+  // Sin 'noopener': con él `window.open` devuelve `null` siempre, por norma, y no
+  // habría cómo llevarla a la URL firmada. Por eso `opener` se corta a mano.
+  const ventana = window.open('', '_blank');
+  if (ventana) ventana.opener = null;
   try {
     const query = cobroId ? `?cobroId=${encodeURIComponent(cobroId)}` : '';
     const respuesta = await fetch(`/api/admin/ordenes/${ordenId}/comprobante${query}`);
@@ -25,15 +31,11 @@ export async function abrirComprobanteFirmado(
     if (!respuesta.ok) {
       throw new Error(datos.error || 'No se pudo abrir el comprobante');
     }
-    // Este punto ya perdió la ventana de activación del usuario (dos awaits antes),
-    // y Safari/iOS bloquean `window.open` fuera de esa ventana: ahí devuelve `null`
-    // sin lanzar excepción y no pasa nada. Chrome suele sobrevivir por activación
-    // transitoria, por eso el fallo parecía específico de un navegador.
-    const ventana = window.open(datos.url, '_blank', 'noopener,noreferrer');
-    if (!ventana && datos.url) {
-      window.location.href = datos.url;
-    }
+    if (!datos.url) throw new Error('No se pudo abrir el comprobante');
+    // Bloqueada igual (ventanas emergentes desactivadas): se abre en esta pestaña.
+    (ventana ?? window).location.href = datos.url;
   } catch (error) {
+    ventana?.close();
     alert(error instanceof Error ? error.message : 'No se pudo abrir el comprobante');
   }
 }

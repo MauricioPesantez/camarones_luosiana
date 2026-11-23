@@ -116,6 +116,7 @@ model Orden {
   updatedAt        DateTime          @updatedAt
   items            Item[]
   historial        HistorialOrden[]
+  revision         RevisionOrden?
   impresa          Boolean           @default(false)
   printRevision    Int               @default(0)
   printJobs        PrintJob[]
@@ -540,4 +541,20 @@ model WhatsappSalida {
   @@index([estado, disponibleAt])
   @@index([ordenId])
   @@index([entradaId])
+}
+
+/// Bitácora del admin sobre una orden. No participa en ningún cálculo.
+model RevisionOrden {
+  id                String    @id @default(cuid())
+  ordenId           String    @unique
+  orden             Orden     @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  detalle           Json
+  revisada          Boolean   @default(false)
+  conErrores        Boolean   @default(false)
+  version           Int       @default(1)
+  revisadaPorId     String?
+  revisadaPorNombre String?
+  revisadaAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 }

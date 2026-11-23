@@ -8,6 +8,8 @@ import AppShell from "@/components/shell/AppShell";
 import CierreCaja from "@/components/admin/CierreCaja";
 import OrdenesDia from "@/components/admin/OrdenesDia";
 import ResumenDia from "@/components/admin/ResumenDia";
+import RevisionOrdenes from "@/components/admin/revision/RevisionOrdenes";
+import { useColasRevision } from "@/components/admin/revision/useColasRevision";
 import type {
   ConsumoDelDia,
   FiltroCobro,
@@ -18,6 +20,7 @@ import type { SesionCaja } from "@/types/caja";
 import { calcularResumenCuadre, estaPorCobrar } from "@/types/cuadre";
 import type { OrdenPendienteAprobacion } from "@/types/orden";
 import type { RetiroCaja } from "@/types/retiro";
+import type { RevisionGuardada } from "@/types/revision";
 import type { ProductoStockBajo } from "@/types/stock";
 
 /** Los datos llevan su fecha: si no es la elegida, no se muestran. */
@@ -27,6 +30,7 @@ interface DatosDelDia {
   retiros: RetiroCaja[];
   consumos: ConsumoDelDia[];
   caja: SesionCaja | null;
+  revisiones: RevisionGuardada[];
 }
 
 const PESTANAS = [
@@ -57,8 +61,15 @@ function AdminContenido() {
   const { usuario, loading: authLoading, logout } = useAuth();
   const router = useRouter();
   // La pestaña vive en la URL para que no se pierda al recargar.
-  const tab = useSearchParams().get("tab");
-  const pestana = tab === "ordenes" || tab === "cierre" ? tab : "resumen";
+  const parametros = useSearchParams();
+  const tab = parametros.get("tab");
+  // La revisión se abre encima de Órdenes.
+  const pestana =
+    tab === "cierre"
+      ? tab
+      : tab === "ordenes" || tab === "revision"
+        ? "ordenes"
+        : "resumen";
 
   const [fecha, setFecha] = useState(obtenerFechaEcuador);
   const [datos, setDatos] = useState<DatosDelDia | null>(null);
@@ -75,7 +86,27 @@ function AdminContenido() {
   const [whatsappPendiente, setWhatsappPendiente] = useState(false);
   const ultimaCarga = useRef(0);
 
-  const cargarDia = async () => {
+  const dia = datos?.fecha === fecha ? datos : null;
+  const revisando =
+    tab === "revision" && usuario?.rol === "admin" && dia !== null;
+  const colas = useColasRevision(revisando, (revision) =>
+    setDatos((actual) =>
+      actual?.ordenes.some((orden) => orden.id === revision.ordenId)
+        ? {
+            ...actual,
+            revisiones: [
+              ...actual.revisiones.filter(
+                (r) => r.ordenId !== revision.ordenId,
+              ),
+              revision,
+            ],
+          }
+        : actual,
+    ),
+  );
+
+  /** Devuelve si los datos quedaron al día. */
+  const leerDia = async (): Promise<boolean> => {
     // Al pasar rápido de un día a otro gana la última petición, no la última
     // respuesta.
     const carga = ++ultimaCarga.current;
@@ -87,23 +118,30 @@ function AdminContenido() {
       if (!res.ok) {
         throw new Error(data.error || "Error al cargar el día");
       }
-      if (carga !== ultimaCarga.current) return;
+      if (carga !== ultimaCarga.current) return false;
       setDatos({
         fecha,
         ordenes: data.ordenes || [],
         retiros: data.retiros || [],
         consumos: data.consumosEmpleados || [],
         caja: data.caja ?? null,
+        revisiones: data.revisiones || [],
       });
+      return true;
     } catch (error) {
       console.error("Error al cargar el día:", error);
-      if (carga !== ultimaCarga.current) return;
+      if (carga !== ultimaCarga.current) return false;
       setErrorCarga(
         error instanceof Error ? error.message : "Error al cargar el día",
       );
+      return false;
     } finally {
       if (carga === ultimaCarga.current) setLoading(false);
     }
+  };
+
+  const cargarDia = async () => {
+    await leerDia();
   };
 
   const cargarProductosStockBajo = async () => {
@@ -165,7 +203,6 @@ function AdminContenido() {
     );
   }
 
-  const dia = datos?.fecha === fecha ? datos : null;
   const resumen =
     dia &&
     calcularResumenCuadre(
@@ -209,7 +246,7 @@ function AdminContenido() {
     router.push("/admin?tab=ordenes");
   };
 
-  return (
+  const panel = (
     <AppShell
       usuario={usuario}
       onLogout={logout}
@@ -364,6 +401,7 @@ function AdminContenido() {
         <div className="mt-6" hidden={pestana !== "ordenes"}>
           <OrdenesDia
             ordenes={dia?.ordenes ?? []}
+            revisiones={dia?.revisiones ?? []}
             sinDatos={sinDatos}
             admin={usuario}
             filtroCobro={filtroCobro}
@@ -396,6 +434,25 @@ function AdminContenido() {
         </div>
       </div>
     </AppShell>
+  );
+
+  return (
+    <>
+      <div inert={revisando}>{panel}</div>
+      {revisando && (
+        <RevisionOrdenes
+          fecha={fecha}
+          ordenes={dia.ordenes}
+          revisiones={dia.revisiones}
+          ordenInicial={parametros.get("orden")}
+          colas={colas}
+          onRecargar={async () => {
+            if (!(await leerDia())) throw new Error("No se pudo recargar");
+          }}
+          onSalir={() => router.replace("/admin?tab=ordenes", { scroll: false })}
+        />
+      )}
+    </>
   );
 }
 

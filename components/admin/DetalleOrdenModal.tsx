@@ -38,6 +38,7 @@ interface ItemOrden {
 
 interface Orden {
   id: string;
+  numeroDiario?: number | null;
   tipoOrden?: string;
   numeroMesa: number | null;
   nombreCliente?: string | null;
@@ -353,6 +354,7 @@ export default function DetalleOrdenModal({
         <div className="border-b px-6 py-4 flex justify-between items-center bg-gray-50">
           <div>
             <h2 className="text-2xl font-bold text-gray-800">
+              #{orden.numeroDiario ?? orden.id.slice(-6)} ·{" "}
               {!orden.tipoOrden || orden.tipoOrden === "local"
                 ? `Mesa ${orden.numeroMesa}`
                 : (orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente")}
@@ -1034,7 +1036,9 @@ export default function DetalleOrdenModal({
                             ? "— Desconocido"
                             : orden.metodoPago === "efectivo"
                               ? "💵 Efectivo"
-                              : "🏦 Transferencia"}
+                              : orden.metodoPago === "mixto"
+                                ? "🔀 Mixto"
+                                : "🏦 Transferencia"}
                         </span>
                       </p>
                     </div>
