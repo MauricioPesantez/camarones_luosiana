@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import AppShell from "@/components/shell/AppShell";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
+import { sePuedeEditar } from "@/lib/edicion-orden";
 import UbicacionEntrega from "@/components/ordenes/UbicacionEntrega";
 import DeliverySolicitado from "@/components/ordenes/DeliverySolicitado";
 import {
@@ -428,7 +429,7 @@ function DigitalContenido() {
                             💵 Cobrar Pedido
                           </button>
                         )}
-                        {!orden.cobrada && (
+                        {sePuedeEditar(orden) && (
                           <button
                             onClick={() => setOrdenEditar(orden)}
                             className={`w-full py-2 rounded-lg font-semibold transition-colors text-white ${
@@ -644,7 +645,6 @@ function DigitalContenido() {
             setOrdenEditar(null);
             cargarOrdenes();
           }}
-          usuario={usuario}
         />
       )}
     </AppShell>

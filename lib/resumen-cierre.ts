@@ -19,6 +19,7 @@ export const ACCIONES_NOVEDAD = [
   'item_eliminado',
   'item_modificado',
   'metodo_pago_cambiado',
+  'cobro_corregido',
 ];
 
 export interface OrdenResumen {
@@ -69,7 +70,7 @@ function resultado(diferencia: number): string {
 }
 
 /** El número se repite cada día: si es de otra fecha, se dice cuál. */
-function numeroOrden(
+export function numeroOrden(
   orden: { numeroDiario: number | null; fechaNumeroDiario: string | null },
   fecha: string,
 ): string {
@@ -83,6 +84,9 @@ function lineasCierre({ caja, resumen, ventaPorCobrar, ordenes }: DatosResumenCi
   const lineas = [
     `Abrió: ${caja.abiertaPorNombre} ${hora(caja.abiertaAt)}`,
     `Cerró: ${caja.cerradaPorNombre ?? 'administrador'}${caja.cerradaAt ? ` ${hora(caja.cerradaAt)}` : ''}`,
+    ...(caja.ordenesHabilitadasAt
+      ? [`${caja.ordenesHabilitadasPorNombre ?? 'El administrador'} mostró las órdenes del día a ${ultimoCorteVigente(caja.cortes)?.usuarioNombre ?? 'un mesero'} ${hora(caja.ordenesHabilitadasAt)}`]
+      : []),
     '',
     `Fondo inicial: ${dinero(resumen.fondoInicial)}`,
     `+ Efectivo cobrado en el local: ${dinero(resumen.efectivoVentasDirectas)}`,

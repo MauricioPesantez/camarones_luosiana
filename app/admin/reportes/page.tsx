@@ -3,7 +3,9 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { obtenerRangoEcuador } from "@/lib/fecha-ecuador";
 import AppShell from "@/components/shell/AppShell";
+import BitacoraErrores from "@/components/admin/reportes/BitacoraErrores";
 
 interface Estadisticas {
   resumen: {
@@ -54,14 +56,22 @@ function ReportesContenido() {
   const [loading, setLoading] = useState(false);
   // La pestaña vive en la URL para que el menú la enlace directo.
   const searchParams = useSearchParams();
-  const pestanaActiva: "modificaciones" | "cortesias" =
-    searchParams.get("tab") === "cortesias" ? "cortesias" : "modificaciones";
-  const [fechaInicio, setFechaInicio] = useState(
-    () =>
-      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+  const tab = searchParams.get("tab");
+  const pestanaActiva: "modificaciones" | "cortesias" | "bitacora" =
+    tab === "cortesias" || tab === "bitacora" ? tab : "modificaciones";
+  const [recarga, setRecarga] = useState(0);
+  // Solo el punto de partida: después mandan los campos de fecha.
+  const desde = searchParams.get("desde") ?? "";
+  const hasta = searchParams.get("hasta") ?? "";
+  const conRango =
+    obtenerRangoEcuador(desde) !== null && obtenerRangoEcuador(hasta) !== null;
+  const [fechaInicio, setFechaInicio] = useState(() =>
+    conRango
+      ? desde
+      : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
   );
-  const [fechaFin, setFechaFin] = useState(
-    () => new Date().toISOString().split("T")[0],
+  const [fechaFin, setFechaFin] = useState(() =>
+    conRango ? hasta : new Date().toISOString().split("T")[0],
   );
 
   const cargarDatos = async () => {
@@ -118,7 +128,11 @@ function ReportesContenido() {
     <AppShell
       usuario={usuario}
       onLogout={logout}
-      titulo={pestanaActiva === "cortesias" ? "Cortesías" : "Modificaciones"}
+      titulo={
+        { modificaciones: "Modificaciones", cortesias: "Cortesías", bitacora: "Bitácora de errores" }[
+          pestanaActiva
+        ]
+      }
       activoId={pestanaActiva}
       badges={
         reporteCortesias
@@ -155,7 +169,10 @@ function ReportesContenido() {
             </div>
             <div className="flex items-end">
               <button
-                onClick={cargarDatos}
+                onClick={() => {
+                  cargarDatos();
+                  setRecarga((n) => n + 1);
+                }}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold"
               >
                 Actualizar
@@ -164,7 +181,13 @@ function ReportesContenido() {
           </div>
         </div>
 
-        {loading ? (
+        {pestanaActiva === "bitacora" ? (
+          <BitacoraErrores
+            fechaInicio={fechaInicio}
+            fechaFin={fechaFin}
+            recarga={recarga}
+          />
+        ) : loading ? (
           <div className="text-center py-12 text-gray-600">
             Cargando estadísticas...
           </div>

@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import AppShell from "@/components/shell/AppShell";
 import CrearOrden from "@/components/mesero/CrearOrden";
 import EditarOrdenModal from "@/components/mesero/EditarOrdenModal";
+import { sePuedeEditar } from "@/lib/edicion-orden";
 import RetiroCaja from "@/components/mesero/RetiroCaja";
 import InicioCaja from "@/components/mesero/InicioCaja";
 import {
@@ -423,7 +424,7 @@ function MeseroContenido() {
                             💵 Cobrar Orden
                           </button>
                         )}
-                        {!orden.cobrada && (
+                        {sePuedeEditar(orden) && (
                           <button
                             onClick={() => setOrdenEditar(orden)}
                             className={`w-full py-2 rounded-lg font-semibold transition-colors text-white ${
@@ -629,7 +630,6 @@ function MeseroContenido() {
             setOrdenEditar(null);
             cargarOrdenes();
           }}
-          usuario={usuario}
         />
       )}
     </AppShell>

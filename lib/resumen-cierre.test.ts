@@ -31,7 +31,7 @@ const base = (extra: Partial<DatosResumenCierre> = {}): DatosResumenCierre => ({
     id: 'c', fecha: '2026-11-22', estado: 'cerrada', montoInicial: 50, abiertaPorId: 'ana', abiertaPorNombre: 'Ana',
     abiertaPorRol: 'mesero', abiertaAt: utc('15:02').toISOString(), montoEsperadoCierre: 250, montoCierre: 247,
     diferenciaCierre: -3, cerradaPorId: 'adm', cerradaPorNombre: 'Admin', cerradaAt: utc('03:10', 23).toISOString(),
-    cortes: [],
+    ordenesHabilitadasAt: null, ordenesHabilitadasPorNombre: null, cortes: [],
   },
   resumen: calcularResumenCuadre([], [], 50),
   ventaPorCobrar: 0, retiros: [], consumos: [], ordenes: [], novedades: [],
@@ -95,6 +95,12 @@ assert.match(textos[4], /#4 .*ANULADA/);
 // Ni lo de ayer, ni lo anulado, ni lo cancelado suma unidades.
 assert.match(textos[5], /\n4 x Alitas$/);
 assert.doesNotMatch(todo, /María|0999999999|Casa azul|maps\.example|Alitas viejo/);
+
+// Mostrar las órdenes al mesero queda dicho; si no se mostraron, no se menciona.
+assert.doesNotMatch(todo, /mostró las órdenes/);
+dia.caja.ordenesHabilitadasAt = utc('02:40', 23).toISOString();
+dia.caja.ordenesHabilitadasPorNombre = 'Admin';
+assert.match(textosResumenCierre(dia)[0], /Admin mostró las órdenes del día a Luis 21:40/);
 
 // Día muy largo: se parte por líneas, numerado y sin perder órdenes.
 const muchas = Array.from({ length: 200 }, (_, i) => orden({ numeroDiario: i + 1 }));

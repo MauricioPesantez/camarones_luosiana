@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { obtenerFechaEcuador } from "@/lib/fecha-ecuador";
 import { cortesVigentes, ultimoCorteVigente, type CorteTurno, type SesionCaja } from "@/types/caja";
 import type { ResumenCuadre } from "@/types/cuadre";
 import {
@@ -12,8 +13,10 @@ import { obtenerEtiquetaRol } from "@/types/usuario";
 import {
   dolares,
   horaCorta,
+  tituloOrden,
   type ConsumoDelDia,
   type FiltroCobro,
+  type OrdenAdmin,
 } from "./orden-admin";
 
 interface Props {
@@ -21,6 +24,7 @@ interface Props {
   caja: SesionCaja | null;
   resumen: ResumenCuadre;
   porCobrar: { cantidad: number; monto: number };
+  ordenes: OrdenAdmin[];
   retiros: RetiroCaja[];
   consumos: ConsumoDelDia[];
   onCajaCerrada: (caja: SesionCaja) => void;
@@ -87,6 +91,7 @@ export default function CierreCaja({
   caja,
   resumen,
   porCobrar,
+  ordenes,
   retiros,
   consumos,
   onCajaCerrada,
@@ -100,12 +105,57 @@ export default function CierreCaja({
   const [razonAnulacion, setRazonAnulacion] = useState("");
   const [corteAAnular, setCorteAAnular] = useState<CorteTurno | null>(null);
   const [anulando, setAnulando] = useState(false);
+  const [mostrando, setMostrando] = useState(false);
 
   const esperado = resumen.efectivoEnCaja;
   const diferencia =
     contado === "" ? null : Math.round((Number(contado) - esperado) * 100) / 100;
   const hayAbonos = resumen.ordenesConSaldoPendiente > 0;
   const ultimoCorte = caja ? ultimoCorteVigente(caja.cortes) : undefined;
+
+  const cobrosDespues = ultimoCorte
+    ? ordenes
+        .filter((orden) => !orden.anulada)
+        .flatMap((orden) =>
+          (orden.pagos ?? [])
+            .filter((pago) => pago.createdAt > ultimoCorte.createdAt)
+            .map((pago) => ({ ...pago, titulo: tituloOrden(orden) })),
+        )
+    : [];
+  const salidasDespues = ultimoCorte
+    ? retiros.filter(
+        (retiro) =>
+          retiro.estado !== ESTADO_RETIRO_ANULADO &&
+          retiro.createdAt > ultimoCorte.createdAt,
+      )
+    : [];
+
+  const mostrarOrdenes = async () => {
+    if (!ultimoCorte) return;
+    const confirmado = confirm(
+      [
+        `${ultimoCorte.usuarioNombre} podrá ver las órdenes de hoy hasta que cierres la caja.`,
+        "Desde ahora nadie podrá entregar otro conteo ni se podrá anular este: si hay que contar de nuevo, cuenta tú.",
+        "No se puede deshacer.",
+      ].join("\n"),
+    );
+    if (!confirmado) return;
+    setMostrando(true);
+    try {
+      const res = await fetch("/api/caja/ordenes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fecha }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al mostrar las órdenes");
+      await onCambio();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Error al mostrar las órdenes");
+    } finally {
+      setMostrando(false);
+    }
+  };
 
   const cerrarCaja = async () => {
     if (!caja || diferencia === null) return;
@@ -377,6 +427,65 @@ export default function CierreCaja({
         </section>
       </div>
 
+      {caja?.estado === "abierta" && ultimoCorte && (
+        <section aria-labelledby="revisar-conteo" className={tarjeta}>
+          <h2 id="revisar-conteo" className="text-lg font-bold">
+            Si el conteo no cuadra
+          </h2>
+          {caja.ordenesHabilitadasAt ? (
+            <p role="status" className="mt-2 rounded-lg bg-blue-50 p-4 text-sm text-blue-900">
+              {ultimoCorte.usuarioNombre} puede ver las órdenes de hoy desde las{" "}
+              {horaCorta(caja.ordenesHabilitadasAt)} (
+              {caja.ordenesHabilitadasPorNombre}). Corrige lo que encuentre, cuenta
+              tú el efectivo y cierra.
+            </p>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-slate-600">
+                Dile al mesero que no cuadra, sin decir cuánto ni si falta o sobra.
+                Si contó mal, anula el conteo. Si necesita revisar qué se vendió,
+                muéstrale las órdenes: después ya no podrá contar otra vez.
+              </p>
+              {fecha === obtenerFechaEcuador() && (
+                <button
+                  type="button"
+                  onClick={mostrarOrdenes}
+                  disabled={mostrando}
+                  className="mt-3 min-h-11 rounded-lg border border-slate-400 px-4 font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  {mostrando
+                    ? "Mostrando..."
+                    : `Mostrar órdenes a ${ultimoCorte.usuarioNombre}`}
+                </button>
+              )}
+            </>
+          )}
+          {cobrosDespues.length + salidasDespues.length > 0 && (
+            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="font-semibold">
+                Registrado después del conteo ({horaCorta(ultimoCorte.createdAt)}).
+                Verifica que sea real:
+              </p>
+              <ul className="mt-1">
+                {salidasDespues.map((retiro) => (
+                  <li key={retiro.id}>
+                    {horaCorta(retiro.createdAt)} · Salida ·{" "}
+                    {obtenerEtiquetaCategoriaRetiro(retiro.categoria)} ·{" "}
+                    {retiro.usuarioNombre} · {dolares(Number(retiro.monto))}
+                  </li>
+                ))}
+                {cobrosDespues.map((pago) => (
+                  <li key={pago.id}>
+                    {horaCorta(pago.createdAt)} · Cobro · {pago.titulo} ·{" "}
+                    {pago.metodoPago} · {dolares(pago.monto)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
       {caja && caja.cortes.length > 0 && (
         <section aria-labelledby="cortes" className={tarjeta}>
           <h2 id="cortes" className="text-lg font-bold">
@@ -442,7 +551,9 @@ export default function CierreCaja({
                       {dolares(corte.diferencia)}
                     </td>
                     <td className="pl-3 text-right">
-                      {caja.estado === "abierta" && corte.id === ultimoCorte?.id && (
+                      {caja.estado === "abierta" &&
+                        !caja.ordenesHabilitadasAt &&
+                        corte.id === ultimoCorte?.id && (
                         <button
                           type="button"
                           onClick={() => {

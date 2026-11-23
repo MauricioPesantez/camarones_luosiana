@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import { obtenerDatosCuadre } from "@/lib/cuadre-server";
 import { getAuthenticatedUser } from "@/lib/session";
+import type { DetalleRevision, RevisionGuardada } from "@/types/revision";
 
 export async function GET(request: Request) {
   try {
@@ -25,7 +27,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
     }
 
-    return NextResponse.json(datos);
+    // Aquí y no en obtenerDatosCuadre: esa función la comparten el cierre, el corte y el mesero.
+    const filas = await prisma.revisionOrden.findMany({
+      where: { ordenId: { in: datos.ordenes.map((o) => o.id) } },
+    });
+    const revisiones: RevisionGuardada[] = filas.map((f) => ({
+      ordenId: f.ordenId,
+      detalle: f.detalle as unknown as DetalleRevision,
+      revisada: f.revisada,
+      conErrores: f.conErrores,
+      version: f.version,
+      revisadaPorNombre: f.revisadaPorNombre,
+      revisadaAt: f.revisadaAt ? f.revisadaAt.toISOString() : null,
+    }));
+
+    return NextResponse.json({ ...datos, revisiones });
   } catch (error) {
     console.error("Error en cuadre:", error);
     return NextResponse.json(

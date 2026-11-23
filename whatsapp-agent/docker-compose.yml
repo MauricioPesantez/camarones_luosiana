@@ -46,6 +46,8 @@ services:
       # Solo para un POS en la red local (desarrollo): IP del equipo del POS.
       SSRF_ALLOWED_HOSTS: ${SSRF_ALLOWED_HOSTS:-localhost}
       WEBHOOK_FAILURE_PAYLOAD_RETENTION_HOURS: '24'
+      # El panel se abre por http en 127.0.0.1; con el valor por defecto el navegador pide https y queda en blanco.
+      CSP_UPGRADE_INSECURE_REQUESTS: 'false'
     volumes:
       - openwa-data:/app/data
 

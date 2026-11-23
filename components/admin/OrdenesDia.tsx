@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { abrirComprobanteFirmado } from "@/lib/comprobante-cliente";
 import { montoACobrarEnCaja } from "@/types/cobro";
 import { calcularResumenCuadre, estaPorCobrar } from "@/types/cuadre";
@@ -11,6 +12,11 @@ import {
   obtenerEtiquetaNivelPicante,
   type MetodoPago,
 } from "@/types/orden";
+import {
+  estadoRevision,
+  sePuedeRevisar,
+  type RevisionGuardada,
+} from "@/types/revision";
 import { obtenerEtiquetaRol, ROLES } from "@/types/usuario";
 import DetalleOrdenModal from "./DetalleOrdenModal";
 import {
@@ -23,6 +29,7 @@ import {
 
 interface Props {
   ordenes: OrdenAdmin[];
+  revisiones: RevisionGuardada[];
   /** Qué decir mientras no haya datos del día; null cuando ya están. */
   sinDatos: string | null;
   admin: { id: string; nombre: string };
@@ -68,6 +75,13 @@ const ETIQUETAS_METODO: Record<string, string> = {
   efectivo: "💵 Efectivo",
   transferencia: "🏦 Transferencia",
   mixto: "🔀 Mixto",
+};
+
+const REVISION = {
+  sin_revisar: { etiqueta: "Sin revisar", color: "bg-slate-100 text-slate-700" },
+  cambio: { etiqueta: "Cambió, por revisar", color: "bg-amber-100 text-amber-900" },
+  bien: { etiqueta: "✓ Revisada", color: "bg-emerald-100 text-emerald-900" },
+  con_errores: { etiqueta: "! Con errores", color: "bg-amber-100 text-amber-900" },
 };
 
 const ficha = "inline-block rounded px-2 py-0.5 text-xs font-semibold";
@@ -235,6 +249,7 @@ function PagoDeOrden({
 
 export default function OrdenesDia({
   ordenes,
+  revisiones,
   sinDatos,
   admin,
   filtroCobro,
@@ -368,6 +383,18 @@ export default function OrdenesDia({
     usuarioFiltro !== "todos" ||
     tipoFiltro !== "todos";
 
+  const revisionPorOrden = new Map(revisiones.map((r) => [r.ordenId, r]));
+  const estadoDeRevision = (orden: OrdenAdmin) =>
+    sePuedeRevisar(orden)
+      ? estadoRevision(orden, revisionPorOrden.get(orden.id) ?? null)
+      : null;
+  const estadosRevision = ordenes
+    .map(estadoDeRevision)
+    .filter((estado) => estado !== null);
+  const cuantasRevisadas = estadosRevision.filter(
+    (estado) => estado === "bien" || estado === "con_errores",
+  ).length;
+
   const resumen = calcularResumenCuadre(visibles);
   const cifras = [
     ["Vendido", resumen.ventasTotales],
@@ -480,12 +507,28 @@ export default function OrdenesDia({
         className="rounded-xl border border-slate-200 bg-white"
       >
         <div className="border-b border-slate-200 p-4 sm:p-5">
-          <h2 id="lista-ordenes" className="text-lg font-bold">
-            {sinDatos
-              ? "Órdenes"
-              : `${visibles.length} ${visibles.length === 1 ? "orden" : "órdenes"}`}
-            {!sinDatos && hayFiltros && " con estos filtros"}
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <h2 id="lista-ordenes" className="text-lg font-bold">
+              {sinDatos
+                ? "Órdenes"
+                : `${visibles.length} ${visibles.length === 1 ? "orden" : "órdenes"}`}
+              {!sinDatos && hayFiltros && " con estos filtros"}
+            </h2>
+            {!sinDatos && estadosRevision.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span className="text-sm text-slate-600">
+                  {cuantasRevisadas} de {estadosRevision.length} revisadas
+                </span>
+                <Link
+                  href="/admin?tab=revision"
+                  scroll={false}
+                  className="flex min-h-11 items-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800"
+                >
+                  Revisar órdenes
+                </Link>
+              </div>
+            )}
+          </div>
           {!sinDatos && (
             <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 xl:flex xl:flex-wrap">
               {cifras.map(([etiqueta, monto]) => (
@@ -519,6 +562,8 @@ export default function OrdenesDia({
                     color: "bg-yellow-100 text-yellow-900",
                   });
               const tiempo = calcularEstadoTiempo(orden);
+              const revision = estadoDeRevision(orden);
+              const numero = orden.numeroDiario ?? orden.id.slice(-6);
               const envio = obtenerCostoEnvio(orden);
               return (
                 <li
@@ -534,7 +579,7 @@ export default function OrdenesDia({
                       onClick={() => setOrdenSeleccionada(orden)}
                       className="min-h-11 text-left font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900 xl:min-h-0"
                     >
-                      {tituloOrden(orden)}
+                      #{numero} · {tituloOrden(orden)}
                     </button>
                     <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-600">
                       {horaCorta(orden.createdAt)}
@@ -567,6 +612,13 @@ export default function OrdenesDia({
                     <span className={`${ficha} ${estado.color}`}>
                       {estado.etiqueta}
                     </span>
+                    {revision && (
+                      <span
+                        className={`mt-1 ml-2 xl:ml-0 xl:block xl:w-fit ${ficha} ${REVISION[revision].color}`}
+                      >
+                        {REVISION[revision].etiqueta}
+                      </span>
+                    )}
                     {tiempo && !orden.anulada && (
                       <span
                         className={`mt-1 block text-xs ${tiempo.aTiempo ? "text-slate-600" : "font-semibold text-red-700"}`}
@@ -605,6 +657,16 @@ export default function OrdenesDia({
                   </div>
 
                   <div className="order-6 col-span-2 flex flex-wrap gap-2 xl:order-none xl:col-span-1 xl:justify-end">
+                    {revision && (
+                      <Link
+                        href={`/admin?tab=revision&orden=${orden.id}`}
+                        scroll={false}
+                        aria-label={`Revisar orden #${numero}`}
+                        className="flex min-h-11 items-center rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-800 hover:bg-slate-100 xl:border-transparent xl:px-2"
+                      >
+                        Revisar
+                      </Link>
+                    )}
                     {!orden.anulada && (
                       <>
                         <button

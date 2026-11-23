@@ -126,4 +126,12 @@ assert.deepEqual(
   ["monitor"],
 );
 
+// Reportes: la bitácora de errores es la tercera pestaña.
+const reportes = admin.flatMap((s) => s.items).find((i) => i.id === "reportes");
+assert.deepEqual(
+  reportes?.hijos?.map((h) => h.id),
+  ["modificaciones", "cortesias", "bitacora"],
+);
+assert.equal(reportes?.hijos?.[2].href, "/admin/reportes?tab=bitacora");
+
 console.log("navegacion tests passed");

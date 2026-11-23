@@ -38,6 +38,7 @@ interface ItemOrden {
 
 interface Orden {
   id: string;
+  numeroDiario?: number | null;
   tipoOrden?: string;
   numeroMesa: number | null;
   nombreCliente?: string | null;
@@ -58,6 +59,7 @@ interface Orden {
   tiempoEstimado: number;
   modificada: boolean;
   cobrada?: boolean;
+  empleadoId?: string | null;
   metodoPago?: string | null;
   metodoPagoPrevisto?: string | null;
   comprobanteTransferenciaKey?: string | null;
@@ -287,6 +289,55 @@ export default function DetalleOrdenModal({
     }
   };
 
+  // Cobro registrado con el método equivocado. El servidor exige la caja abierta.
+  const pagoUnico = orden.pagos?.length === 1 ? orden.pagos[0] : null;
+  const puedeCorregirCobro =
+    Boolean(adminId) &&
+    pagoUnico !== null &&
+    !orden.anulada &&
+    !orden.empleadoId &&
+    orden.estado !== "cancelada";
+  const metodoCorregido =
+    pagoUnico?.metodoPago === "efectivo" ? "transferencia" : "efectivo";
+  const [mostrarCorreccion, setMostrarCorreccion] = useState(false);
+  const [razonCorreccion, setRazonCorreccion] = useState("");
+  const [corrigiendo, setCorrigiendo] = useState(false);
+  const [errorCorreccion, setErrorCorreccion] = useState("");
+
+  const corregirCobro = async () => {
+    setCorrigiendo(true);
+    setErrorCorreccion("");
+    try {
+      const res = await fetch(`/api/admin/ordenes/${orden.id}/corregir-cobro`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ metodoPago: metodoCorregido, razon: razonCorreccion }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorCorreccion(data.error || "Error al corregir el cobro");
+        return;
+      }
+      const actualizada = {
+        ...orden,
+        metodoPago: data.orden.metodoPago,
+        pagos: orden.pagos?.map((pago) =>
+          pago.id === data.cobroId
+            ? { ...pago, metodoPago: data.orden.metodoPago }
+            : pago,
+        ),
+      };
+      setOrden(actualizada);
+      onOrdenActualizada?.(actualizada);
+      setMostrarCorreccion(false);
+      setRazonCorreccion("");
+    } catch {
+      setErrorCorreccion("Error de red al corregir el cobro");
+    } finally {
+      setCorrigiendo(false);
+    }
+  };
+
   const abrirComprobante = async (cobroId?: string) => {
     setAbriendoComprobante(true);
     try {
@@ -303,6 +354,7 @@ export default function DetalleOrdenModal({
         <div className="border-b px-6 py-4 flex justify-between items-center bg-gray-50">
           <div>
             <h2 className="text-2xl font-bold text-gray-800">
+              #{orden.numeroDiario ?? orden.id.slice(-6)} ·{" "}
               {!orden.tipoOrden || orden.tipoOrden === "local"
                 ? `Mesa ${orden.numeroMesa}`
                 : (orden.nombreCliente ?? orden.telefonoCliente ?? "Cliente")}
@@ -566,6 +618,66 @@ export default function DetalleOrdenModal({
                       </li>
                     ))}
                   </ul>
+                  {puedeCorregirCobro && !mostrarCorreccion && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorCorreccion("");
+                        setMostrarCorreccion(true);
+                      }}
+                      className="mt-2 min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                    >
+                      Corregir: fue {metodoCorregido}
+                    </button>
+                  )}
+                  {puedeCorregirCobro && mostrarCorreccion && (
+                    <form
+                      className="mt-2 space-y-2 rounded-lg border border-slate-300 bg-slate-50 p-3"
+                      onSubmit={(evento) => {
+                        evento.preventDefault();
+                        void corregirCobro();
+                      }}
+                    >
+                      <label className="block text-sm font-semibold text-slate-800">
+                        ¿Por qué el cobro fue {metodoCorregido}?
+                        <input
+                          type="text"
+                          required
+                          maxLength={200}
+                          value={razonCorreccion}
+                          onChange={(e) => setRazonCorreccion(e.target.value)}
+                          placeholder="Comprobado en el banco"
+                          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal text-slate-900"
+                        />
+                      </label>
+                      <p className="text-xs text-slate-600">
+                        Cambia lo que debe haber en la caja y en el banco. Queda en el
+                        historial y en el resumen del cierre.
+                      </p>
+                      {errorCorreccion && (
+                        <p role="alert" className="text-sm text-red-700">
+                          {errorCorreccion}
+                        </p>
+                      )}
+                      <div className="flex gap-2">
+                        <button
+                          type="submit"
+                          disabled={corrigiendo || !razonCorreccion.trim()}
+                          className="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-700"
+                        >
+                          {corrigiendo ? "Corrigiendo..." : `Cambiar a ${metodoCorregido}`}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={corrigiendo}
+                          onClick={() => setMostrarCorreccion(false)}
+                          className="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-800"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               ) : (
                 orden.metodoPago === "transferencia" && (
@@ -924,7 +1036,9 @@ export default function DetalleOrdenModal({
                             ? "— Desconocido"
                             : orden.metodoPago === "efectivo"
                               ? "💵 Efectivo"
-                              : "🏦 Transferencia"}
+                              : orden.metodoPago === "mixto"
+                                ? "🔀 Mixto"
+                                : "🏦 Transferencia"}
                         </span>
                       </p>
                     </div>
