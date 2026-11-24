@@ -5,16 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { comprimirImagen } from "@/lib/imagen-cliente";
 import type { AuthenticatedUser } from "@/lib/session";
-import {
-  montoACobrarEnCaja,
-  montoARepartirEnMixto,
-  partesDeCobroMixto,
-  type PartePago,
-} from "@/types/cobro";
-import {
-  obtenerEtiquetaNivelPicante,
-  type NivelPicante,
-} from "@/types/orden";
+import type { PartePago } from "@/types/cobro";
+import type {
+  PresentacionCobro,
+  PrevisualizacionMixto,
+} from "@/types/por-cobrar";
+import { obtenerEtiquetaNivelPicante, type NivelPicante } from "@/types/orden";
 
 interface CobroOrder {
   id: string;
@@ -55,14 +51,20 @@ function orderTitle(order: CobroOrder): string {
 }
 
 export default function CobrarOrdenClient({
-  token,
+  endpoints,
+  presentacion,
   orden,
   usuario,
   successUrl,
   cerrarAlFinalizar,
   storageDisponible,
 }: {
-  token: string;
+  endpoints: {
+    confirmar: string;
+    previsualizar: string;
+    comprobante: string | null;
+  };
+  presentacion: PresentacionCobro;
   orden: CobroOrder;
   usuario: AuthenticatedUser;
   successUrl: string;
@@ -71,6 +73,10 @@ export default function CobrarOrdenClient({
 }) {
   const router = useRouter();
   const idempotencyKey = useRef(crypto.randomUUID());
+  const dialogo = useRef<HTMLDialogElement>(null);
+  const [preview, setPreview] = useState<PrevisualizacionMixto | null>(null);
+  const previewRequest = useRef(0);
+  const [revisando, setRevisando] = useState(false);
   const [confirmCash, setConfirmCash] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   // Un solo estado para toda la fila de transferencia (en vez de dos booleanos
@@ -82,95 +88,84 @@ export default function CobrarOrdenClient({
   const [estadoTransferencia, setEstadoTransferencia] = useState<
     "idle" | "subiendo" | "cobrando" | "fallo"
   >("idle");
-  const [modoActivo, setModoActivo] = useState<"transferencia" | "mixto" | null>(null);
+  const [modoActivo, setModoActivo] = useState<
+    "transferencia" | "mixto" | null
+  >(null);
   const seccionModo = useRef<HTMLElement>(null);
   // En el celular el recuadro aparece fuera de pantalla y el botón parece no hacer nada.
   useEffect(() => {
-    if (modoActivo) seccionModo.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (modoActivo)
+      seccionModo.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
   }, [modoActivo]);
   const [montoEfectivoMixto, setMontoEfectivoMixto] = useState("");
   const [loading, setLoading] = useState(false);
+  const [requiereRecarga, setRequiereRecarga] = useState(false);
   const [error, setError] = useState("");
   const [cobrado, setCobrado] = useState<string | null>(null);
 
-  const subtotalProductos = orden.items.reduce(
-    (total, item) => total + item.subtotal,
-    0,
-  );
-  // El saldo es lo que falta por cobrar, no el total: una orden reabierta
-  // (crecio despues de pagada) solo debe el resto.
-  const saldoCentavos = Math.max(
-    0,
-    Math.round(orden.total * 100) - Math.round(orden.montoPagado * 100),
-  );
-  const saldo = saldoCentavos / 100;
-  // El envio solo se neta la PRIMERA vez que se cobra la orden: para una
-  // orden reabierta ya se liquido con el motorizado en el pago anterior, asi
-  // que el saldo se muestra tal cual, sin volver a restarlo.
-  const esPrimerPago = orden.montoPagado <= 0;
-  const montoEfectivo = esPrimerPago
-    ? montoACobrarEnCaja({
-        tipoOrden: orden.tipoOrden,
-        total: saldo,
-        costoEnvio: orden.costoEnvio,
-        metodoPago: "efectivo",
-      })
-    : saldo;
-  const montoTransferencia = esPrimerPago
-    ? montoACobrarEnCaja({
-        tipoOrden: orden.tipoOrden,
-        total: saldo,
-        costoEnvio: orden.costoEnvio,
-        metodoPago: "transferencia",
-      })
-    : saldo;
-  const esDomicilio = orden.tipoOrden === "domicilio";
-
-  // Un cobro mixto reparte lo que ENTRA al local, no lo que pago el cliente: en
-  // domicilio el motorizado ya se quedo el envio, asi que pedirselo para
-  // devolverselo enseguida es plata en circulo. El envio se repone al armar las
-  // partes, que si tienen que sumar el saldo completo.
-  const montoMixto = montoARepartirEnMixto({
-    tipoOrden: orden.tipoOrden,
+  const {
+    subtotalProductos,
     saldo,
-    costoEnvio: orden.costoEnvio,
-    esPrimerPago,
-  });
-  const montoMixtoCentavos = Math.round(montoMixto * 100);
-  const envioRepuestoCentavos = saldoCentavos - montoMixtoCentavos;
+    efectivo: montoEfectivo,
+    transferencia: montoTransferencia,
+    mixto: montoMixto,
+  } = presentacion;
+  const esDomicilio = orden.tipoOrden === "domicilio";
+  const mixtoValido = preview !== null;
+  const envioRepuesto = presentacion.envioPendiente > 0;
 
-  const efectivoMixtoCentavos = Math.round(Number(montoEfectivoMixto || 0) * 100);
-  const transferenciaMixtoCentavos = montoMixtoCentavos - efectivoMixtoCentavos;
-  // El efectivo en caja puede ser 0 y seguir siendo mixto: en domicilio la parte
-  // de efectivo carga igual el envio que paso por manos del motorizado, y eso no
-  // es lo mismo que una transferencia pura (ahi el local le entrega el envio).
-  const mixtoValido =
-    efectivoMixtoCentavos >= 0 &&
-    efectivoMixtoCentavos + envioRepuestoCentavos > 0 &&
-    transferenciaMixtoCentavos > 0;
+  useEffect(() => {
+    if (confirmCash) dialogo.current?.showModal();
+    else dialogo.current?.close();
+  }, [confirmCash]);
 
-  // Que partes arma este acto de cobro segun el modo activo. `objectKey` es
-  // el resultado (posiblemente null) de la subida a S3.
-  const partesDelModo = (objectKey: string | null): PartePago[] =>
-    modoActivo === "mixto"
-      ? partesDeCobroMixto({
-          tipoOrden: orden.tipoOrden,
-          saldo,
-          costoEnvio: orden.costoEnvio,
-          esPrimerPago,
-          efectivoEnCaja: efectivoMixtoCentavos / 100,
-        }).map((parte) =>
-          parte.metodoPago === "transferencia" && objectKey
-            ? { ...parte, comprobanteTransferenciaKey: objectKey }
-            : parte,
-        )
-      : [
-          {
-            metodoPago: "transferencia",
-            monto: saldo,
-            ...(objectKey ? { comprobanteTransferenciaKey: objectKey } : {}),
-          },
-        ];
+  const revisarMixto = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const revision = ++previewRequest.current;
+    setRevisando(true);
+    setPreview(null);
+    setError("");
+    try {
+      const response = await fetch(endpoints.previsualizar, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          efectivo: montoEfectivoMixto,
+          expectedRevision: orden.printRevision,
+        }),
+      });
+      const data = await response.json();
+      if (response.status === 409) setRequiereRecarga(true);
+      if (!response.ok)
+        throw new Error(data.error || "No se pudo revisar el reparto");
+      if (revision === previewRequest.current) setPreview(data);
+    } catch (error) {
+      if (revision === previewRequest.current)
+        setError(
+          error instanceof Error
+            ? error.message
+            : "No se pudo revisar el reparto",
+        );
+    } finally {
+      if (revision === previewRequest.current) setRevisando(false);
+    }
+  };
+
+  const partesDelModo = (objectKey: string | null): PartePago[] => {
+    const partes =
+      modoActivo === "mixto"
+        ? preview?.partes
+        : presentacion.partesTransferencia;
+    if (!partes) throw new Error("Revisa el reparto antes de confirmar");
+    return partes.map((parte) =>
+      parte.metodoPago === "transferencia" && objectKey
+        ? { ...parte, comprobanteTransferenciaKey: objectKey }
+        : parte,
+    );
+  };
 
   const cobrar = async (
     partes: PartePago[],
@@ -179,7 +174,7 @@ export default function CobrarOrdenClient({
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/cobros/${encodeURIComponent(token)}`, {
+      const response = await fetch(endpoints.confirmar, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -189,7 +184,10 @@ export default function CobrarOrdenClient({
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "No se pudo registrar el cobro");
+      if (response.status === 409) setRequiereRecarga(true);
+      if (!response.ok)
+        throw new Error(data.error || "No se pudo registrar el cobro");
+      setConfirmCash(false);
       if (!cerrarAlFinalizar) {
         router.replace(successUrl);
         router.refresh();
@@ -203,10 +201,13 @@ export default function CobrarOrdenClient({
       window.close();
       return true;
     } catch (paymentError) {
+      setConfirmCash(false);
       setError(
-        paymentError instanceof Error
-          ? paymentError.message
-          : "No se pudo registrar el cobro",
+        paymentError instanceof TypeError
+          ? "No se pudo confirmar el resultado. Reintenta el mismo cobro para comprobarlo sin duplicarlo."
+          : paymentError instanceof Error
+            ? paymentError.message
+            : "No se pudo confirmar el resultado. Reintenta el mismo cobro para comprobarlo sin duplicarlo.",
       );
       return false;
     } finally {
@@ -221,10 +222,10 @@ export default function CobrarOrdenClient({
       "archivo",
       new File([comprimida], "comprobante.jpg", { type: "image/jpeg" }),
     );
-    const respuesta = await fetch(
-      `/api/cobros/${encodeURIComponent(token)}/comprobante`,
-      { method: "POST", body: formData },
-    );
+    const respuesta = await fetch(endpoints.comprobante!, {
+      method: "POST",
+      body: formData,
+    });
     let datos: { error?: string; objectKey?: string };
     try {
       datos = await respuesta.json();
@@ -239,7 +240,8 @@ export default function CobrarOrdenClient({
             : "No se pudo subir el comprobante",
       };
     }
-    if (!respuesta.ok) throw new Error(datos.error || "No se pudo subir el comprobante");
+    if (!respuesta.ok)
+      throw new Error(datos.error || "No se pudo subir el comprobante");
     return datos.objectKey ?? null;
   };
 
@@ -256,7 +258,10 @@ export default function CobrarOrdenClient({
     try {
       const objectKey = await subirComprobante();
       setEstadoTransferencia("cobrando");
-      const ok = await cobrar(partesDelModo(objectKey), modoActivo ?? "transferencia");
+      const ok = await cobrar(
+        partesDelModo(objectKey),
+        modoActivo ?? "transferencia",
+      );
       setEstadoTransferencia(ok ? "idle" : "fallo");
     } catch (subidaError) {
       setEstadoTransferencia("fallo");
@@ -297,7 +302,7 @@ export default function CobrarOrdenClient({
             }}
             className="mt-5 w-full rounded-xl bg-slate-900 py-3 font-bold text-white hover:bg-slate-800"
           >
-            Cerrar y volver a mis órdenes
+            Cerrar y volver a órdenes
           </button>
         </div>
       </main>
@@ -317,7 +322,9 @@ export default function CobrarOrdenClient({
               <p className="text-slate-300">{orderTitle(orden)}</p>
             </div>
             <div className="text-right text-sm">
-              <p>Cobra: <strong>{usuario.nombre}</strong></p>
+              <p>
+                Cobra: <strong>{usuario.nombre}</strong>
+              </p>
               <p className="text-slate-400">Creada por {orden.mesero}</p>
             </div>
           </div>
@@ -325,10 +332,32 @@ export default function CobrarOrdenClient({
 
         <section className="rounded-2xl bg-white p-5 shadow">
           <div className="mb-4 grid grid-cols-2 gap-3 text-sm">
-            <div><span className="text-slate-500">Tipo</span><p className="font-semibold">{orden.tipoOrden.replaceAll("_", " ").toUpperCase()}</p></div>
-            <div><span className="text-slate-500">Fecha</span><p className="font-semibold">{new Date(orden.createdAt).toLocaleString("es-EC")}</p></div>
-            {orden.telefonoCliente && <div><span className="text-slate-500">Teléfono</span><p className="font-semibold">{orden.telefonoCliente}</p></div>}
-            <div><span className="text-slate-500">Estado</span><p className="font-semibold">{orden.estado.replaceAll("_", " ")}</p></div>
+            <div>
+              <span className="text-slate-500">Tipo</span>
+              <p className="font-semibold">
+                {orden.tipoOrden.replaceAll("_", " ").toUpperCase()}
+              </p>
+            </div>
+            <div>
+              <span className="text-slate-500">Fecha</span>
+              <p className="font-semibold">
+                {new Date(orden.createdAt).toLocaleString("es-EC", {
+                  timeZone: "America/Guayaquil",
+                })}
+              </p>
+            </div>
+            {orden.telefonoCliente && (
+              <div>
+                <span className="text-slate-500">Teléfono</span>
+                <p className="font-semibold">{orden.telefonoCliente}</p>
+              </div>
+            )}
+            <div>
+              <span className="text-slate-500">Estado</span>
+              <p className="font-semibold">
+                {orden.estado.replaceAll("_", " ")}
+              </p>
+            </div>
           </div>
 
           <h2 className="mb-2 font-bold">Detalle de la orden</h2>
@@ -338,14 +367,23 @@ export default function CobrarOrdenClient({
                 <div>
                   <p className="font-medium">
                     {item.cantidad}x {item.producto.nombre}
-                    {item.esCortesia && <span className="ml-2 text-amber-600">CORTESÍA</span>}
+                    {item.esCortesia && (
+                      <span className="ml-2 text-amber-600">CORTESÍA</span>
+                    )}
                   </p>
                   {item.nivelPicante && (
                     <p className="text-sm text-red-700">
-                      Salsa: {obtenerEtiquetaNivelPicante(item.nivelPicante as NivelPicante)}
+                      Salsa:{" "}
+                      {obtenerEtiquetaNivelPicante(
+                        item.nivelPicante as NivelPicante,
+                      )}
                     </p>
                   )}
-                  {item.observaciones && <p className="text-sm text-slate-500">{item.observaciones}</p>}
+                  {item.observaciones && (
+                    <p className="text-sm text-slate-500">
+                      {item.observaciones}
+                    </p>
+                  )}
                 </div>
                 <p className="font-semibold">${item.subtotal.toFixed(2)}</p>
               </div>
@@ -353,13 +391,37 @@ export default function CobrarOrdenClient({
           </div>
 
           <div className="mt-4 space-y-2 border-t pt-4 text-sm">
-            <div className="flex justify-between"><span>Productos</span><span>${subtotalProductos.toFixed(2)}</span></div>
-            {orden.descuento > 0 && <div className="flex justify-between text-amber-700"><span>Descuento</span><span>-${orden.descuento.toFixed(2)}</span></div>}
-            {orden.recargo > 0 && <div className="flex justify-between"><span>Recipientes</span><span>${orden.recargo.toFixed(2)}</span></div>}
-            {orden.costoEnvio > 0 && <div className="flex justify-between"><span>Envío del motorizado</span><span>${orden.costoEnvio.toFixed(2)}</span></div>}
-            <div className={`flex justify-between border-t pt-2 ${esDomicilio ? "font-semibold" : "text-2xl font-bold"}`}>
-              <span>{esDomicilio ? "Total que paga el cliente" : "Total cliente"}</span>
-              <span className={esDomicilio ? "" : "text-emerald-700"}>${orden.total.toFixed(2)}</span>
+            <div className="flex justify-between">
+              <span>Productos</span>
+              <span>${subtotalProductos.toFixed(2)}</span>
+            </div>
+            {orden.descuento > 0 && (
+              <div className="flex justify-between text-amber-700">
+                <span>Descuento</span>
+                <span>-${orden.descuento.toFixed(2)}</span>
+              </div>
+            )}
+            {orden.recargo > 0 && (
+              <div className="flex justify-between">
+                <span>Recipientes</span>
+                <span>${orden.recargo.toFixed(2)}</span>
+              </div>
+            )}
+            {orden.costoEnvio > 0 && (
+              <div className="flex justify-between">
+                <span>Envío del motorizado</span>
+                <span>${orden.costoEnvio.toFixed(2)}</span>
+              </div>
+            )}
+            <div
+              className={`flex justify-between border-t pt-2 ${esDomicilio ? "font-semibold" : "text-2xl font-bold"}`}
+            >
+              <span>
+                {esDomicilio ? "Total que paga el cliente" : "Total cliente"}
+              </span>
+              <span className={esDomicilio ? "" : "text-emerald-700"}>
+                ${orden.total.toFixed(2)}
+              </span>
             </div>
             {orden.montoPagado > 0 && (
               <div className="flex justify-between text-slate-600">
@@ -369,7 +431,9 @@ export default function CobrarOrdenClient({
             )}
             {esDomicilio && (
               <div className="flex justify-between border-t pt-2 text-2xl font-bold">
-                <span>{orden.montoPagado > 0 ? "Saldo a cobrar" : "Recibes en caja"}</span>
+                <span>
+                  {orden.montoPagado > 0 ? "Saldo a cobrar" : "Recibes en caja"}
+                </span>
                 <span className="text-emerald-700">
                   ${montoEfectivo.toFixed(2)}
                   {montoTransferencia !== montoEfectivo && (
@@ -388,36 +452,85 @@ export default function CobrarOrdenClient({
             )}
           </div>
 
-          {esDomicilio && (
+          {presentacion.explicacionEfectivo && (
             <div className="mt-4 rounded-xl bg-purple-50 p-4 text-sm text-purple-900">
-              <p><strong>Si paga en efectivo:</strong> el motorizado te entrega ${montoEfectivo.toFixed(2)} y conserva ${orden.costoEnvio.toFixed(2)} del envío.</p>
-              <p className="mt-1"><strong>Si paga por transferencia:</strong> el local recibe ${montoTransferencia.toFixed(2)} y entrega ${orden.costoEnvio.toFixed(2)} en efectivo al motorizado.</p>
+              {presentacion.explicacionEfectivo && (
+                <p>{presentacion.explicacionEfectivo}</p>
+              )}
+              {presentacion.explicacionTransferencia && (
+                <p className="mt-1">{presentacion.explicacionTransferencia}</p>
+              )}
             </div>
           )}
         </section>
 
-        {error && <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-800">{error}</div>}
+        {requiereRecarga && (
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="min-h-12 rounded-xl bg-slate-900 px-4 py-3 font-bold text-white"
+          >
+            Actualizar orden antes de cobrar
+          </button>
+        )}
+        {error && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-800"
+          >
+            {error}
+          </div>
+        )}
 
         <section className="grid gap-3 sm:grid-cols-3">
           <button
-            onClick={() => { setModoActivo(null); setConfirmCash(true); }}
-            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
+            onClick={() => {
+              setModoActivo(null);
+              setConfirmCash(true);
+            }}
+            disabled={
+              requiereRecarga ||
+              loading ||
+              estadoTransferencia === "subiendo" ||
+              estadoTransferencia === "cobrando"
+            }
             className="rounded-2xl bg-emerald-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-emerald-700 disabled:bg-slate-400"
           >
             💵 Efectivo
             <span className="block text-2xl">${montoEfectivo.toFixed(2)}</span>
           </button>
           <button
-            onClick={() => { setConfirmCash(false); setModoActivo("transferencia"); }}
-            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
+            onClick={() => {
+              setConfirmCash(false);
+              setModoActivo("transferencia");
+            }}
+            disabled={
+              requiereRecarga ||
+              loading ||
+              estadoTransferencia === "subiendo" ||
+              estadoTransferencia === "cobrando"
+            }
             className="rounded-2xl bg-blue-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-blue-700 disabled:bg-slate-400"
           >
             🏦 Transferencia
-            <span className="block text-2xl">${montoTransferencia.toFixed(2)}</span>
+            <span className="block text-2xl">
+              ${montoTransferencia.toFixed(2)}
+            </span>
           </button>
           <button
-            onClick={() => { setConfirmCash(false); setModoActivo("mixto"); }}
-            disabled={loading || estadoTransferencia === "subiendo" || estadoTransferencia === "cobrando"}
+            onClick={() => {
+              setConfirmCash(false);
+              setModoActivo("mixto");
+              setPreview(null);
+              previewRequest.current++;
+              idempotencyKey.current = crypto.randomUUID();
+            }}
+            disabled={
+              requiereRecarga ||
+              loading ||
+              estadoTransferencia === "subiendo" ||
+              estadoTransferencia === "cobrando"
+            }
             className="rounded-2xl bg-amber-600 px-5 py-5 text-lg font-bold text-white shadow hover:bg-amber-700 disabled:bg-slate-400"
           >
             🔀 Mixto
@@ -426,55 +539,94 @@ export default function CobrarOrdenClient({
         </section>
 
         {modoActivo && (
-          <section ref={seccionModo} className="scroll-mt-4 rounded-2xl border border-blue-200 bg-white p-5 shadow">
+          <section
+            ref={seccionModo}
+            className="scroll-mt-4 rounded-2xl border border-blue-200 bg-white p-5 shadow"
+          >
             <h2 className="text-lg font-bold">
-              {modoActivo === "mixto" ? "Cobro mixto" : "Comprobante de transferencia"}
+              {modoActivo === "mixto"
+                ? "Cobro mixto"
+                : "Comprobante de transferencia"}
             </h2>
 
             {modoActivo === "mixto" && (
               <>
                 <p className="mt-1 text-sm text-slate-600">
-                  {envioRepuestoCentavos > 0
+                  {envioRepuesto
                     ? `Se reparten $${montoMixto.toFixed(2)}: el envío de $${orden.costoEnvio.toFixed(2)} ya se lo quedó el motorizado y no se cobra aquí.`
                     : "Escribe cuánto entra en efectivo. El resto se cobra por transferencia."}
                 </p>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">
-                  {envioRepuestoCentavos > 0
-                    ? "Efectivo que te entrega el motorizado"
-                    : "Monto en efectivo"}
+                <form onSubmit={revisarMixto} className="mt-4">
+                  <label
+                    htmlFor="efectivo-mixto"
+                    className="block text-sm font-semibold text-slate-700"
+                  >
+                    {envioRepuesto
+                      ? "Efectivo que te entrega el motorizado"
+                      : "Monto en efectivo"}
+                  </label>
                   <input
+                    id="efectivo-mixto"
+                    name="efectivo"
                     type="number"
                     inputMode="decimal"
                     step="0.01"
                     min="0"
                     max={montoMixto}
+                    required
+                    disabled={
+                      requiereRecarga ||
+                      loading ||
+                      estadoTransferencia === "subiendo" ||
+                      estadoTransferencia === "cobrando"
+                    }
                     value={montoEfectivoMixto}
-                    onChange={(event) => setMontoEfectivoMixto(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-2xl font-bold"
-                    placeholder="0.00"
+                    onChange={(event) => {
+                      setMontoEfectivoMixto(event.target.value);
+                      setPreview(null);
+                      setError("");
+                      previewRequest.current++;
+                      setRevisando(false);
+                      idempotencyKey.current = crypto.randomUUID();
+                    }}
+                    className="mt-1 min-h-12 w-full rounded-xl border border-slate-400 px-4 py-3 text-xl"
                   />
-                </label>
-                <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-4 text-sm">
-                  <div className="flex justify-between"><span>Efectivo en caja</span><span className="font-semibold">${(efectivoMixtoCentavos / 100).toFixed(2)}</span></div>
-                  <div className="flex justify-between"><span>Transferencia</span><span className="font-semibold">${(transferenciaMixtoCentavos / 100).toFixed(2)}</span></div>
-                  <div className="flex justify-between border-t pt-1 font-bold"><span>Total a repartir</span><span>${montoMixto.toFixed(2)}</span></div>
-                </div>
-                {transferenciaMixtoCentavos <= 0 && efectivoMixtoCentavos > 0 && (
-                  <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800">
-                    El efectivo cubre todo. Usa el botón de Efectivo.
-                  </p>
+                  <button
+                    type="submit"
+                    disabled={revisando || loading || requiereRecarga}
+                    className="mt-3 min-h-12 rounded-xl bg-slate-900 px-4 font-bold text-white disabled:opacity-50"
+                  >
+                    {revisando ? "Revisando…" : "Revisar reparto"}
+                  </button>
+                </form>
+                {preview && (
+                  <div
+                    role="status"
+                    className="mt-4 space-y-1 rounded-xl bg-slate-50 p-4 text-sm"
+                  >
+                    <div className="flex justify-between">
+                      <span>Efectivo en caja</span>
+                      <strong>${preview.efectivo.toFixed(2)}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Transferencia</span>
+                      <strong>${preview.transferencia.toFixed(2)}</strong>
+                    </div>
+                  </div>
                 )}
-                {envioRepuestoCentavos > 0 && (
+                {envioRepuesto && (
                   <p className="mt-3 rounded-lg bg-purple-50 p-3 text-sm text-purple-900">
-                    El cliente pagó ${saldo.toFixed(2)} y el motorizado conserva $
-                    {orden.costoEnvio.toFixed(2)} del envío: no le pidas ese
+                    El cliente pagó ${saldo.toFixed(2)} y el motorizado conserva
+                    ${orden.costoEnvio.toFixed(2)} del envío: no le pidas ese
                     valor ni se lo devuelvas después.
                   </p>
                 )}
               </>
             )}
 
-            <p className="mt-4 text-sm text-slate-600">Toma una foto clara del comprobante mostrado por el cliente.</p>
+            <p className="mt-4 text-sm text-slate-600">
+              Toma una foto clara del comprobante mostrado por el cliente.
+            </p>
             <label className="mt-4 block cursor-pointer rounded-xl border-2 border-dashed border-blue-400 p-5 text-center font-bold text-blue-700 hover:bg-blue-50">
               📷 Tomar foto
               <input
@@ -492,22 +644,30 @@ export default function CobrarOrdenClient({
             )}
             {!storageDisponible && (
               <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                El almacenamiento de comprobantes no está configurado en este
-                entorno. Puedes registrar el cobro, pero la foto no se guardará.
+                No se puede guardar la foto del comprobante. Puedes registrar el
+                cobro sin foto.
               </div>
             )}
             {estadoTransferencia === "fallo" ? (
               <div className="mt-4 space-y-2">
                 <button
                   onClick={() => void subirYCobrar()}
-                  disabled={loading}
+                  disabled={
+                    loading ||
+                    requiereRecarga ||
+                    (modoActivo === "mixto" && !mixtoValido)
+                  }
                   className="w-full rounded-xl bg-blue-600 py-3 font-bold text-white hover:bg-blue-700 disabled:bg-slate-300"
                 >
                   Reintentar
                 </button>
                 <button
                   onClick={() => void cobrar(partesDelModo(null), modoActivo)}
-                  disabled={loading}
+                  disabled={
+                    loading ||
+                    requiereRecarga ||
+                    (modoActivo === "mixto" && !mixtoValido)
+                  }
                   className="w-full rounded-xl border border-amber-400 bg-amber-50 py-3 font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-50"
                 >
                   {loading ? "Registrando…" : "Registrar sin comprobante"}
@@ -521,6 +681,7 @@ export default function CobrarOrdenClient({
                     : void cobrar(partesDelModo(null), modoActivo)
                 }
                 disabled={
+                  requiereRecarga ||
                   loading ||
                   estadoTransferencia === "subiendo" ||
                   estadoTransferencia === "cobrando" ||
@@ -542,24 +703,44 @@ export default function CobrarOrdenClient({
         )}
       </div>
 
-      {confirmCash && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="text-xl font-bold">Confirmar cobro</h2>
-            <p className="mt-2 text-slate-600">¿Confirmas que recibiste <strong>${montoEfectivo.toFixed(2)}</strong> en efectivo?</p>
-            {esDomicilio && orden.costoEnvio > 0 && (
-              <p className="mt-2 text-sm text-slate-500">
-                El cliente pagó ${saldo.toFixed(2)}; el motorizado conserva
-                ${orden.costoEnvio.toFixed(2)} del envío.
-              </p>
-            )}
-            <div className="mt-6 flex gap-3">
-              <button onClick={() => void cobrar([{ metodoPago: "efectivo", monto: saldo }], "efectivo")} disabled={loading} className="flex-1 rounded-xl bg-emerald-600 py-3 font-bold text-white disabled:bg-slate-400">{loading ? "Procesando…" : "Aceptar"}</button>
-              <button onClick={() => setConfirmCash(false)} disabled={loading} className="flex-1 rounded-xl bg-slate-200 py-3 font-bold text-slate-800">Cancelar</button>
-            </div>
-          </div>
+      <dialog
+        ref={dialogo}
+        onCancel={(event) => {
+          if (loading) event.preventDefault();
+          else setConfirmCash(false);
+        }}
+        aria-labelledby="confirmar-cobro"
+        className="m-auto w-full max-w-sm rounded-2xl bg-white p-6 text-slate-900 shadow-2xl backdrop:bg-black/60"
+      >
+        <h2 id="confirmar-cobro" className="text-xl font-bold">
+          Confirmar cobro
+        </h2>
+        <p className="mt-2 text-slate-600">
+          ¿Confirmas que recibiste <strong>${montoEfectivo.toFixed(2)}</strong>{" "}
+          en efectivo?
+        </p>
+        {presentacion.explicacionEfectivo && (
+          <p className="mt-2 text-sm text-slate-500">
+            {presentacion.explicacionEfectivo}
+          </p>
+        )}
+        <div className="mt-6 flex gap-3">
+          <button
+            onClick={() => void cobrar(presentacion.partesEfectivo, "efectivo")}
+            disabled={loading || requiereRecarga}
+            className="flex-1 rounded-xl bg-emerald-600 py-3 font-bold text-white disabled:bg-slate-400"
+          >
+            {loading ? "Procesando…" : "Aceptar"}
+          </button>
+          <button
+            onClick={() => setConfirmCash(false)}
+            disabled={loading || requiereRecarga}
+            className="flex-1 rounded-xl bg-slate-200 py-3 font-bold text-slate-800"
+          >
+            Cancelar
+          </button>
         </div>
-      )}
+      </dialog>
     </main>
   );
 }
