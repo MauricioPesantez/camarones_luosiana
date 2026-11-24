@@ -1,905 +1,2298 @@
-accesibilidad
-acciones
-acento
-across
-action
-activa
-activar
-active
-activo
-actualizar
-adapter
-add
+"Cobro"
+"CorteTurno"
+"Orden"
+"PrintJob"
+"RetiroCaja"
+"RevisionOrden"
+"SesionCaja"
+"Usuario"
+"WhatsappEntrada"
+"WhatsappSalida"
+**/*.mts
+**/*.ts
+**/*.tsx
+.__init__()
+.claim()
+.complete()
+.constructor()
+.fail()
+.heartbeat()
+.heartbeat_if_due()
+.imprimirComanda()
+.imprimirDocumento()
+.imprimirEmpleado()
+.imprimirRetiro()
+.next/dev/types/**/*.ts
+.next/types/**/*.ts
+.request()
+.run()
+.setUp()
+.stop()
+.tearDown()
+.testConexion()
+.test_additions_removals_and_reductions_only_check_changes()
+.test_amendment_prints_delta()
+.test_cash_delivery_amounts()
+.test_cash_delivery_with_discount()
+.test_checklist_products_sauces_notes_and_responsible()
+.test_day_schedule()
+.test_employee_receipt_and_internal_order_never_offer_payment_qr()
+.test_legacy_and_missing_spice()
+.test_loads_python_36_compatible_defaults()
+.test_local_ticket_and_inverted_table()
+.test_long_text_wraps_without_losing_content_or_repeating_boxes()
+.test_overnight_schedule()
+.test_payment_qr_commands()
+.test_raster_encoding()
+.test_rejects_example_token()
+.test_reprint_has_blank_boxes_and_copy_warning()
+.test_transfer_delivery_only_prints_delivery_amount()
+.test_withdrawal_receipt_has_no_order_or_payment_qr()
+.ticket_text()
+.valid_environment()
+/admin
+/admin/productos
+/admin/reportes
+/admin/usuarios
+/cocina
+/digital
+/etc/restaurant-print-agent.env como único archivo operativo local
+/graphify
+/login
+/mesero
+/ordenes/cobrar/[token]
+20260805000000_add_anulacion_orden/migration.sql
+20260805000000_pagos_multiples/migration.sql
+20260809000000_add_sesion_caja/migration.sql
+20261031000000_add_withdrawal_print_jobs/migration.sql
+20261104000000_employee_accounts/migration.sql
+20261105000000_whatsapp_orders/migration.sql
+20261107000000_whatsapp_revision/migration.sql
+20261108000000_order_discount/migration.sql
+20261109000000_corte_turno/migration.sql
+20261122000000_anular_corte_turno/migration.sql
+20261123000000_ordenes_habilitadas/migration.sql
+20261124000000_revision_orden/migration.sql
+@aws-sdk/client-s3
+@aws-sdk/s3-request-presigner
+@prisma/adapter-pg
+@prisma/client
+@tailwindcss/postcss
+@types/node
+@types/pngjs
+@types/react
+@types/react-dom
+A01 · P0 · Las APIs de usuarios, productos, stock y reportes no hacen cumplir los permisos
+A02 · P1 · Cobrar por QR retira de cocina una orden que todavía no se preparó
+A03 · P1 · Los cambios de estado pueden saltar aprobaciones y confirmar una revisión vieja
+A04 · P1 · El ajuste de stock pierde cambios concurrentes y la devolución de consumo es ambigua
+A05 · P1 · La cortesía evita las protecciones del flujo de edición
+A06 · P1 · Anular una orden no ofrece una devolución financiera verificable
+A07 · P1 · Rechazar una orden pagada por falta de stock todavía suma venta y envío
+A08 · P1 · El cierre no congela los movimientos y el envío puede cambiar de jornada
+A09 · P1 · Se puede cerrar caja con órdenes totalmente impagas y crear más después
+A10 · P1 · Reintentar una creación puede duplicar pedido, stock y transferencia
+A11 · P1 · Las configuraciones permiten impresión doble o caminos sin comanda
+A12 · P1 · Confirmación incierta de impresión, orden de revisiones y anulaciones necesitan intervención
+A13 · P2 · No hay una recuperación operativa de impresiones fallidas y la pantalla anuncia éxito antes de imprimir
+A14 · P2 · Listas por nombre, relevos y pedidos pagados limitan la operación
+A15 · P1 · Las credenciales opcionales no permiten atribuir con confianza quién operó
+A16 · P1 · Los tipos TypeScript no validan las solicitudes y un envío textual cambia el total
+A17 · P1 · El cobro acepta fracciones de centavo y puede desalinear monto pagado y pagos
+A18 · P2 · Los tiempos ignoran las categorías del menú actual y usan una fecha que cambia por otros motivos
+A19 · P2 · Reportes de modificaciones y cortesías no usan el mismo día ni la misma clasificación que el cuadre
+A20 · P2 · Varias pantallas convierten fallos en vacío, datos viejos o mensajes poco recuperables
+A21 · P1 · Falta una corrección guiada para errores financieros y de datos del pedido
+A22 · P2 · Cambiar el catálogo reinterpreta pedidos históricos o pendientes
+A23 · P2 · El carrito mezcla unidades que necesitan instrucciones distintas
+A24 · P2 · El cobro de respaldo del administrador usa el contrato anterior
+ACCIONES_NOVEDAD
+ACENTO_NEUTRO
+ACENTO_POR_ROL
+ALIAS_PRODUCTOS
+ALIGN_CENTER
+ALIGN_LEFT
+ALLOWED_STATES
+API de retiros (app/api/retiros/)
+API fiscal frente a integración directa
+API privada del agente: claim/complete/fail/heartbeat
+AUTORIZADO es distinto de RECIBIDA
+AVISO_BLOQUEO
+AbrirCajaRequest
+Accesibilidad WCAG 2.1 AA del shell
+AccountActor
+AccountError
+AccountTx
+AccountValidationError
+Acento
+Acento por rol
+Activar notificaciones (cocina)
+ActoDeCobroInvalido
+ActualizarStockRequest
+Adelanto vinculado al retiro de caja
+Admin Password Login
+Admin: Resumen, Órdenes y Cierre de caja
+AdminContenido()
+AdminPage()
+AgentConfig
+Agente de impresion Python para Linux i386 (README)
+Agente de impresion Ubuntu (README Node.js)
+Agente de impresion Ubuntu con systemd
+Agente de salidas WhatsApp
+Ajusta texto a 42 columnas; solo la primera linea lleva la casilla.
+Ajustes requeridos de Amplify (Next 15, npm ci, migrate deploy)
+Allowlist de permisos Bash del proyecto
+Almacenamiento compatible con S3
+Almacenamiento de comprobantes
+AmendmentAction
+AmendmentChangeSource
+AmendmentPayloadOptions
+AmendmentPrintPayload
+Analisis
+AnulacionConflictError
+Anulación de retiro
+Anulación tributaria y notas de crédito
+AnularCorteError
+AnularRetiroRequest
+AnyPrintJobPayload
+Apertura revisada de cuentas históricas
+Apertura()
+AperturaGuardada
+ApiClient
+ApiError
+AppShell
+AppShell()
+AppShell.tsx
+Application Window Icon
+ApprovalConflictError
+Aprobación de stock precede publicación y aviso
+Aprobación por falta de stock
+AprobarOrdenRequest
+Archivos a modificar para desplegar el agente de impresión
+Aritmética monetaria en centavos
+Arnés PostgreSQL aislado con base test explícita
+Artefacto Next y caché de build
+Atribución congelada de errores
+Auditoría de la edición de órdenes y reimpresión parcial
+Auditoría de procesos y recuperación de restaurant-pos
+Auditoría local del 6 de octubre de 2026
+AuthenticatedUser
+Autorización del emisor SRI
+Aviso al grupo Motos y deliverySolicitadoAt
+Aviso automático al grupo Motos
+AvisoMoto
+AvisoPorCobrar()
+AvisoPorCobrar.tsx
+Backfill UPDATE Item.nivelPicante from Orden for Combo categories
+Backfill UPDATE Orden creador from Usuario by name match
+Badge()
+Badges de navegación
+Banner SSE de cocina
+BarraInferior
+BarraInferior()
+BarraInferior.tsx
+Baseline 20260731235900_baseline_current
+Baseline Migration (full schema snapshot)
+Bitacora
+BitacoraErrores()
+BitacoraErrores.tsx
+Bitácora administrativa sin efectos financieros
+Bitácora de revisión de órdenes — diseño
+Bitácora de revisión de órdenes — plan
+Bitácora de revisión independiente
+Bloqueo Orden luego Usuario
+Bloqueo optimista por revisión esperada en edición y cobro
+Bloqueo orden y cuenta por documento
+Borrador
+Boundary de Suspense por página
+Breakpoint único md (768px)
+Browser or Application Window
+Bucket privado y lectura firmada
+Bucket privado y lectura firmada temporal
+Build NodeNext independiente del print-agent
+Build de Amplify con Next.js
+CAJA_SELECT
+CATEGORIAS_RETIRO
+CATEGORIAS_RETIRO (types/retiro.ts)
+CATEGORIA_ADELANTO
+CONFIG
+CajaMesero
+CajaNoDisponibleError
+CajaSeleccionada
+Camarones Louisiana Logo (print-agent copy) - circular badge with red shrimp, 'CAMARONES LOUISIANA' arched top, 'SEA FOOD BOIL' arched bottom, red 'cuenca' tag; embedded by the thermal print agent onto receipt headers
+Camarones Louisiana Logo (public web copy) - byte-identical duplicate of the print-agent logo, served as a static asset from public/assets for the web POS UI
+Camarones Louisiana brand identity - single restaurant logotype (shrimp seal, Cuenca location mark) duplicated across the print and web delivery channels of the POS
+Cambio de picante conserva precio y nota
+CambioDescrito
+CambioItem
+Campo paymentUrl
+Candidate
+Candidato
+Cantidad()
+Capa de validación pura (lib/admin-validaciones.ts)
+Capacidad CASH_WITHDRAWAL del agente
+Cargo CONSUMO canónico con snapshots e idempotencia
+Casillas ASCII y responsable en comandas
+Catalogo
+CategoriaRetiro
+Categoría adelanto
+Categorías como texto libre con datalist sugerido
+Catálogo de ROLES (admin, mesero, cocina, digital)
+Catálogos tributarios con vigencia temporal
+CerrarCajaRequest
+ChangeBody
+ChangeType
+Checklist de calidad de especificación
+Cierre()
+CierreCaja()
+CierreCaja.tsx
+CierreCajaConflictError
+ClaimedPrintJob
+Clasificacion
+Clave de acceso de 49 dígitos
+Clave de acceso y módulo 11
+ClienteCuadre
+Clipboard API · navigator.clipboard.writeText
+CobrarOrdenClient()
+CobrarOrdenClient.tsx
+CobrarOrdenPage()
+CobrarOrdenRequest
+Cobro
+Cobro mixto y multipago por orden
+Cobro mixto y multipago — Implementation Plan
+Cobro mixto y pagos 1:N
+Cobro permitido sin comprobante
+Cobro permitido sin comprobante con aviso auditable
+Cobro por QR y URL
+Cobro por token con sesión y permisos
+CobroOrder
+Cobros por QR y URL
+CocinaPage()
+Cola de guardado por revisión
+Cola de impresion PrintJob en PostgreSQL
+ColasRevision
+Comanda e impresión del QR
+Comandas con verificación manual
+Common Database Operations
+Compare-and-set al cobrar
+Compatibilidad Python 3.6 / Linux i386
+Compatibilidad con bandera heredada de preparación
+Comprobante CASH_WITHDRAWAL
+Comprobante comprimido y validado
+Comprobante de adelanto con firmas físicas
+Comprobante de transferencia informativo
+Comprobante persistido e impresión manual
+Comprobante()
+Comprobantes de consumo bajo solicitud
+Comprobantes de retiros de caja
+Comprobantes de transferencia en S3 (pendiente)
+Comprobantes de transferencia en S3 — Implementation Plan
+Comprobantes de transferencia en almacenamiento S3
+Comprobantes de transferencia en object storage
+Concept: visible daily order number vs technical cuid
+Config
+ConfigError
+ConfigTests
+Configuracion de arranque restaurant-pos (npm run dev, puerto 3000)
+ConfiguracionWhatsapp
+Conflictos históricos sin mutaciones parciales
+Conflictos visibles por documento
+Consulta
+Consulta graphify: cobro autenticado de órdenes por QR/URL
+ConsultaComprobante y estado tributario
+Consumidor final e identificación del comprador
+Consumo
+Consumo con entrega y cargo inmediatos
+Consumo entregado y cargado en una transacción
+ConsumoDelDia
+ConsumoRegistrado()
+ConsumosEmpleados()
+ConsumosEmpleados.tsx
+Contexto
+ContextoNav
+Contingencia de emisión SRI
+Contraseña obligatoria con bcryptjs y migración previa
+Contraseñas en texto plano y rutas /api públicas
+Contrato de creación inmediata de consumo
+Contratos afectados: consumos con entrega inmediata
+Control optimista entre administradores
+Convención de tests con node:assert/strict y ts-node
+Copia manual del enlace de cobro
+Copiar link de cobro · copiarEnlaceCobro()
+Copias auditadas de comprobantes de retiro
+CorreccionError
+Correcciones con movimientos opuestos y motivo
+Correcciones e impresión bajo solicitud
+Corrección administrativa del método de cobro
+Correction
+Corregir método de cobro bajo candado de caja
+Corte
+Corte a ciegas omite esperado y diferencia en servidor
+Corte ciego y resumen del cierre — plan
+Corte de comandas antiguas de empleados
+Corte de turno a ciegas y resumen del cierre — diseño corto
+Corte de turno ciego
+CorteAnterior
+CorteConflictoError
+CorteTurno
+CorteTurno()
+CorteTurno.tsx
+CorteTurnoMesero
+Cortesia
+Cortesías, descuentos y posible IVA asumido
+Creación compartida web y WhatsApp
+CrearOrden()
+CrearOrden.tsx
+CrearOrdenRequest
+CrearRetiroRequest
+CreateBody
+Criterios medibles sin detalles técnicos
+Cuadre de caja
+Cuenta
+Cuenta de empleado con apertura y saldo firmado
+Cuenta individual por empleado
+Cuentas y consumos de empleados
+CuentasEmpleados()
+CuentasEmpleados.tsx
+Cuerpo
+Custodia de certificado PKCS12
+Custodia y vencimiento de certificados
+Cutover PRINT_CUTOVER_AT y despliegue gradual
+Cutover de impresion directa a cola
+Cálculos decimales y redondeo por comprobar
+D()
+DEFAULT_AUTO_PRINT_WINDOW_MINUTES
+DEFAULT_LOGO_PATH
+DEFAULT_MAX_PRINT_ATTEMPTS
+DELETE()
+DESCUENTO
+Daily Close Administration Panel
+DailyOrderNumber
+DailyOrderNumberTransaction
+DatosAnulacion
+DatosAnulacionOrden
+DatosDelDia
+DatosDespuesJson
+DatosHistorial
+DatosProducto
+DatosResumenCierre
+DatosRetiro
+DatosUsuario
+Decisión: activoId lo resuelve la página
+Decisión: drawer más barra inferior en móvil
+Decisión: el retiro es siempre en efectivo
+Decisión: iconos emoji sin librería
+Decisión: no guardar fechaLocal en RetiroCaja
+Decisión: registro directo con anulación del admin
+Decisión: solo el rol mesero registra retiros
+Decisión: topbar horizontal en escritorio, sin sidebar
+Decisión: usuario y onLogout por props
+DeliverySolicitado()
+DeliverySolicitado.tsx
+DeliverySolicitadoProps
+DescuentoError
+DescuentoSolicitado
+DesglosePrecio
+Despliegue como servicio systemd restaurant-print-agent
+Destinos
+DetalleOrdenModal()
+DetalleOrdenModal.tsx
+DetalleOrdenModalProps
+DetalleRevision
+Detección de duplicados case-insensitive en las rutas
+Deuda de lint react-hooks/set-state-in-effect y purity
+DigitalContenido()
+DigitalPage()
+Diseño: Gestión de menú y usuarios desde el panel admin
+División validarXNuevo / validarXParcial
+Document Text Lines
+Documento: Cobros por QR y URL
+Domicilio en efectivo
+Domicilio por transferencia
+DrawerNav
+DrawerNav()
+DrawerNav.tsx
+DudaProducto
+EMPLOYEE_RECEIPT solicitado expresamente
+ENVIABLES
+ENVIO
+EN_ESPERA
+ESTADOS
+ESTADOS_EDITABLES
+ESTADOS_SIN_PREPARACION
+ESTADO_ANULADO
+ESTADO_CAJA
+ESTADO_CAJA_ABIERTA
+ESTADO_CAJA_CERRADA
+ESTADO_REGISTRADO
+ESTADO_RETIRO_ANULADO
+ESTADO_RETIRO_REGISTRADO
+ETIQUETA
+ETIQUETAS
+ETIQUETAS_METODO
+EXTENSION_POR_MIME
+Editar una orden en dos pasos
+Editar y confirmar orden en la misma ventana
+EditarOrdenModal()
+EditarOrdenModal.tsx
+Email XML y RIDE después de autorización
+Emisión a consumidor final irreversible
+Empleado
+EmployeeReceiptPayload
+Encabezado
+Encolado atomico de trabajos en lib/print-jobs.ts
+Encolado de resumen tras cerrar caja
+EnqueuePrintJobOptions
+Entrada
+EntradaNav
+EntradaNav / SeccionNav / ContextoNav
+Entrega at-least-once de trabajos de impresion
+Entrega con preparación en el plan original
+Entrega de XML y RIDE
+Entrega de XML y RIDE por correo
+Entrega heredada compatible
+Entrega inmediata de consumos de empleados
+Entrega, cargo y stock atómicos
+Enum PrintJobStatus (PENDING..FAILED)
+Enum PrintJobType (ORDER, AMENDMENT, REPRINT)
+Environment Variable Configuration
+Envío / motorizado
+Envío incierto requiere revisión humana
+ErrorAnterior
+ErrorRevision
+ErrorValidacion
+ErrorVisible()
+Errores SRI y reconciliación
+Errores de API dentro del modal, alert() solo en acciones de lista
+Escala de z-index
+Espera de la moto según carga de cocina — Implementation Plan
+Espera de la moto según carga de cocina — diseño corto
+Espera de moto según carga de cocina
+Espera explícita Moto N
+Espera max(tiempoEstimado,15) más 3 por orden menos 5, tope 45
+EsperaMoto
+EstadisticaMesero
+Estadisticas
+Estado REEMBOLSO_PENDIENTE
+EstadoCaja
+EstadoColas
+EstadoDeLinea()
+EstadoDelivery
+EstadoGuardado
+EstadoOrden
+EstadoRetiro
+EstadoTiempo
+EtiquetaOrdenMesero
+Evaluacion
+Excepción histórica de elegibilidad
+Exception
+Exclusion de print-agent del tsconfig raiz
+Extracción estructural AST
+Extracción semántica de documentos
+FILTROS
+FILTROS_COBRO
+FIXED_NOW
+FK HistorialOrden_ordenId_fkey -> Orden (CASCADE)
+FK Item_ordenId_fkey -> Orden (CASCADE)
+FK Item_productoId_fkey -> Producto (RESTRICT)
+FK Orden_aprobadaPorId_fkey -> Usuario (SET NULL)
+FK Orden_creadorId_fkey -> Usuario (SET NULL)
+FK PrintJob_ordenId_fkey -> Orden (CASCADE)
+Factura de comida sin envío de tercero
+Fallback de rol desconocido
+Faltantes
+FaltoProducto()
+FaltoProducto.tsx
+Feature Specification: Consumos de empleados con entrega inmediata
+Fecha fiscal en America/Guayaquil
+Ficha Técnica offline 2.34
+Fila
+Fila()
+FilaAtencion()
+FilaAtencion.tsx
+FilaBitacora
+FilaRevision
+FiltroCobro
+Firma XAdES en Node y PKCS12
+Firma XAdES-BES y certificado PKCS12
+Firma XAdES-BES y límites técnicos
+Focus trap del drawer
+Folded Document Corner
+Formato de comanda termica 80 mm / 42 caracteres
+FormularioProducto()
+FormularioProducto.tsx
+FormularioUsuario
+FormularioUsuario.tsx
+Fórmula de espera con tope de cuarenta y cinco minutos
+GET /api/admin/cuadre
+GET /api/retiros?fecha=YYYY-MM-DD
+GET()
+Garantías financieras con PostgreSQL aislado
+Generic Document File Icon
+GestionMenu()
+GestionMenu.tsx
+GestionStock()
+GestionStock.tsx
+Globe Icon
+Graph JSON, HTML e informe
+Graphify: grafo persistente con evidencia y comunidades
+Guard de rol admin es de interfaz, no de seguridad
+Guarda RESET_PREPROD_CONFIRM
+Guía de validación e implementación
+HOSTS_CON_RUTA_MAPS
+HOSTS_DE_MAPAS
+Habilitación hasta cerrar caja
+Habilitar órdenes bloquea conteo adicional y anulación
+Hash de pedido reconocido antes del catálogo
+Heartbeat de salud del agente e impresora
+HistorialItem
+HistorialOrden.datosAntes / datosDespues / itemAfectado (JSONB)
+HistorialOrdenTimeline()
+HistorialOrdenTimeline.tsx
+HistorialOrdenTimelineProps
+HistoricalData
+HistoricalOrder
+HistoryRecord
+Home()
+Hora única en confirmación y recordatorio
+Huella de datos revisados
+INVERT_OFF
+INVERT_ON
+IVA cero según régimen del informe
+IVA por fecha y habilitación turística
+Idempotencia del acto de cobro
+Idempotencia por clientRequestId
+Identificación de consumidor final
+Implementación local de entrega y regularización
+Implementación práctica de facturación electrónica SRI en Node/TypeScript/Next.js: build vs buy (estado a 3 de noviembre de 2026)
+Implementación: revisión esperada, bloqueo de cobradas y delta monetario
+Implementation Plan: Consumos de empleados con entrega inmediata
+Impresión EMPLOYEE_RECEIPT bajo solicitud
+Impresión aislada del ejemplo elegido
+Index HistorialOrden_createdAt_idx
+Index HistorialOrden_ordenId_idx
+Index Orden_creadorId_idx
+Index PrintAgent_lastSeenAt_idx
+Index PrintJob_leaseExpiresAt_idx (lease reclaim)
+Index PrintJob_ordenId_createdAt_idx
+Index PrintJob_status_availableAt_idx (queue polling)
+InicioCaja()
+InicioCaja.tsx
+Input
+Integración directa de facturación SRI
+Invariantes de caja
+Investigación del protocolo SRI
+Investigación normativa SRI de noviembre de 2026
+Investigación: entrega inmediata de consumos
+Item
+Item.cantidad / precioUnitario / subtotal
+Item.esCortesia / adminCortesia
+Item.nivelPicante (per combo line)
+ItemAfectado
+ItemAfectadoJson
+ItemCarrito
+ItemComanda
+ItemDeOrden
+ItemNav
+ItemNav()
+ItemNav.tsx
+ItemOrden
+ItemPedido
+ItemResuelto
+ItemSinStock
+ItemValidacion
+JPEG
+JobMutationResult
+Kitchen Order Monitor
+LUGARES
+Latitude and Longitude Grid
+Leases con FOR UPDATE SKIP LOCKED y dedupeKey
+Lectura administrativa firmada de comprobantes
+LecturaCuerpo
+Leyendas RIMPE y RUC Proveedor
+Limitacion at-least-once de ESC/POS sobre TCP
+Limitación de intentos de login
+Limpieza: retirar impresion directa del servidor
+Linea
+Linea()
+Linea.tsx
+LineaOrdenMesero
+LineaTotal()
+LineaTotal.tsx
+Liquidacion
+LiquidacionDomicilio
+LiquidacionEmpleado
+Liquidación de envío por modalidad de pago
+Liquidación del motorizado por orden
+Liquidación por descuento de sueldo completo o parcial
+Liquidación única del motorizado
+Lista del día para revisar cierre ciego
+Lista o con pago solo permite agregar productos
+Lista recortada de órdenes habilitada por admin tras conteo
+LoginPage()
+Logs Docker rotados
+Los cuatro headers por pantalla
+Lote
+Límite de subida por bytes del stream
+MARCAS_VACIAS()
+MAX_CARACTERES
+MAX_COMPROBANTE_BYTES
+MAX_CUERPO_WEBHOOK
+MAX_OBSERVACIONES_ITEM
+MAX_REFERENCIA_ENTREGA
+MENSAJES_DE_ORDEN
+MENSAJE_POR_CODIGO
+METODOS
+METODOS_PAGO
+MIME_PERMITIDOS
+MONTO_MAXIMO_CAJA
+MONTO_MAXIMO_RETIRO
+MOTIVOS_SIN_RESUMEN
+MarcaCobro
+MarcaProducto
+MarcaTotal
+Marcas vigentes y errores anteriores
+MarcasRevision
+Matriz de pruebas unitarias, PostgreSQL y OpenWA real
+Matriz propuesta de aceptación integral
+MensajeEntrante
+MenuNav()
+MenuNav.tsx
+MeseroContenido()
+MeseroPage()
+MetodoPago
+Migraciones Prisma previas al build
+Migración 20260802010000_add_qr_payments_and_sessions
+Migración 20260802020000_add_retiro_caja
+Migration add_daily_order_number
+Migration add_metodo_pago_previsto
+Migration add_nivel_picante (order-level)
+Migration add_nivel_picante_item
+Migration add_order_creator
+MimeComprobante
+ModalFormulario reutilizable sin lógica de negocio
+ModalFormulario()
+ModalFormulario.tsx
+Modelo RetiroCaja
+Modelo de datos: cambios de comportamiento y transición
+Modelo fiscal para envío de motorizado externo
+Modificaciones solo imprimen deltas y retiros
+ModificationRequest
+ModificationRequestError
+Modo DRY_RUN del agente de impresion
+Module
+Momento de emisión y transmisión fiscal
+Money
+Moto N conserva la espera del operador
+MovementInput
+Movimiento
+MovimientoCuentaEmpleado
+MovimientosPago
+NAV_POR_ROL
+NEXT_PUBLIC_APP_URL
+NIVELES_PICANTE
+NIVEL_POR_TEXTO
+Next.js 16 App Router
+Next.js Documentation
+Next.js Logo
+Next.js Project
+Next.js Project README
+NivelPicante
+Node, Python y directo conservan criterio visual
+Node.js 20.9.0 Requirement
+Normativa y trámites SRI para emitir comprobantes electrónicos desde software propio (Ecuador, estado a noviembre de 2026)
+Notificacion
+NovedadResumen
+NumericValue
+ORDENES_VIGENTES
+ORDEN_INCLUDE
+ORDER, AMENDMENT y REPRINT tienen significados distintos
+Object storage privado agnóstico S3, R2 o MinIO
+OpenWA como ejecutor de WhatsApp
+OpenWA dedicado como ejecutor
+OpenWA fijado por digest, solo loopback y filesystem read-only
+OpenWA y agente POS en servicios Docker separados
+OpenWA y agente del POS. Instalación y operación en README.md.
+Operador digital por identidad exacta y usuario activo
+Orden
+Orden.aprobadaPorId / razonAprobacion
+Orden.cobrada / fechaCobro / cobradaPor
+Orden.costoEnvio / recargo
+Orden.creadorId
+Orden.creadorRol
+Orden.estado (pendiente por defecto)
+Orden.impresa
+Orden.mesero (legacy creator name)
+Orden.metodoPago (cobro efectivo)
+Orden.metodoPagoPrevisto (nullable)
+Orden.nivelPicante (default 'natural')
+Orden.numeroDiario / fechaNumeroDiario
+Orden.numeroMesa
+Orden.printRevision
+Orden.sinStock / itemsSinStock
+Orden.tipoOrden (local / domicilio)
+OrdenAdmin
+OrdenCard()
+OrdenCard.tsx
+OrdenCardProps
+OrdenComanda
+OrdenConId
+OrdenConStock
+OrdenEnRevision()
+OrdenEnRevision.tsx
+OrdenInvalidaError
+OrdenMesero
+OrdenParaCuadre
+OrdenParaMesero
+OrdenPendienteAprobacion
+OrdenPorCobrar
+OrdenPreparada
+OrdenPrueba
+OrdenPublicable
+OrdenRegistrada
+OrdenResumen
+OrdenRevisable
+OrdenesDelDia()
+OrdenesDelDia.tsx
+OrdenesDelDiaMesero
+OrdenesDia()
+OrdenesDia.tsx
+Order API
+OrderPrintPayload
+Outbox fiscal con clave estable e idempotencia
+PAGO
+PATCH /api/ordenes/[id]/cobrar
+PATCH /api/retiros/[id]/anular
+PATCH()
+PDF
+PENDIENTE_DE_REVISION
+PESTANAS
+PNG
+POST /api/ordenes (crear orden)
+POST /api/print-agent/heartbeat
+POST /api/print-agent/jobs/[id]/complete
+POST /api/print-agent/jobs/[id]/fail
+POST /api/retiros
+POST()
+PRINT_JOBS_DETENIBLES
+PRINT_JOB_STATUSES
+PRINT_JOB_TRANSITIONS
+PRINT_JOB_TYPES
+PRINT_PAYLOAD_VERSION
+PUBLIC_PRODUCT_SELECT
+PUT()
+Page()
+Pago
+PagoDeOrden()
+PagoParaCuadre
+Pagos XML y liquidación del motorizado
+Pagos múltiples por orden — plan
+Pantalla principal del admin en tres pestañas
+Parser determinista sin IA
+PartePago
+Parámetro ?vista=admin
+PayloadOptions
+PaymentConflictError
+PaymentForbiddenError
+PaymentNotFoundError
+PaymentValidationError
+PedidoMoto
+PedidoWhatsapp
+Pedidos por WhatsApp: OpenWA y agente
+Persistent localStorage Session
+PersonasOrden
+PieRevision()
+PieRevision.tsx
+Plan de implementación: AppShell y navegación móvil
+Plan de implementación: órdenes por WhatsApp con OpenWA
+Plan: Gestión de menú y usuarios en el panel admin
+Plan: consumos y cuentas de empleados
+Planned POS Modules
+Plantilla de comprobante de retiro
+PollSchedule
+PostgreSQL Database Setup
+Pre-Production Checklist
+Precio fijo para empleados
+Preguntas tributarias pendientes del contador
+Preservación del esquema aplicado
+Primer comprobante conservado al reintentar cobro
+Primero liberar stock y después consumirlo al editar
+PrintAgent.lastSeenAt / printerReachable / lastPrinterCheckAt
+PrintAgentApiClient
+PrintAgentAuthResult
+PrintItemSource
+PrintJob lease columns (workerId, leasedAt, leaseExpiresAt)
+PrintJob retry columns (attempts, maxAttempts, availableAt, autoPrintUntil)
+PrintJob review columns (reviewedAt, reviewedBy, reviewReason)
+PrintJob.dedupeKey (idempotency key)
+PrintJob.payload (JSONB ticket snapshot)
+PrintJob.revision / payloadVersion
+PrintJobPayload
+PrintJobStatusValue
+PrintJobTransaction
+PrintJobType
+PrintJobTypeValue
+PrintOrderSnapshot
+PrintOrderSource
+PrintPayloadBase
+PrintWorker
+PrinterError
+PrinterService
+Prisma Data Model
+Prisma Database Setup
+Prisma Studio
+Prisma serializa Decimal como string
+Privacidad de órdenes del cierre
+Privacidad exclusiva del administrador
+Procedimiento de reset unico de preproduccion
+Production Security Hardening
+Producto
+Producto.categoria
+Producto.stock / stockMinimo
+ProductoCatalogo
+ProductoConStock
+ProductoEdicion
+ProductoStockBajo
+ProductosContenido()
+ProductosPage()
+Project Structure Documentation
+Propina legal y base imponible
+Props
+Prueba de conectividad TCP a la impresora térmica (9100)
+Prueba física y BD de comprobantes pendiente
+Pruebas con PostgreSQL aislado
+Punto de emisión y secuencial
+Q: vamos a implementar una nueva funcionalidad. Necesito poder agregar de alguna forma un "inicio de caja" es decir, necesito que el mesero pueda ingresar con cuanto empieza caja para asi tambien poder cuadrar con cuanto dinero se cierra caja. COmo sabes siempre se debe empezar con alguna cantidad de dinero y con eso tambien hacer calculos de cuanto dinero tiene que haber en cajsa. Ayudame planteando esta idea e implementando.
+QR habilitado según saldo pendiente
+QR requiere login con retorno next
+RAZONES
+RECARGO_RECIPIENTES
+REGISTRADO
+RESUMEN_CIERRE fragmentado y vigente 24 horas
+RETIRO_SELECT
+RETRY_DELAYS_SECONDS
+REVISION
+RIDE consistente con XML y formato térmico
+RIFF_AVI
+RIMPE Negocio Popular informado por el negocio
+RIMPE y leyendas por régimen del emisor
+ROLES
+ROLES_DESCUENTO
+ROL_ABRE_CAJA
+ROL_CIERRA_CAJA
+ROL_REGISTRA_RETIRO
+Rama feat/cobro
+Rasterizado del logo con umbral de gris 128
+Rationale: liquidacion con el motorizado (efectivo vs transferencia)
+ReceiptError
+Recepción y autorización SOAP asíncronas
+Recepción y autorización asíncrona
+RechazarOrdenRequest
+Reconciliación con comprobantes S3
+Recuperación sin borrar movimientos
+Reemisión de cookie desde api/auth/session
+Registro de Cobro atómico
+Regla de filtros del panel admin sobre los retiros
+Regla: la modificacion imprime solo el delta
+Reglas tributarias del contenido de la factura y del RIDE para un restaurante en Ecuador (noviembre 2026)
+RegularizacionConsumos()
+RegularizacionConsumos.tsx
+Regularización administrativa histórica
+Regularización administrativa por lotes revisados
+Regularización histórica de consumos
+Regularización histórica sin nuevo descuento de stock
+Regularización sin repetir stock ni cargos
+Regularización versionada con evidencia y motivo
+RejectionConflictError
+Renglon()
+Renovación deslizante de sesión de 30 días
+Reporte de errores por tipo y persona
+ReporteCortesias
+ReportesContenido()
+ReportesPage()
+ReprintPayloadOptions
+ReprintPrintPayload
+Resolución NAC-DGERCGC18-00000233
+Resolución NAC-DGERCGC25-00000014
+Resolución NAC-DGERCGC25-00000017
+Resolución NAC-DGERCGC26-00000027
+Respaldo de la sesión OpenWA
+Restaurant POS Architecture
+Restaurant POS Quick Reference
+Restaurant POS Setup Guide
+Restaurant POS System Smoke Test
+Resultado
+ResultadoEnvio
+ResultadoPedido
+ResultadoProductos
+ResultadoProgramarMoto
+ResultadoResumenCierre
+ResultadoValidacion
+Resumen de cierre por WhatsApp
+Resumen de cierre por WhatsappSalida
+Resumen sin datos personales de clientes
+ResumenCuadre
+ResumenDia()
+ResumenDia.tsx
+Retención de 30 días y URL firmada de 120 segundos
+Retención de comprobantes de treinta días
+Retención de objetos huérfanos
+Retiro de caja
+RetiroCaja
+RetiroCaja()
+RetiroCaja.tsx
+RetiroConsultado
+RetiroParaCuadre
+ReturnedQuantity
+Reutilización del servicio de consumos
+Revision
+RevisionGuardada
+RevisionOrden
+RevisionOrdenes()
+RevisionOrdenes.tsx
+RevisionWhatsapp()
+RevisionWhatsapp.tsx
+Revisión completa por producto cobro y total
+Revisión manual de mensajes WhatsApp
+Riesgo asumido: no se modifica la autenticación
+Riesgo: contraseñas en texto plano
+Rol
+Rol admin
+Rol cocina
+Rol digital
+Rol mesero
+Role-Based Admin Route Protection
+RootLayout()
+Ruta relativa de cobro resuelta al imprimir
+RutaPost
+SECCIONES_DE_CUENTA
+SECTION_SEPARATOR
+SESION
+SESSION_COOKIE
+SIGNOS
+SIN_BADGES
+SIN_RESERVA
+SIN_SALIR
+SOAP SRI con fetch y XML firmado exacto
+SRI Ecuador: Ficha Técnica offline, end-to-end web service protocol
+SRI Ecuador: XML de factura electrónica y firma XAdES-BES (estado a noviembre 2026)
+SSEController
+STRONG_SEPARATOR
+Saldo pendiente de una orden
+Sales Reporting Queries
+SalidaDeTurno
+ScheduleTests
+SeccionNav
+Sección Retiros de caja del admin
+Security and Administration Documentation
+Semántica de la contraseña: ausente, string o null explícito
+Separación de consumos y ventas a clientes
+Separación entre consumos internos y ventas
+Sesion firmada HttpOnly y hashing de contrasenas
+SesionCaja
+SesionCaja y fondo inicial
+Sesión de servidor (SesionUsuario / lib/session.ts)
+Sesión larga y login con hash — Implementation Plan
+Sesión opaca revocable en SesionUsuario
+Shell de pestañas Stock / Menú en /admin/productos
+ShouldEnqueuePrintJobOptions
+Sin borrado físico (desactivación lógica)
+Snapshot JSON del payload imprimible
+Snapshot de comprobante conservado
+SolicitudRevision
+Solo admin anula último corte vigente con motivo
+Soporte de prefers-reduced-motion
+Spec: AppShell y navegación móvil (2026-08-02)
+Spec: Retiro de caja por empleados (2026-08-01)
+Specification Quality Checklist: Consumos de empleados con entrega inmediata
+Stock inicial solo se muestra al crear el producto
+StockConflictError
+StockInsuficienteError
+Subida de comprobante comprimido mediante servidor
+Subida de comprobante por servidor
+TIPOS
+Table ContadorOrdenDiaria (daily counter, PK fecha)
+Table HistorialOrden (audit log)
+Table Item (order line)
+Table Mesa
+Table Orden
+Table PrintAgent (printer heartbeat)
+Table PrintJob (print queue)
+Table Producto
+Table Usuario
+Tasks: Simplificar consumos de empleados
+Teléfonos internacionales de clientes
+Thermal Printer Diagnostics
+Thermal Printer Network Setup
+Thermal Printer Service
+Three Window Controls
+Ticket AMENDMENT con revisión y número diario
+TicketTests
+Tipo Usuario de lib/auth.ts
+TipoDescuento
+TipoError
+TipoOrden
+Token de orden
+TopBar
+TopBar()
+TopBar.tsx
+Total()
+TotalMal
+Totales filtrados separados del cierre
+Transferencia sin stock con reembolso pendiente
+Transición sin nuevas tablas ni modificar migraciones
+Transmisión inmediata y contingencia pendiente
+Transmisión y entrega de comprobantes
+Tu POS puede facturar sin certificación del SRI
+URL canónica y hash de token
+URL de Google Maps dentro del pedido y pin de respaldo
+Ubicacion
+UbicacionEntrega()
+UbicacionEntrega.tsx
+UbicacionEntregaProps
+UbicacionInvalidaError
+Un admin no puede desactivarse ni cambiarse el rol a sí mismo
+Unique index Mesa_numero_key
+Unique index Orden_fechaNumeroDiario_numeroDiario_key
+Unique index PrintJob_dedupeKey_key
+Upward-Pointing Triangle Mark
+Usuario
+Usuario (modelo)
+Usuario.rol
+UsuarioAdmin
+UsuarioAdmin expone tienePassword en vez de la clave
+UsuarioSimple
+UsuariosPage()
+ValidacionStock
+Validación MIME tamaño y bytes reales
+Validación MIME, tamaño, magic bytes y key de orden
+Validación XSD y orden de elementos
+Validación de despliegue pendiente
+Validación de objectKey contra orden
+Validación de teléfonos internacionales de WhatsApp
+Validación del agente activo y papel antes de activar
+Validación operativa de consumos pendiente
+Validación operativa pendiente
+Validación pura del acto de cobro
+Validación visual mediante fixtures
+ValorRevision
+Vendido, cobrado y falta cobrar
+Ventana de impresion automatica de cinco minutos y NEEDS_REVIEW
+Ventana horaria de polling (12:00-21:00 America/Guayaquil)
+Vercel Logo
+Vercel Platform
+Verificación manual de productos, salsa e indicaciones
+Vigencia de órdenes en cocina
+Vista activa en query param
+Vista de referencia de comandas 80 mm y 42 columnas
+Volumen persistente de sesión OpenWA
+WEBP
+Waiter Order Interface
+Waiter-to-Kitchen Order Lifecycle
+Web services SOAP del esquema offline
+Webhook autenticado por HMAC-SHA256
+WhatsappEntrada y deduplicación por sesión y mensaje
+WhatsappSalida como outbox persistente
+WithdrawalPrintPayload
+WithdrawalReceiptSource
+Worker
+World / Global
+XAdES-BES 1.3.2
+XML factura 1.1.0
+XML firmado inmutable
+YA_SALIO
+ZONA_HORARIA
+[claveCobro]
+[id]/comprobante/route.ts
+[id]/revision/route.ts
+[liquidacionId]/imprimir/route.ts
+[liquidacionId]/route.ts
+[token]/comprobante/route.ts
+[token]/page.tsx
+[token]/route.ts
+_compatible()
+aCentavos()
+aCentavosOrden()
+aDecimal()
+aDolares()
+aInputTime()
+aNatural
+aRespuesta()
+aUsuarioAdmin()
+abrirComprobanteFirmado()
+accountBalance()
+accountTotals()
+acentoDeRol()
+action.ts
+actionRoute
+activar/route.ts
+actor
+actualizar/route.ts
+add-bebidas.ts
 adelanto
 admin
-administration
-afectado
-after
-agent
-agente
-ajustes
-alert
-align
-allocate
-allow
-allowed
-allowlist
-amendment
-america
-amount
-amounts
-amplify
-and
-antes
-anulaci
+admin-validaciones.test.ts
+admin-validaciones.ts
+admin/page.tsx
+agent.py
+agente.mjs
+agente.test.mjs
+agotado
+agregarProducto()
+ahora
+alCerrar()
+allocateDailyOrderNumber()
+allowJs
+amendmentAmountDelta()
+amendmentQuantityDelta()
+amendmentReference()
+amendment_amount_delta()
+amendment_quantity_delta()
+amendment_reference()
+amount()
+amountLine()
+amountLinesForOrder()
+amount_line()
+amount_lines_for_order()
+amplify.yml
+analyzeRegularization()
+analyzeRegularizationOrder()
+anotada
+anterioresDe()
 anulacion
-anulado
-anulados
-anular
-api
-app
-application
-approval
-aprobaci
-aprobacion
-aprobada
+anuladaConReembolso
+api-client.ts
+api/ordenes/route.ts
+aplicarEleccion()
+app/page.tsx
+appendEmployeeMovement()
 aprobar
-arched
-architecture
-archivo
-archivos
-arranque
-ascii
+aprobar/route.ts
+armarBitacora()
+ascii()
+ascii_text()
 assert
-assertions
-asset
-assets
-asumido
-atomico
-attach
-attempts
-audit
-auditor
-aun
-ausente
-autenticaci
-autenticado
-auth
-authenticate
-authenticated
-auto
-automatica
-available
-backfill
-backoff
-badge
-badges
-bajo
-banner
-bar
-barra
+assertNonNegativeInteger()
+assertNonZeroInteger()
+assertOptionalNonNegativeInteger()
+assertPositiveInteger()
+assertPrintJobTransition()
+attachSessionCookie()
+autenticarAgenteWhatsapp()
+auth.ts
+authenticatePrintAgent()
+aviso
+avisoDeDelivery()
+avisos()
+b3
+b3Cobrada
+badPrice
+bajo/route.ts
+balance()
+barraAdmin
 base
-based
-baseline
-bash
+base()
+baseMin()
 bebidas
-beneficiario
-blicas
-bloqueo
-boil
-boolean
-booleano
-borrado
-bottom
-boundary
-brand
-breakpoint
-browser
+beneficiario()
+bienEf
+bitacora-revision.test.ts
+bitacora-revision.ts
+bloquearCajaAbierta()
+bloqueoDeOrden()
+body()
+boolean()
+booleano()
+borrador()
+borradorInicial()
+boton
+buena
 build
-byte
+buildAmendmentPrintPayload()
+buildAmountLines()
+buildComprobanteKey()
+buildDedupeKey()
+buildEmployeeConsumptionLines()
+buildEmployeeReceiptPayload()
+buildEmployeeSettlementLines()
+buildEscPosTicket()
+buildHistoricalConsumptionLines()
+buildOrderPrintPayload()
+buildOrderSnapshot()
+buildOrderTicketLines()
+buildPayloadForJob()
+buildReprintPrintPayload()
+buildWithdrawalPrintPayload()
+build_esc_pos_ticket()
+buscarOrdenDelCliente()
+buscarPorCobrar()
+buscarProducto()
+bytes
+c3b
 caja
-calcular
-calculate
-camarones
-cambiarse
+caja-validaciones.test.ts
+caja-validaciones.ts
+caja/ordenes/route.ts
+caja/route.ts
+cajaEnNegativo
+calcularCorteTurno()
+calcularDescuento()
+calcularEstadoTiempo()
+calcularLiquidacionDomicilio()
+calcularMovimientosPago()
+calcularRecargoEnvases()
+calcularResumenCuadre()
+calcularResumenCuadre() (types/cuadre.ts)
+calcularSaldo()
+calcularVentaPropia()
+calculateAutoPrintUntil()
+call()
+camaronSinTamano
+cambio-metodo-pago-route.test.ts
+cambios()
+cambiosParaEnviar()
 campo
-campos
-can
-cantidad
-capa
-caracteres
-card
-carrito
-cascade
-case
-cash
-casi
-casing
-cat
-categor
-categoria
-categorias
-categories
+canCollectPayments()
+canTransitionPrintJob()
+canUserCollectOrder()
+canUserModifyOrder()
+cancelarRecordatorios()
+cantidadClientes()
+cargarOrden()
+casiMedianoche
+casos
+catalogo
+categoriaValida()
 centavos
-center
-centered
-change
-channels
+centavosIncomodos
+centered()
+ceros()
+changeConsumption()
 check
-checklist
-cierre
-cinco
-circular
-cito
-claim
-claimed
-clave
-clear
-client
-cliente
-clientes
-close
-cobrada
-cobradas
-cobrar
-cobro
-cobros
+checkPrinterReachable
+check_printer()
+ciclo()
+claim/route.ts
+claimNextPrintJob()
+clasificarEnvio()
+clasificarMensaje()
+clearSessionCookie()
+cobradaSinMetodoLegado
+cobrar/route.ts
+cobro.ts
+cobroMal
 cocina
-code
-cola
-colisiona
-collect
-columns
-comanda
+cocina/page.tsx
+cola()
+cola-guardado.test.ts
+cola-guardado.ts
+colada
+collectOrderPayment()
 combo
-commands
 common
-como
-compare
-compatibilidad
-compatible
-compiler
-complete
-components
-comprobantes
-con
-concept
-conectividad
-conexion
+compilerOptions
+completarSalida()
+completePrintJob()
+completo
+components/mesero/CrearOrden.tsx
+components/mesero/RetiroCaja.tsx
+comprimirImagen()
+comprobante-cliente.ts
+comprobantes.test.ts
+comprobantes.ts
+conAbonos
+conAdminIdEnElCuerpo
+conAnuladas
+conCero
+conDatosDeCliente
+conEspacios
+conFondoInicial
+conMoto
+conNota
+conPagos
+conPapas
+conReembolsoPendiente
+conRetiros
+conSaldo
+conSalsa
+conSigno()
 config
-configuracion
-configuration
-configure
-configured
-confirm
-confirmed
-conflict
-conmuta
-conocido
-consistent
-constructor
-consulta
-consultado
-contador
-contenido
-contexto
-contiene
-contrase
-contrasenas
-controller
-controls
-convenci
-cookie
-copy
-corner
-cortesia
-cortesias
-costo
-counter
-creador
-crear
-create
-created
-creator
-credencial
-ctx
-cuadre
-cuatro
-cuenca
-cuerpo
-cuid
-currency
-current
-cutover
-daily
+config.ts
+configAgente
+configure_timezone()
+conflicto()
+construirDetalle()
+construirSolicitud()
+consultar-ordenes-por-item.ts
+consultar:ordenes-por-item
+consumos-empleados/[id]/anular/route.ts
+consumos-empleados/[id]/imprimir/route.ts
+consumos-empleados/page.tsx
+consumos-empleados/route.ts
+consumptionAction()
+contarErrores()
+contarMarcados()
+contarOrdenesEnCocina()
+context
+corrected
+correction()
+corregida
+corregir-cobro-route.test.ts
+corregir-cobro/route.ts
+corregir/route.ts
+corte()
+corte-turno-route.test.ts
+corte/[id]/anular/route.ts
+corte/route.ts
+cortesVigentes()
+cortesia/route.ts
+cortesias/route.ts
+crearColaGuardado()
+crearColasRevision()
+crearDesdePedido()
+crearEnvioIdempotente()
+crearEnvioRevision()
+crearLineas()
+crearOrden()
+create-next-app
+createAmendmentPayload()
+createConsumption()
+createOrder()
+createPayload()
+createPaymentLink()
+createRoute
+createSession()
+createdAt
+crecio
+ctxConPermiso
+ctxSinPermiso
+cuadre-date.ts
+cuadre-server.ts
+cuadre.test.ts
+cuadre.ts
+cuadre/route.ts
+cuenta/route.ts
+cuentaEmpleado
+cuentas/route.ts
+cuerpoDe()
+d()
+dEmp
+daily-order-number.test.ts
+daily-order-number.ts
 data
-database
-datalist
-date
-datetime
-datos
-day
-debe
-decimal
-decisi
-dedupe
-default
-defaults
-defecto
-del
-delay
-delays
-delete
-delivery
-delta
-dentro
+databaseName
+datosDe()
+db.ts
+db:reset:preprod
+deAyer
+deLuis
+deMas
+decimal()
+delivery-location.test.ts
+delivery-location.ts
+delivery/route.ts
+dentroDeHorario()
+dependencias
 dependencies
-deploy
-desactivaci
-desactivarse
+deps
+derivarClaveIdempotencia()
+descartarYOlvidar()
 desconocido
-desde
-desglose
-desplegar
-despliegue
-despues
-destroy
-details
-detalle
-detecci
-deteccion
-deuda
+describirCambios()
+descuento/route.ts
+descuentoDeOrden()
+destroyCurrentSession()
+det()
+details()
+detalle()
 dev
+devDependencies
 dia
-diagnostics
-diaria
-diario
-digest
+diaEcuador
+diaMes()
+dif()
+digest()
 digital
-dir
-direct
-directa
-directo
-dise
-divisi
-document
-documentation
-documento
-dolares
+digital/page.tsx
+dinero()
+directResult
+dobles
+dolares()
+dollars()
 dom
-domicilio
-down
-drawer
-dry
-due
-duplicados
-duplicate
-duplicated
-ecuador
-edici
-editables
-editar
-efectivo
-effect
-ejecutar
-eliminar
-embedded
-emit
-emoji
-empleados
-enabled
-encode
+dom.iterable
+domicilioCerrandoEnEsteRango
+domicilioConCentavos
+domicilioEfectivo
+domicilioSinCerrarEnEsteRango
+domicilioSinCobrar
+dos
+dosPapas
+dudasDe()
+dynamic
+dz
+ec-sri-invoice-signer
+edicion-orden-route.test.cjs
+edicion-orden.test.ts
+edicion-orden.ts
+editar()
+ef
+efectivo()
+efectivoEnCaja
+ejecutar()
+ejecutarEfectosPosteriores()
+elegido
+eliminarCliente()
+empleados/page.tsx
+employee-account-routes.test.cjs
+employee-account-validation.test.ts
+employee-account-validation.ts
+employee-account.test.ts
+employee-account.ts
+employee-consumption-regularization-route.test.cjs
+employee-consumption-regularization.test.cjs
+employee-consumption-regularization.ts
+employee-consumption-route.test.cjs
+employee-consumption-validation.test.ts
+employee-consumption-validation.ts
+employee-consumption.postgres.test.ts
+employee-consumption.service.test.cjs
+employee-consumption.ts
+employee-print.test.ts
+employee-print.ts
+employee-receipts-server.test.cjs
+employee-receipts-server.ts
+employee-sales-boundaries.test.cjs
+employeeReceiptMode()
+enElTecho
+encodeEscPosQr()
+encodeEscPosRaster
+encodeTicketLines()
+encode_esc_pos_qr()
+encode_esc_pos_raster()
+encode_ticket_lines()
 encoder
-encoding
-encolado
-enqueue
-entero
-entrada
-entrega
-enum
-env
-envases
+encolarResumen()
+enlace
+enlaceDePin()
+enorme
+enqueueEmployeeReceipt()
+enqueueOrderPrintJob()
+enqueueWithdrawalPrintJob()
+entero()
+entorno
+entradaDeOrden()
+entregar/route.ts
+enviar()
 envio
-environment
-error
-errores
-esc
-escala
-escritorio
+envio.test.ts
+envio.ts
+envioFueraDeDomicilio
+envioNoRepartidoEnCentavos()
+error()
+errorCode()
+errorDe()
+errorDetails()
+error_details()
+errores()
+erroresDe()
+erroresMarcados()
+esCategoriaCombo()
+esCategoriaRetiro()
+esDescuentoSolicitado()
+esDomicilioPorTransferencia()
+esEntero()
+esItemActivo()
+esMetodoPago()
+esMimeComprobante()
+esModuleInterop
+esNivelPicante()
+esObjeto()
+esObjetoAusente()
+esRol()
+esRolConocido()
+esTexto()
 eslint
+eslint-config-next
+eslint.config.mjs
+eslintConfig
 esnext
-espacios
-esperada
-estadistica
-estadisticas
-estado
-estados
-etc
-etiqueta
-events
-example
-exception
+espera-moto.test.ts
+espera-moto.ts
+esperaMotoPorCarga()
+estaPorCobrar()
+estadoRevision()
+estadoSesion()
+etiquetaBadge()
+etiquetaDe()
+etiquetaDescuento()
+evaluarEleccion()
+evaluarPedido()
+evaluarPin()
+eventos
+events/route.ts
 exclude
-exclusion
-executable
-exigir
-expires
-expl
-expone
-fail
-failed
-fallback
-falta
-feat
-fecha
-file
-filtros
-firmada
-fixed
-fkey
-flotante
-focus
-folded
-food
-for
-forbidden
-force
-format
-formatear
-formato
-formulario
-found
-from
-fuera
-full
-generic
-gesti
-gestion
-get
-gica
-gina
-global
-globe
-gradual
-graphify
-grid
-gris
-guard
-guarda
-guardar
-guayaquil
-guide
-handler
-hardening
+executable()
+executeRegularization()
+exigirAdmin()
+exigirCajaAbierta()
+exigirCampos()
+existing
+explicarDiferencia()
+fail()
+failPrintJob()
+fakeTx()
+fallaProducto()
+fallarSalida()
+faltoCola
+fecha()
+fecha-ecuador.test.ts
+fecha-ecuador.ts
+fechas
+firmaCoincide()
+firmaValida()
+firmar()
+fixture()
+fondoConCentavos
+forceConsistentCasingInFileNames
+formatCurrency()
+formatDate()
+formatTime()
+formatearFechaHora()
+formatearHora()
+formatoFecha()
+frase()
+fs
+gemelas
+getAuthenticatedUser()
+getCliente()
+getConfiguredAutoPrintWindowMinutes()
+getOrderDateKey()
+getPrintLeaseSeconds()
+getRetryDelaySeconds()
+getSignedReadUrl()
+getWithdrawalPrintMode()
+globalForPrisma
+globalForSSE
+h
+hace()
+hasOnlyConsumptionActionFields()
 hash
-hashing
-headers
-health
-heartbeat
-historial
-history
-home
-hooks
-hora
-horaria
-horizontal
-hour
+hashPaymentToken()
+hashPedido()
+hashToken()
+health.ts
+heartbeat/route.ts
+historial/route.ts
+historica
+historicalTests()
+hora()
+horaCorta()
+horaDeHoy()
+horaLocal()
+hourInTimeZone (Intl.DateTimeFormat)
 hoy
-http
-icon
-iconos
-idempotencia
-idempotency
-identical
-identity
-ids
-idx
-implementaci
-impresa
-impresi
-impresion
-impresora
-imprime
-imprimible
-imprimir
+huellaOrden()
+identificarLinea()
+idsConPermiso
+idsSinPermiso
+imagen-cliente.ts
+imprimirEmpleado()
 include
-includes
-incomodos
+includesLine()
 incremental
-independiente
-index
-inferior
-inferiores
+index.ts
+inferioresAdmin
 inflado
-inicial
-iniciales
-init
-insensitive
-install
-installer
-integer
+iniciales()
+iniciar()
+install-ubuntu.sh (Node.js agent installer)
+install-ubuntu.sh (Python agent installer)
+install-ubuntu.sh script
+install.sh
+install.sh script
+integer()
 inter
-interface
-interfaz
-interop
-intl
-invariantes
-invert
-inverted
-iso
-isolated
-item
+interpretarPedido()
+invertedLabel()
+invertedSelectedValue()
+invertirLlaves()
+irrelevantes
+isAfterPrintCutover()
+isConfirmedPaymentInRange()
+isDirectPrintEnabled()
+isPollingActive (TypeScript)
+isPrintQueueEnabled()
+is_polling_active()
+isolatedModules
+isolatedUrl
+item()
+itemCombo
 items
-iterable
-jittered
-job
+items/route.ts
+itemsBarraInferior()
+itemsBase()
+itemsTopBar()
+jitteredBackoff()
 jobs
-json
-jsonb
+jobs/[id]/complete/route.ts
+jobs/[id]/fail/route.ts
+json()
+jsonb()
 jsx
-key
-kitchen
-label
-las
-last
-latitude
-layout
-lease
-leased
-leases
-least
-left
-legacy
-legado
-level
+keyJpg
+keysInvalidas
+largo
+layout.tsx
+leer()
+leer-monto.test.ts
+leer-monto.ts
+leerAvisoMoto()
+leerConfig()
+leerConfiguracion()
+leerCoordenadas()
+leerCuerpoAcotado()
+leerCuerpoLimitado()
+leerDescuento()
+leerMinutos()
+leerMonto()
+leerNiveles()
+leerTelefono()
+leerTipo()
+legacyFixture()
 lib
+lib/caja.ts
+lib/cobro.test.ts
+lib/cuadre.test.ts
+lib/navegacion.test.ts
+lib/printer.test.ts
+lib/printer.ts
 libre
-librer
-lifecycle
-limitacion
-limpieza
-line
-lines
-link
+limonada
+limpia
+limpiarNombre()
+lineaConfirmacionUbicacion()
+lineaItem()
+lineaPago()
+lineaUbicacion()
+lineas()
+lineasCambiadas()
+lineasCierre()
+lineasCobroMoto()
+lineasDe()
+lineasDescuento()
+lineasNovedades()
+lineasOrdenes()
+lineasProductos()
+lineasSalidas()
+lineasTurnos()
+lines()
+linesForPayload()
+lines_for_payload()
 lint
-linux
-liquidacion
-lista
-load
-loads
-local
-location
-locked
-log
-logger
-logging
-login
-logo
-logotype
-logout
-longitude
-los
-louisiana
-main
-manana
-manifest
-mark
-match
-max
-medianoche
-memoria
-men
-menu
-mero
-mesa
+liquidacion-domicilio.test.ts
+liquidaciones/route.ts
+llamarPos()
+llevaCobro()
+llevar
+llevar()
+load()
+loadConfig (TypeScript)
+loadLocalEnv()
+loadLogoRaster (pngjs)
+loadModule()
+load_config()
+load_logo_raster()
+local_datetime()
+lock
+lockEmployeeAccount()
+log (JSON structured logging, TypeScript)
+log()
+logger.ts
+login/page.tsx
+login/route.ts
+logo.ts
+logout/route.ts
+lugar()
+main()
+mal()
+malformados
+malformed
+malformedCorrection
+marcaDeTiempoMs()
+marcarMotoPedida()
+marcas()
+marcasVigentes()
+mensaje()
+mensajeDeError()
 mesero
-message
+mesero/page.tsx
 metadata
-method
-metodo
-metodos
-metro
-migraci
-migrate
-migration
-minimo
-minutes
-minutos
-mismo
-mjs
-modal
-model
-modelo
-modifica
-modificacion
-modificaciones
-modificar
-modification
-modo
+metodo-pago/route.ts
+metodoRegistrado()
+mezcla
+minutosDesde()
+mis-descuentos/page.tsx
+mixtoDomicilio
+mixtoDomicilioDesdePantalla
+mixtoLocal
+mixtoLocalDesdePantalla
+mixtoSinEfectivoEnCaja
+mod
+modificaciones/route.ts
 module
-modules
-monetario
-monitor
-monto
-motion
-motorizado
-movil
-movimientos
-mts
-muestra
-mutation
+moduleResolution
+monetaryAndStockSnapshot
+money()
+moneyCents()
+monto()
+montoACobrarEnCaja()
+montoARepartirEnMixto()
+montoNoNegativo()
+montoTexto
+motivoItemProtegido()
+moverFecha()
+muchas
 name
-names
-natural
-nav
-navegaci
-navegacion
-needs
-negative
-negativo
-negocio
-network
-neutro
+navegacion.test.ts
+navegacion.ts
 next
-nico
-nivel
-niveles
-node
-nombre
-non
-normalizar
-normalize
-not
-notificacion
-notificaciones
-notificar
-now
-npm
-ntica
+next-env.d.ts
+next.config.ts
+nextConfig
+noEmit
+noIba
+node-thermal-printer
+node_modules
+nombreDelDia()
+nombreItem()
+normalizar()
+normalizarNombre()
+normalizarReferenciaEntrega()
+normalizarUbicacionUrl()
+normalizeDailyDate()
+normalizeOptionalSpiceLevel()
+normalizeOptionalText()
+normalizeOrderType()
+normalizePaymentMethod()
+normalizeRequiredText()
+normalizeSpiceLevel()
+normalizeSupportedJobTypes()
+normalizeWorkerId()
+notificarClientes()
+notificarNuevaOrden()
 nuevo
-null
-nullable
-number
-numeric
-numero
+nuevoIdEnvio()
+numero()
+numeroOrden()
+o()
 object
-objeto
-obtener
-off
-once
-only
-onto
-opcional
-operations
-operativo
-optimista
-optional
-options
+objectExists()
+objeto()
+obtenerCajaDeHoy()
+obtenerCostoEnvio()
+obtenerDatosCuadre()
+obtenerEtiquetaCategoriaRetiro()
+obtenerEtiquetaNivelPicante()
+obtenerEtiquetaRol()
+obtenerFechaEcuador()
+obtenerProductos()
+obtenerRangoEcuador()
+obtenerUsuarios()
+ocultarCuadre()
+ok()
+opcion()
+openwa.mjs
+optionalText
 orden
-ordenes
+orden()
+orden-admin.ts
+orden.ts
+ordenSigueEnCocina()
+ordenes()
+ordenes-anulacion.ts
+ordenes-mesero.test.ts
+ordenes-mesero.ts
+ordenes/[id]/anular/route.ts
+ordenes/[id]/route.ts
+ordenesParaMesero()
 order
-orders
-out
-overnight
-package
-pagada
-page
-pago
-paid
-panel
-pantalla
-par
-para
-param
+order()
+order-creation.test.ts
+order-creation.ts
+order-delivery-routes.test.ts
+order-payment-validaciones.test.ts
+order-payment-validaciones.ts
+order-payment.ts
+orderTitle()
+orderTypes
+originalLines
+otra
+otraVez
+otroDia
+outDir
+output
+owner
+package.json
+pagadaPeroAunEnPreparacion
+pago()
+pagoDeOtroDia
+pagoDoble
+pagosActivos()
+pagosEnCentavos()
+palabrasDe()
+palabrasParecidas()
+papas
+params()
 parcial
-password
-patch
+parseComprobanteKey()
+parsearUbicacionEntrega()
+partesDeCobroMixto()
+partesMixtoDomicilio
+partir()
+pasaFiltroCobro()
 path
 paths
-payload
-payment
-payments
+payload()
+payment-link.test.ts
+payment-link.ts
+paymentMethodLabel()
+payment_method_label()
+pedidoDe()
+pedir()
+pedirRuta()
 pendiente
-pendientes
-pending
-per
-permiso
-permisos
-pero
-persistent
-pesta
+pendientes()
+pendientes/route.ts
+pg
 picante
-pipeline
-plan
-planned
-plano
-platform
+pin
+pinMensaje()
+pinReal
+plantilla()
+plantilla-impresiones.html
+plantilla-retiros.html
 plugins
 pngjs
-pointing
-poll
-polling
-por
-pos
-positive
-post
-postcss
-postgre
+poll schedule assertions
+ponerCantidad()
+por-cobrar/route.ts
+porCobrar
+porCobrarla
+porMetodo()
+porTransferir
+postcss.config.mjs
 postinstall
-pre
-precio
-prefers
-preparacion
-preprod
-preproduccion
-preproduction
-previsto
-print
-printer
-prints
+precio()
+precioEmpleado()
+precios()
+preparar()
+prepararCola()
+prepararOrden()
+print-agent
+print-agent-auth.ts
+print-agent-jobs.ts
+print-agent-python/scripts/install-ubuntu.sh
+print-agent.test.ts
+print-agent/.env.example contiene una credencial real y debe rotarse
+print-agent/package.json
+print-agent/scripts/install-ubuntu.sh
+print-agent/tsconfig.json
+print-config.test.ts
+print-config.ts
+print-jobs.test.ts
+print-jobs.ts
+printEmployeeReceipt()
+printTickets (conmuta @page y data-print-target)
+printer_error_code()
+prioridad()
 prisma
-privada
 private
-procedimiento
-production
-producto
-productos
-project
-propia
-props
-protection
-proyecto
-prueba
-pruebas
-public
-puede
-puerto
-punto
-pura
-purity
-python
-quantity
-queries
-query
-queue
-quick
-raiz
-rama
-range
+problemaDelAgente()
+procesar()
+procesarMensaje()
+prodMal
+product-select.ts
+producto()
+productos/[id]/route.ts
+productos/page.tsx
+productos/route.ts
+programarAvisoMoto()
+projectRoot
+pruebaCuadre()
+pruebaPrivacidad()
+pruebaPura()
+pruebaRuta()
+pruebas()
+pruebasCola()
+pruebasCuerpo()
+pruebasEnvio()
+publicacionLlevar
+putObject()
+quit()
+quitarCola()
+r
 rango
-raster
-rasterizado
-rationale
-razon
-rdenes
-reachable
+rangoCierre
 react
-readme
-real
-reason
+react-dom
 recargo
-receipt
+receiptLines()
 rechazar
-reclaim
-record
-red
-redirects
-reduced
-reembolso
-reference
-registra
-registrado
-registrar
-registro
-regla
-reimpresi
-rejection
-rejects
-reporte
+rechazar/route.ts
+rechazo()
+rechazoDePedido()
+record()
+recordatorio
+records
+reembolsoParcialMultipago
+refrescarRecordatorio()
+registrarAnulacionWhatsapp()
+registrarAprobacionWhatsapp()
+registrarCambioWhatsapp()
+registrarCliente()
+registrarOrden()
+registrarRechazoWhatsapp()
+registrarResumenCierre()
+registrarSalud()
+registrarUbicacionWhatsapp()
+regularizacion/route.ts
+rehecha
+reimprimir/route.ts
+reiniciar()
+rejects()
+remainingConsumptionQuantities()
+repetida
 reportes
-reporting
-reprint
-requeridos
-request
-required
-requirement
-reset
-resolution
-resolve
-resolver
-restaurant
-restrict
-resuelve
-result
-resultado
+reportes/page.tsx
+reportes/revision/route.ts
+repro-flujos.cjs
+req()
+request()
+requestHash()
+requestWithToken()
+requireFromHere
+required()
+requiredText()
+reservaVigente()
+reservarSalida()
+reset()
+reset-preproduction.mjs
+resolveJsonModule
+resolverEsperaMoto()
+resolverNav()
+resolverProductos()
+restaurant-print-agent package manifest
+resultado()
 resumen
-retirar
-retiro
-retiros
-retry
-reutilizable
-review
-reviewed
-revisi
-revision
-riesgo
-rmica
-rol
-role
-roles
+resumen()
+resumen-cierre.test.ts
+resumen-cierre.ts
+resumirDatosCuadre()
+resumirMetodoPago()
+retiro()
+retiro.ts
+retiroPagado
+retiros-validaciones.test.ts
+retiros-validaciones.ts
+retiros.ts
+retiros/[id]/anular/route.ts
+retiros/[id]/imprimir/route.ts
+retiros/route.ts
+rev()
+revEmp
+revertir/route.ts
+revisada()
+revision()
+revision-route.test.ts
+revision.test.ts
+revision.ts
+rolRedirects
+rolValido()
+roleHome()
+roleOrdersHome()
 root
-rotarse
-route
-router
-run
-rutas
-sales
-salud
-sanitize
+rootDir
+run (pruebas de print-config)
+run()
+runtime
+ruta()
+rutasDeps
+salidaDePrueba
+salidas/[id]/complete/route.ts
+salidas/[id]/fail/route.ts
+salidasDe()
+salidasDeOrdenAceptada()
+sanitizePrintErrorCode()
+sanitizePrintErrorMessage()
 schedule
-schema
-script
+schedule.test.ts
+schedule.ts
 scripts
-sea
-seal
-secci
-seccion
-seconds
-secrets
-section
-security
+sePuedeEditar()
+sePuedeRevisar()
+secreto
 seed
-seen
-seguridad
-selected
-sem
-send
+seed.ts
+sendEmployeeReceiptAfterCommit()
+sendToPrinter()
+send_to_printer()
 separator
-serializa
-serializar
-served
-service
-servicio
-servidor
-sesi
-sesion
-session
-sessions
-set
-setup
-shell
-should
-shrimp
-shutdown
-sico
-sidebar
-siempre
-signal
-simple
-sin
-single
-singleton
-skip
-sleep
-smoke
-snapshot
+serializarCaja()
+serializarRetiro()
+session.ts
+session/route.ts
+settlement
+shouldEnqueuePrintJob()
+shouldPrintPaymentQr()
+shutdown (signal handler, index.ts)
+signatures
+simulador()
+sinCamaron
+sinCerveza
+sinClaves()
+sinCobrador
+sinCobro
+sinCola
+sinDescuento
+sinErrorDePuntoFlotante
+sinEse
+sinMarca()
+skipLibCheck
+sleep()
 sobre
-socket
-solo
-soporte
-source
-spec
-spice
-sql
-src
-sse
+sobreReal()
+socket.io
+socket.io-client
+sol()
+soloRetiros
+spiceLevelLabel()
+spice_level_label()
+src/**/*.ts
+src/printer.test.ts
+src/printer.ts
+sse.ts
 start
 state
 states
-static
-status
-statuses
-stock
-stop
-storage
+stock.ts
+stockActual()
+stockRestante()
+storage.ts
+storageConfigurado()
+stranger
 strict
-string
-strong
-structure
-structured
-studio
-subtotal
-sugerido
-suspense
-system
-systemd
-table
-tag
+stub()
+sufijoCocina()
+sugerirProductos()
+suma
+sumar()
+t23
 tailwindcss
+tardio
 target
-tcp
-tear
-technical
-techo
-termica
+tarjeta
 test
+test()
+test:admin-validaciones
+test:bitacora-revision
+test:caja-validaciones
+test:cambio-metodo-pago
+test:cobro
+test:cobro-validaciones
+test:cola-guardado
+test:colas-revision
+test:comprobantes
+test:corregir-cobro
+test:corte-turno
+test:cuadre
+test:daily-order-number
+test:delivery-location
+test:edicion-orden
+test:edicion-orden-route
+test:employee-account
+test:employee-account-routes
+test:employee-account-validation
+test:employee-consumption-postgres
+test:employee-consumption-regularization
+test:employee-consumption-regularization-route
+test:employee-consumption-route
+test:employee-consumption-service
+test:employee-consumption-validation
+test:employee-envio
+test:employee-print
+test:employee-receipts-server
+test:employee-sales-boundaries
+test:espera-moto
+test:fecha-ecuador
+test:leer-monto
+test:liquidacion
+test:monto-caja
+test:navegacion
+test:ordenes-mesero
+test:order-creation
+test:order-delivery-routes
+test:payment-link
+test:print-agent
+test:print-config
+test:print-jobs
+test:printer
+test:resumen-cierre
+test:retiros-validaciones
+test:revision
+test:revision-route
+test:whatsapp-agente
+test:whatsapp-ingreso
+test:whatsapp-mensajes
+test:whatsapp-pedido
+test:whatsapp-postgres
+test:whatsapp-webhook
+test:withdrawal-print
+test_agent.py
 tests
-text
-texto
-the
-thermal
-three
-ticket
-tickets
-tiempo
-tiempos
-tiene
-time
-timeline
-timezone
-tipo
-title
-titulo
-todos
-token
-top
-topbar
-trabajos
-transaction
-transfer
+textLines()
+texto()
+textoActualizacionItems()
+textoActualizacionMoto()
+textoActualizacionUbicacion()
+textoAnulacion()
+textoConfirmacion()
+textoConflicto()
+textoEleccion()
+textoNoVacio()
+textoOpcional()
+textoOrdenesPorCobrar()
+textoOrdenesSinUbicacion()
+textoPendienteAprobacion()
+textoPublicacion()
+textoReal
+textoRechazo()
+textoRecordatorio()
+textoReenvio()
+textoUbicacionGuardada()
+textos
+textosResumenCierre()
+tick/route.ts
+ticketText()
+ticketTextLines()
+ticket_text_lines()
+tiemposProductos
+tieneAbono()
+tituloDe()
+tituloOrden()
+tituloSeccion
+toIsoString()
+toNumber()
+toOptionalNumber()
+toString()
+todo
+todosAnulados
+totalDeLineas()
+transSeparado
 transferencia
-transition
-transitions
-trap
-triangle
-tsconfig
-tsx
+transferencia()
+transferenciaAnulada
+transferred
+trasAdmin
+ts-node
+tsconfig.json
+turno()
+turno1
+turno2
+tx
+txOptions
 type
-types
+types.ts
+types/caja.ts
+types/cobro.test.ts
+typesOrden
 typescript
-ubuntu
-umbral
-una
-unico
-unique
-unitario
-until
-update
-upward
+ubicacion/route.ts
+ui.tsx
+ultimoCorteVigente()
+una()
+unaLinea
+unirLineas()
+update-admin.ts
+update-tiempos.ts
 url
-use
+useAuth()
+useColasRevision()
+useColasRevision.test.ts
+useColasRevision.ts
+useEnfocar()
+useEnviar()
+useEsMovil()
 user
-usuario
-usuarios
-utils
-valid
-valida
-validaci
-validacion
-validaciones
-validar
-validate
+usuario.ts
+usuarios/[id]/route.ts
+usuarios/page.tsx
+usuarios/route.ts
+utc()
+utils.ts
+v
+vacias
+vacio
+validKey()
+validar/route.ts
+validarActoDeCobro()
+validarAnulacion()
+validarAnulacionOrden
+validarAperturaCaja()
+validarCierreCaja()
+validarComprobante()
+validarCorteTurno()
+validarProductoNuevo()
+validarProductoParcial()
+validarRetiroNuevo()
+validarSolicitud()
+validarUsuarioNuevo()
+validarUsuarioParcial()
+validateOrderCanBePaid()
+validateRequest()
 validation
 valido
-value
-variable
-venta
-ventana
-ventas
-vercel
+validos
+ventasDelDia
 version
-vez
-vil
-visible
-vista
-waiter
-wcag
-web
-window
-with
-without
-worker
-world
-yyyy
-zero
-zone
+vig()
+vuelta
+webhook/route.ts
+whatsapp-agente.ts
+whatsapp-ingreso.test.ts
+whatsapp-ingreso.ts
+whatsapp-mensajes.test.ts
+whatsapp-mensajes.ts
+whatsapp-orden.postgres.test.ts
+whatsapp-pedido.test.ts
+whatsapp-pedido.ts
+whatsapp-salidas.ts
+whatsapp-webhook.test.ts
+whatsapp-webhook.ts
+whatsapp/route.ts
+withdrawal-print.test.ts
+withdrawal-print.ts
+withoutPaymentSecrets()
+worker.ts
+yaCobrada
+yaEsManana
+yesterday
+{ AccountError }
+{ GET: getAccount }
+{ GET: listAccounts }
+{ POST }
+{ POST: activate }
+{ POST: reverse }
+{ PUBLIC_PRODUCT_SELECT }
+{ Prisma }
+{ analyzeRegularizationOrder }
+{ calcularResumenCuadre }
+{ createHash }
+{ printEmployeeReceipt }
+{ readFileSync }
+{ shouldPrintPaymentQr }
+{ transpileModule, ModuleKind, ScriptTarget }
+{ transpileModule,ModuleKind,ScriptTarget }
+Órdenes antiguas dejan de contar en cocina
+Órdenes del día para quien cierra caja — diseño corto
+Órdenes del día para quien cierra caja — plan

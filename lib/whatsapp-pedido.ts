@@ -112,7 +112,9 @@ function leerTelefono(valor: string): string | null {
   const limpio = valor.replace(/[\s().-]/g, '');
   // "+593 099..." es frecuente: el 0 nacional sobra tras el código de país.
   const digitos = limpio.match(/^\+?5930?(\d{8,9})$/)?.[1] ?? limpio.match(/^0(\d{8,9})$/)?.[1];
-  return digitos ? `+593${digitos}` : null;
+  if (digitos) return `+593${digitos}`;
+  // shortcut: solo valida formato internacional; usar un catálogo telefónico si se requiere validar por país.
+  return /^\+(?!593)[1-9]\d{7,14}$/.test(limpio) ? limpio : null;
 }
 
 function leerTipo(linea: string, errores: string[]) {
@@ -304,7 +306,7 @@ export function interpretarPedido(texto: string): ResultadoPedido {
   // Línea entre el tipo y el teléfono: es el nombre del cliente, no un producto.
   const candidato = lineas[1];
   if (
-    domicilio && !cliente && candidato && lineas[2] && /^\+?[\d\s()-]{7,}$/.test(lineas[2]) &&
+    domicilio && !cliente && candidato && lineas[2] && leerTelefono(lineas[2]) !== null &&
     /^[\p{L} .'-]+$/u.test(candidato) && !/^combo\b/i.test(candidato)
   ) {
     const posicion = items.findIndex((item) => item.texto === candidato);
@@ -332,7 +334,7 @@ export function interpretarPedido(texto: string): ResultadoPedido {
 
   if (domicilio) {
     if (!telefono) {
-      errores.push(telefonoEscrito ? 'Teléfono no válido: usa +593XXXXXXXXX o 09XXXXXXXX' : 'Teléfono es requerido en domicilio');
+      errores.push(telefonoEscrito ? 'Teléfono no válido: usa 09XXXXXXXX (Ecuador) o + y código de país, de 8 a 15 dígitos' : 'Teléfono es requerido en domicilio');
     }
     if (!metodo) errores.push('Pago es requerido: efectivo $2.50 o trans $2.50');
     else if (envio === null) errores.push('Falta el valor del envío: escribe efectivo $2.50, trans $2.50 o Envío $2.50');

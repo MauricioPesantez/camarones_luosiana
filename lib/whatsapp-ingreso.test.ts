@@ -39,12 +39,14 @@ async function run() {
   let ordenesCreadas = 0;
   let stockInsuficiente = false;
   let ordenDelCliente: Fila | null = null;
+  let ultimaBusqueda: Fila | undefined;
+  let solicitudCreacion: Fila | undefined;
   Object.assign(process.env, CONFIG);
 
   const tx = {
     $executeRaw: async () => { bloqueos++; return 0; },
     usuario: { findUnique: async () => usuario && { nombre: 'Digital', ...usuario } },
-    orden: { findFirst: async () => ordenDelCliente },
+    orden: { findFirst: async ({ where }: { where: Fila }) => { ultimaBusqueda = where; return ordenDelCliente; } },
     producto: {
       findMany: async () => [{ id: 'c1', nombre: 'Combo Mixto Small', categoria: 'Combos', disponible: true }],
     },
@@ -99,7 +101,8 @@ async function run() {
     '@/lib/order-creation': {
       OrdenInvalidaError, StockInsuficienteError,
       notificarNuevaOrden: () => { throw new Error('sse caido'); },
-      prepararOrden: async () => {
+      prepararOrden: async (_actor: unknown, body: Fila) => {
+        solicitudCreacion = body;
         if (stockInsuficiente) throw new StockInsuficienteError('Stock insuficiente: Combo Mixto Small (pedido 1, disponible 0)');
         return {};
       },
@@ -205,6 +208,7 @@ async function run() {
   assert.deepEqual((ultima().datosNormalizados as { items: Fila[] }).items.map((i) => i.productoId), ['c1']);
   assert.match(respuesta(), /Orden #7 registrada/);
   assert.equal(bloqueos > 0, true, 'Serializa por operador');
+  assert.deepEqual(ultimaBusqueda?.telefonoCliente, { in: ['+593990000000', '0990000000'] });
 
   // El mismo contenido en otro mensaje devuelve la orden existente, sin crear otra.
   await texto(valido);
@@ -222,6 +226,25 @@ async function run() {
   assert.match(respuesta(), /Nuevo pedido/);
   await texto(`${valido}\nNuevo pedido`);
   assert.equal(ultima().estado, 'CREADA');
+  ordenDelCliente = null;
+
+  // Un extranjero llega completo al servicio, sin inventar una variante local ecuatoriana.
+  limpiar();
+  const extranjero = valido.replace('+593 99 000 0000', '+1 (202) 555-0123');
+  const creadasAntes = ordenesCreadas;
+  await texto(extranjero);
+  assert.equal(ultima().estado, 'CREADA');
+  assert.equal(ordenesCreadas, creadasAntes + 1);
+  assert.equal(solicitudCreacion?.telefonoCliente, '+12025550123');
+  assert.deepEqual(ultimaBusqueda?.telefonoCliente, { in: ['+12025550123'] });
+  await texto(extranjero.replace('+1 (202) 555-0123', '+12025550123'));
+  assert.equal(ultima().error, 'REENVIO');
+  assert.equal(ordenesCreadas, creadasAntes + 1);
+  limpiar();
+  ordenDelCliente = { numeroDiario: 7, fechaNumeroDiario: '2026-11-04' };
+  await texto(extranjero);
+  assert.equal(ultima().error, 'CONFLICTO_CLIENTE');
+  assert.equal(ordenesCreadas, creadasAntes + 1);
   ordenDelCliente = null;
 
   // Falta de stock: rechazo definitivo, no error reintentable.
