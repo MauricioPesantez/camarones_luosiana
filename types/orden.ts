@@ -206,6 +206,12 @@ export interface DesglosePrecio {
   total: number;         // subtotalProductos + recargo + costoEnvio
 }
 
+export const MAX_ESPERA_MOTO_MIN = 120;
+
+export function esEsperaMotoValida(minutos: unknown): minutos is number {
+  return typeof minutos === 'number' && Number.isInteger(minutos) && minutos >= 0 && minutos <= MAX_ESPERA_MOTO_MIN;
+}
+
 export interface CrearOrdenRequest {
   tipoOrden: TipoOrden;
   // Solo local
@@ -215,6 +221,7 @@ export interface CrearOrdenRequest {
   // Solo domicilio
   telefonoCliente?: string;
   costoEnvio?: number;
+  esperaMotoMin?: number;
   metodoPagoPrevisto?: MetodoPago;
   /** Confirmación operativa de que el dinero ya ingresó al crear el domicilio. */
   transferenciaConfirmada?: boolean;

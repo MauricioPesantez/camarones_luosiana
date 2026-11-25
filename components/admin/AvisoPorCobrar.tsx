@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatearTiempoTranscurrido } from "@/lib/tiempo-transcurrido";
 
 interface OrdenPorCobrar {
   id: string;
@@ -19,8 +20,6 @@ const lugar = (o: OrdenPorCobrar) =>
   o.tipoOrden === "local"
     ? `Mesa ${o.numeroMesa ?? "-"}`
     : `${o.tipoOrden === "domicilio" ? "Domicilio" : "Para llevar"}${o.nombreCliente ? ` · ${o.nombreCliente}` : ""}`;
-
-const minutosDesde = (fecha: string) => Math.floor((Date.now() - new Date(fecha).getTime()) / 60000);
 
 /** El admin decide a mano: evita avisar de órdenes que aún se preparan o se están sirviendo. */
 export default function AvisoPorCobrar() {
@@ -130,7 +129,7 @@ export default function AvisoPorCobrar() {
                   #{o.numeroDiario ?? "?"} · {lugar(o)} · {o.mesero}
                 </span>
                 <span className="text-gray-600">
-                  ${(Number(o.total) - Number(o.montoPagado)).toFixed(2)} · {o.estado} · hace {minutosDesde(o.createdAt)} min
+                  ${(Number(o.total) - Number(o.montoPagado)).toFixed(2)} · {o.estado} · creada hace {formatearTiempoTranscurrido(new Date(o.createdAt))}
                 </span>
               </li>
             ))}

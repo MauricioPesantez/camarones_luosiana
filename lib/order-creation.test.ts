@@ -9,6 +9,8 @@ import * as cobroTypes from '../types/cobro';
 import * as fechas from './fecha-ecuador';
 import * as dailyNumber from './daily-order-number';
 import * as deliveryLocation from './delivery-location';
+import * as esperaMoto from './espera-moto';
+import * as mensajesWhatsapp from './whatsapp-mensajes';
 import { PUBLIC_PRODUCT_SELECT } from './product-select';
 
 function loadModule<T>(file: string, dependencies: Record<string, unknown>): T {
@@ -37,11 +39,13 @@ async function run() {
   let fallaImpresora = false;
   let fallaMarcaImpresa = false;
   let fallaSse = false;
+  let whatsappHabilitado = false;
   const trabajos: Record<string, unknown>[] = [];
   const eventos: string[] = [];
   const impresas: Record<string, unknown>[] = [];
   const ordenes: Record<string, unknown>[] = [];
   const pagos: Record<string, unknown>[] = [];
+  const avisos: Array<{ ordenId: string; tipo: string; destino: string; disponibleAt: Date }> = [];
   const movimientosEmpleado: Record<string, unknown>[] = [];
   const producto = {
     id: 'combo-duo', nombre: 'Combo Duo', categoria: 'Combos',
@@ -55,6 +59,7 @@ async function run() {
     },
     contadorOrdenDiaria: { upsert: async () => ({ ultimoNumero: ++numeroDiario }) },
     orden: {
+      findMany: async () => [{ createdAt: new Date(), tiempoEstimado: 15 }],
       create: async ({ data }: { data: Record<string, unknown> & {
         items: { create: Array<Record<string, unknown>> };
       } }) => {
@@ -64,6 +69,10 @@ async function run() {
           items: data.items.create.map((item) => ({ ...item, producto })),
         };
       },
+    },
+    whatsappSalida: {
+      findUnique: async () => null,
+      create: async ({ data }: { data: (typeof avisos)[number] }) => { avisos.push(data); },
     },
     producto: {
       // Igual que el UPDATE condicional de PostgreSQL: nunca deja stock negativo.
@@ -121,6 +130,12 @@ async function run() {
       canCollectPayments: () => ['mesero', 'digital', 'admin'].includes(rol ?? ''),
     },
     '@/lib/payment-link': { createPaymentLink: () => ({ tokenHash: 'secreto', url: 'http://test.invalid/cobro' }) },
+    '@/lib/whatsapp-salidas': loadModule('lib/whatsapp-salidas.ts', {
+      '@/lib/espera-moto': esperaMoto,
+      '@/lib/whatsapp-mensajes': mensajesWhatsapp,
+      '@/lib/whatsapp-webhook': { leerConfiguracion: () => ({ habilitado: whatsappHabilitado, sessionId: 'prueba', motosChatId: 'motos@g.us' }) },
+      '@/types/orden': ordenTypes,
+    }),
     '@/lib/print-jobs': {
       PRINT_JOB_TYPES: { ORDER: 'ORDER' },
       shouldEnqueuePrintJob: () => colaActiva,
@@ -231,6 +246,9 @@ async function run() {
     [{ ...paraLlevar, nombreCliente: ' ' }, /nombre del cliente/],
     [{ ...domicilio, telefonoCliente: ' ' }, /teléfono/],
     [{ ...domicilio, costoEnvio: -1 }, /costo de envío/],
+    ...[-1, 1.5, 121, '15'].map((esperaMotoMin): [object, RegExp] => [
+      { ...domicilio, esperaMotoMin }, /0 a 120 minutos/,
+    ]),
     [{ ...domicilio, metodoPagoPrevisto: 'tarjeta' }, /modalidad de pago/],
     [{ ...domicilio, transferenciaConfirmada: false }, /transferencia ya fue recibida/],
     [{ ...local, items: [{ ...items[0], productoId: 'otro' }] }, /no existe/],
@@ -428,6 +446,20 @@ async function run() {
     actor, { ...aCuenta, metodoPagoPrevisto: 'transferencia', transferenciaConfirmada: true } as never, url,
   );
   assert.equal(conTransferencia.cobradaAlCrear, false);
+
+  assert.equal(avisos.length, 0, 'WhatsApp deshabilitado permite crear la orden sin avisos');
+  whatsappHabilitado = true;
+  for (const [esperaMotoMin, minutos] of [[undefined, 13], [0, 0], [25, 25]] as const) {
+    const respuesta = await enviar({ ...domicilio, esperaMotoMin });
+    assert.equal(respuesta.status, 200);
+    const { orden } = await respuesta.json();
+    const aviso = avisos.at(-1);
+    assert.equal(aviso?.tipo, 'RECORDATORIO_DELIVERY');
+    assert.equal(aviso?.destino, 'motos@g.us');
+    assert.equal(aviso?.disponibleAt.getTime(), new Date(orden.createdAt).getTime() + minutos * 60_000);
+  }
+  assert.equal((await enviar(paraLlevar)).status, 200);
+  assert.equal(avisos.length, 3, 'Solo se avisa a Motos por domicilios');
 
   console.log('order-creation tests: ok (mesero, digital, caja, transferencia, stock, permisos, validaciones, numeracion, impresion)');
 }
