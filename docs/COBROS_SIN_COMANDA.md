@@ -2,7 +2,7 @@
 
 El mesero entra a **Por cobrar**, localiza el pedido y pulsa **Cobrar**. El enlace abre el formulario existente; no hace falta escanear ni reimprimir el QR.
 
-La lista incluye mesas y pedidos para llevar propios, además de domicilios en efectivo de cualquier creador. Los pendientes de días anteriores permanecen hasta resolverlos. No incluye órdenes sin saldo, anuladas, canceladas, pendientes de aprobación, consumos de empleados ni domicilios por transferencia. Una orden que vuelve a tener saldo tras agregar productos reaparece aunque conserve el estado operativo `cobrada`.
+La lista incluye las órdenes creadas hoy, desde la medianoche de Guayaquil, que tienen saldo pendiente. Incluye mesas y pedidos para llevar propios, además de domicilios en efectivo de cualquier creador. No incluye órdenes anuladas, canceladas, pendientes de aprobación, consumos de empleados ni domicilios por transferencia. Una orden de hoy que vuelve a tener saldo tras agregar productos reaparece aunque conserve el estado operativo `cobrada`.
 
 La consulta SQL, el saldo, la liquidación del envío y los permisos se resuelven en el servidor. El mesero puede cobrar un domicilio compartido pero solo editar productos de sus propias órdenes. La caja debe estar abierta para cobrar. Esta vista no muestra el esperado de caja ni reemplaza la revisión de cierre habilitada por el administrador.
 
@@ -51,6 +51,6 @@ npm run test:por-cobrar-postgres
 
 Las pruebas PostgreSQL solo aceptan un destino local cuyo nombre contenga `test`. Cada ejecución aplica las migraciones en un esquema aleatorio propio y elimina solo ese esquema al terminar; no borra los datos del esquema público ni carga el `.env` del negocio.
 
-Cubren la selección SQL por autoría y saldo, permisos, órdenes anteriores y reabiertas, cobro sin impresión/QR, liquidación del envío una sola vez, idempotencia, cobros simultáneos y paginación estable. Incluyen una medición con `EXPLAIN (ANALYZE, BUFFERS)` y 5.000 órdenes históricas. El resultado local no garantiza la misma latencia en producción; no se añadió un índice sin evidencia que lo justificara.
+Cubren la selección SQL por fecha, autoría y saldo, permisos, órdenes reabiertas, cobro sin impresión/QR, liquidación del envío una sola vez, idempotencia, cobros simultáneos y paginación estable. Incluyen una medición con `EXPLAIN (ANALYZE, BUFFERS)` y 5.000 órdenes históricas. El resultado local no garantiza la misma latencia en producción; no se añadió un índice sin evidencia que lo justificara.
 
 Además se verificó por HTTP la creación de un domicilio por Digital con comanda pendiente, su lectura con sesión de mesero, la apertura del formulario y el pago con reintento sin duplicados. Los usuarios y pedidos con prefijo `prueba-` en la base local son sintéticos.
