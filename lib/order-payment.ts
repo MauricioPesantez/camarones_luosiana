@@ -23,6 +23,7 @@ import {
   type PartePago,
 } from '@/types/cobro';
 import { calcularSaldo } from '@/types/orden';
+import { payableStates, paymentBlockReason } from './payment-policy';
 
 export class PaymentConflictError extends Error {}
 export class PaymentValidationError extends Error {}
@@ -65,39 +66,11 @@ function validateOrderCanBePaid(
   expectedRevision: number,
   origen: 'qr' | 'lista',
 ): void {
-  if (order.tipoOperacion === 'CONSUMO_EMPLEADO') throw new PaymentValidationError('Un consumo de empleado se descuenta de su cuenta');
-  if (calcularSaldo({ total: order.total.toString(), montoPagado: order.montoPagado.toString() }) <= 0) {
-    throw new PaymentConflictError('Esta orden ya fue cobrada');
-  }
-  // Una orden anulada salio del cuadre: cobrarla volveria a meterla.
-  if (order.anulada) {
-    throw new PaymentValidationError('No se puede cobrar una orden anulada');
-  }
-  if (order.estado === 'cancelada') {
-    throw new PaymentValidationError('No se puede cobrar una orden cancelada');
-  }
-  if (order.estado === 'pendiente_aprobacion_stock') {
-    throw new PaymentValidationError(
-      'La orden debe ser aprobada por stock antes de poder cobrarla',
-    );
-  }
+  const motivo = paymentBlockReason(order, origen);
+  if (motivo === 'Esta orden ya fue cobrada') throw new PaymentConflictError(motivo);
+  if (motivo) throw new PaymentValidationError(motivo);
   if (order.printRevision !== expectedRevision) {
-    throw new PaymentConflictError(
-      'La orden cambió. Recárgala y confirma el total actualizado.',
-    );
-  }
-  // El cobro por enlace (QR) puede cerrar el pago en cualquier estado operativo:
-  // basta con que la orden exista, tenga saldo y no este cancelada ni pendiente
-  // de stock. El cobro desde la lista interna mantiene la regla de mesa
-  // lista/entregada, ahora con `cobrada` incluida: una orden pagada a la que se
-  // le agregaron productos conserva ese estado y vuelve a tener saldo.
-  if (origen === 'lista') {
-    const esLocal = !order.tipoOrden || order.tipoOrden === 'local';
-    if (esLocal && !['lista', 'entregada', 'cobrada'].includes(order.estado)) {
-      throw new PaymentValidationError(
-        'Las órdenes de mesa solo se pueden cobrar cuando estén listas o entregadas',
-      );
-    }
+    throw new PaymentConflictError('La orden cambió. Recárgala y confirma el total actualizado.');
   }
 }
 
@@ -177,12 +150,7 @@ export async function collectOrderPayment(input: {
     ['lista', 'entregada', 'cobrada'].includes(existing.estado)
       ? 'cobrada'
       : existing.estado;
-  const estadosCobrables =
-    input.origen === 'qr'
-      ? ['pendiente', 'en_preparacion', 'lista', 'entregada', 'cobrada']
-      : !existing.tipoOrden || existing.tipoOrden === 'local'
-        ? ['lista', 'entregada', 'cobrada']
-        : ['pendiente', 'en_preparacion', 'lista', 'entregada', 'cobrada'];
+  const estadosCobrables = payableStates(existing, input.origen);
 
   // `validarActoDeCobro` garantiza a lo sumo una parte por método en un mismo
   // acto, asi que nunca hay mas de una parte en transferencia que verificar aca.

@@ -39,6 +39,7 @@ interface ItemOrden {
 interface Orden {
   id: string;
   numeroDiario?: number | null;
+  cobroUrl?: string | null;
   tipoOrden?: string;
   numeroMesa: number | null;
   nombreCliente?: string | null;
@@ -112,6 +113,20 @@ export default function DetalleOrdenModal({
     "resumen",
   );
   const [abriendoComprobante, setAbriendoComprobante] = useState(false);
+  const [estadoCopia, setEstadoCopia] = useState<
+    "inicial" | "copiando" | "copiado" | "error"
+  >("inicial");
+
+  const copiarEnlaceCobro = async () => {
+    if (!orden.cobroUrl) return;
+    setEstadoCopia("copiando");
+    try {
+      await navigator.clipboard.writeText(orden.cobroUrl);
+      setEstadoCopia("copiado");
+    } catch {
+      setEstadoCopia("error");
+    }
+  };
 
   // Estado del modal de cortesía
   const [mostrarModalCortesia, setMostrarModalCortesia] = useState(false);
@@ -1081,13 +1096,46 @@ export default function DetalleOrdenModal({
         </div>
 
         {/* Footer */}
-        <div className="border-t px-6 py-4 bg-gray-50">
-          <button
-            onClick={onClose}
-            className="w-full bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-semibold"
-          >
-            Cerrar
-          </button>
+        <div className="border-t px-6 py-4 bg-gray-50 space-y-3">
+          <p role="status" className="text-sm text-emerald-700 empty:hidden">
+            {estadoCopia === "copiado" && "Link de cobro copiado."}
+          </p>
+          {estadoCopia === "error" && orden.cobroUrl && (
+            <div className="space-y-2">
+              <p role="alert" className="text-sm text-amber-800">
+                No se pudo copiar automáticamente. Selecciona el enlace y cópialo.
+              </p>
+              <input
+                aria-label="Link de cobro"
+                readOnly
+                value={orden.cobroUrl}
+                onFocus={(evento) => evento.currentTarget.select()}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            {orden.cobroUrl && (
+              <button
+                type="button"
+                onClick={copiarEnlaceCobro}
+                disabled={estadoCopia === "copiando"}
+                className="flex-1 min-h-11 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
+              >
+                <span aria-hidden="true">🔗</span>{" "}
+                {estadoCopia === "copiando"
+                  ? "Copiando…"
+                  : "Copiar link de cobro"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-semibold"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       </div>
 

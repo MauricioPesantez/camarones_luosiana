@@ -5,9 +5,9 @@
     "semantic_hash": "002fb846746676eaacb0c09896d8f616"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/admin/page.tsx": {
-    "mtime": 1785771761.9174075,
-    "ast_hash": "89ea57bafe45b20e1c93aeda1d8c1553",
-    "semantic_hash": "89ea57bafe45b20e1c93aeda1d8c1553"
+    "mtime": 1795453974.2099419,
+    "ast_hash": "1470f5ea750f3946443315d7a9acfc30",
+    "semantic_hash": "1470f5ea750f3946443315d7a9acfc30"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/admin/productos/page.tsx": {
     "mtime": 1785771761.917954,
@@ -15,24 +15,24 @@
     "semantic_hash": "37a7c957574c9ef1d341967679b4f24a"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/admin/reportes/page.tsx": {
-    "mtime": 1785771761.919546,
-    "ast_hash": "a156899b5ca43f3f9305192098d117af",
-    "semantic_hash": "a156899b5ca43f3f9305192098d117af"
+    "mtime": 1795461197.8697283,
+    "ast_hash": "189b5e5f5b9047c3ac992b4cea6161da",
+    "semantic_hash": "189b5e5f5b9047c3ac992b4cea6161da"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/cuadre/route.ts": {
-    "mtime": 1785685829.171552,
-    "ast_hash": "577c7639f8e06d795e5d48cc662b7186",
-    "semantic_hash": "577c7639f8e06d795e5d48cc662b7186"
+    "mtime": 1795452450.1211898,
+    "ast_hash": "f62094875d35f44609235474610b52b5",
+    "semantic_hash": "f62094875d35f44609235474610b52b5"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/reportes/cortesias/route.ts": {
-    "mtime": 1785509928.193946,
-    "ast_hash": "758d8e03b7e37db195eedb994d247a9a",
-    "semantic_hash": "758d8e03b7e37db195eedb994d247a9a"
+    "mtime": 1793803047.569119,
+    "ast_hash": "27894af1b9cd5a801fdde5f23fbe077b",
+    "semantic_hash": "27894af1b9cd5a801fdde5f23fbe077b"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/reportes/modificaciones/route.ts": {
-    "mtime": 1785509928.194432,
-    "ast_hash": "c346f8ca493027cf289f0fdaedf8814e",
-    "semantic_hash": "c346f8ca493027cf289f0fdaedf8814e"
+    "mtime": 1793803047.5692534,
+    "ast_hash": "5ff54108fe462598ccb1e1f552955b66",
+    "semantic_hash": "5ff54108fe462598ccb1e1f552955b66"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/auth/login/route.ts": {
     "mtime": 1785684423.48582,
@@ -40,44 +40,44 @@
     "semantic_hash": "8713f24fdfcfb9e40e7f20681031a8d8"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/cobrar/route.ts": {
-    "mtime": 1785684423.488141,
-    "ast_hash": "68cae3a5090f1a9c7187c356eedff127",
-    "semantic_hash": "68cae3a5090f1a9c7187c356eedff127"
+    "mtime": 1786246936.1020224,
+    "ast_hash": "8b5a6bf0929e12d7dde203c38a93dc1c",
+    "semantic_hash": "8b5a6bf0929e12d7dde203c38a93dc1c"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/cortesia/route.ts": {
-    "mtime": 1785684423.488726,
-    "ast_hash": "8b39c7575456c8ec436eaff9fc9e1eca",
-    "semantic_hash": "8b39c7575456c8ec436eaff9fc9e1eca"
+    "mtime": 1794274192.838434,
+    "ast_hash": "b8c91849a74b5715f3ca08add5612464",
+    "semantic_hash": "b8c91849a74b5715f3ca08add5612464"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/historial/route.ts": {
-    "mtime": 1785684423.489134,
-    "ast_hash": "e752de1b2e7cee31aae0b096f04e6322",
-    "semantic_hash": "e752de1b2e7cee31aae0b096f04e6322"
+    "mtime": 1793803804.584449,
+    "ast_hash": "c0fe7967b1e56060b1643795875b4810",
+    "semantic_hash": "c0fe7967b1e56060b1643795875b4810"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/items/route.ts": {
-    "mtime": 1785684423.489706,
-    "ast_hash": "f87fdd4d86d244e066b99697e8722c2d",
-    "semantic_hash": "f87fdd4d86d244e066b99697e8722c2d"
+    "mtime": 1795449313.0943573,
+    "ast_hash": "8f7a4f3624965ec6816030f1f3c9044c",
+    "semantic_hash": "8f7a4f3624965ec6816030f1f3c9044c"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/route.ts": {
-    "mtime": 1785684423.490004,
-    "ast_hash": "86a327de20cc4a1f6fffa7ca058700fc",
-    "semantic_hash": "86a327de20cc4a1f6fffa7ca058700fc"
+    "mtime": 1793826472.4668214,
+    "ast_hash": "c8b497486529364a725394b1df961872",
+    "semantic_hash": "c8b497486529364a725394b1df961872"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/aprobacion/aprobar/route.ts": {
-    "mtime": 1785684423.490715,
-    "ast_hash": "218abd2bd77353bdeb03d3d4bdad7d59",
-    "semantic_hash": "218abd2bd77353bdeb03d3d4bdad7d59"
+    "mtime": 1793909524.482046,
+    "ast_hash": "0f0150dcffec0e6d07a2e5d6edd18635",
+    "semantic_hash": "0f0150dcffec0e6d07a2e5d6edd18635"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/aprobacion/pendientes/route.ts": {
-    "mtime": 1785684423.491192,
-    "ast_hash": "e1e93dfe1223ffea825694df4ed98734",
-    "semantic_hash": "e1e93dfe1223ffea825694df4ed98734"
+    "mtime": 1786035886.086425,
+    "ast_hash": "3822a31d984b8b54c8415acb0124944e",
+    "semantic_hash": "3822a31d984b8b54c8415acb0124944e"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/aprobacion/rechazar/route.ts": {
-    "mtime": 1785684423.491572,
-    "ast_hash": "e5e560a0b6f2eec4490415d381ef1184",
-    "semantic_hash": "e5e560a0b6f2eec4490415d381ef1184"
+    "mtime": 1793909524.4824212,
+    "ast_hash": "28b114e2628e30a5717b2fbc8864cb33",
+    "semantic_hash": "28b114e2628e30a5717b2fbc8864cb33"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/events/route.ts": {
     "mtime": 1785684422.4919431,
@@ -85,22 +85,22 @@
     "semantic_hash": "7314fd167d719fcca7eab2556232150a"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/route.ts": {
-    "mtime": 1785684423.492312,
-    "ast_hash": "9602c07135791bb53687222f10d7243c",
-    "semantic_hash": "9602c07135791bb53687222f10d7243c"
+    "mtime": 1795447634.6139417,
+    "ast_hash": "7355507178bf601fa8854219d3bc82dc",
+    "semantic_hash": "7355507178bf601fa8854219d3bc82dc"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/productos/route.ts": {
-    "mtime": 1785631179.338895,
-    "ast_hash": "f970446ef035205d32dd34b94965bb45",
-    "semantic_hash": "f970446ef035205d32dd34b94965bb45"
+    "mtime": 1793802853.4750643,
+    "ast_hash": "9132f7bfbbf5067a347adfbcc873a2f6",
+    "semantic_hash": "9132f7bfbbf5067a347adfbcc873a2f6"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/stock/actualizar/route.ts": {
-    "mtime": 1785509928.201197,
+    "mtime": 1785509928.201195,
     "ast_hash": "23cdca24239d0424a397f3d83648a4ef",
     "semantic_hash": "23cdca24239d0424a397f3d83648a4ef"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/stock/bajo/route.ts": {
-    "mtime": 1785509928.20171,
+    "mtime": 1785509928.201709,
     "ast_hash": "b3ec1ee616e7bc9f23120950b3ae66cd",
     "semantic_hash": "b3ec1ee616e7bc9f23120950b3ae66cd"
   },
@@ -110,24 +110,24 @@
     "semantic_hash": "c49cc14d2400557b607a5bafd3e4ac33"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/usuarios/[id]/route.ts": {
-    "mtime": 1785631179.339288,
-    "ast_hash": "f13194f7e2ce8637e9ba13183c1e87bd",
-    "semantic_hash": "f13194f7e2ce8637e9ba13183c1e87bd"
+    "mtime": 1793802853.474952,
+    "ast_hash": "b1624734c7449acd56b5335f1512d1d5",
+    "semantic_hash": "b1624734c7449acd56b5335f1512d1d5"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/usuarios/route.ts": {
-    "mtime": 1785631179.339573,
-    "ast_hash": "67d487cf4cce612895310a3ba8f29286",
-    "semantic_hash": "67d487cf4cce612895310a3ba8f29286"
+    "mtime": 1793803431.245965,
+    "ast_hash": "6f82c6d69064be7a7d489c33e6ba0a4e",
+    "semantic_hash": "6f82c6d69064be7a7d489c33e6ba0a4e"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/cocina/page.tsx": {
-    "mtime": 1785771761.920871,
-    "ast_hash": "dc14477ccf179be99666fece47aa3d6c",
-    "semantic_hash": "dc14477ccf179be99666fece47aa3d6c"
+    "mtime": 1793803148.1782093,
+    "ast_hash": "a536313157c55943fe6afd826285f9fe",
+    "semantic_hash": "a536313157c55943fe6afd826285f9fe"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/digital/page.tsx": {
-    "mtime": 1785771761.9253888,
-    "ast_hash": "47668cfe1bb937af331d421974d7bad0",
-    "semantic_hash": "47668cfe1bb937af331d421974d7bad0"
+    "mtime": 1795449464.3421676,
+    "ast_hash": "0d06144048bb87dcfb117f27a20d9c0c",
+    "semantic_hash": "0d06144048bb87dcfb117f27a20d9c0c"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/layout.tsx": {
     "mtime": 1785509927.205024,
@@ -135,14 +135,14 @@
     "semantic_hash": "113a8f7a8fa3fb0792a8184dd734bd51"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/login/page.tsx": {
-    "mtime": 1785684423.493192,
-    "ast_hash": "942d0dae4bdfe098e3660d1d1ad01a1c",
-    "semantic_hash": "942d0dae4bdfe098e3660d1d1ad01a1c"
+    "mtime": 1793803431.2464452,
+    "ast_hash": "b6e60f19cc6e4fbe226174dde954f60e",
+    "semantic_hash": "b6e60f19cc6e4fbe226174dde954f60e"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/mesero/page.tsx": {
-    "mtime": 1785771761.9300208,
-    "ast_hash": "4eaf0a116c1045bd53b3446fdf8e794c",
-    "semantic_hash": "4eaf0a116c1045bd53b3446fdf8e794c"
+    "mtime": 1795449464.341801,
+    "ast_hash": "e472f51a7a3ddc75e74750f829a7b148",
+    "semantic_hash": "e472f51a7a3ddc75e74750f829a7b148"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/page.tsx": {
     "mtime": 1785509927.206073,
@@ -150,29 +150,29 @@
     "semantic_hash": "7b1a271f16db1cf1377da679bcb1ffcc"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/admin/DetalleOrdenModal.tsx": {
-    "mtime": 1785771761.9306333,
-    "ast_hash": "dc1f60c7baa52d2723ca028cc3093423",
-    "semantic_hash": "dc1f60c7baa52d2723ca028cc3093423"
+    "mtime": 1795464894.4828188,
+    "ast_hash": "df2ddc7b3605644993bbe4eb7b37dee7",
+    "semantic_hash": "df2ddc7b3605644993bbe4eb7b37dee7"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/admin/HistorialOrdenTimeline.tsx": {
-    "mtime": 1785509928.206703,
-    "ast_hash": "44e054242a4f431e743eb8cdd29aedaa",
-    "semantic_hash": "44e054242a4f431e743eb8cdd29aedaa"
+    "mtime": 1795447499.0932512,
+    "ast_hash": "c279612bc4ea26e19e37f7a309a2e904",
+    "semantic_hash": "c279612bc4ea26e19e37f7a309a2e904"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/cocina/OrdenCard.tsx": {
-    "mtime": 1785631178.3450446,
-    "ast_hash": "6ec44ea8c92bd8e1e0e55f90057a6158",
-    "semantic_hash": "6ec44ea8c92bd8e1e0e55f90057a6158"
+    "mtime": 1794274191.8466883,
+    "ast_hash": "53897d884e0e2ff4d510c78e6105ec0f",
+    "semantic_hash": "53897d884e0e2ff4d510c78e6105ec0f"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/mesero/CrearOrden.tsx": {
-    "mtime": 1785771761.9314175,
-    "ast_hash": "46e769330c23721a56eb095a7bb27707",
-    "semantic_hash": "46e769330c23721a56eb095a7bb27707"
+    "mtime": 1795441976.6865587,
+    "ast_hash": "e426038112d8f5cc7f0653841c1fa3ec",
+    "semantic_hash": "e426038112d8f5cc7f0653841c1fa3ec"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/mesero/EditarOrdenModal.tsx": {
-    "mtime": 1785771761.934231,
-    "ast_hash": "76b5a1e0777875de67cd2a802c5cc741",
-    "semantic_hash": "76b5a1e0777875de67cd2a802c5cc741"
+    "mtime": 1795449722.161723,
+    "ast_hash": "b76fd471e275f286abbb0e1973d101cc",
+    "semantic_hash": "b76fd471e275f286abbb0e1973d101cc"
   },
   "/Users/mauriciopesantezg/restaurant-pos/eslint.config.mjs": {
     "mtime": 1785509927.2081487,
@@ -190,14 +190,14 @@
     "semantic_hash": "eb1c8fe04049cf6b82ff020269a80fd8"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/db.ts": {
-    "mtime": 1785631178.359017,
-    "ast_hash": "bd316607d67acaabe1c340c9eca2db45",
-    "semantic_hash": "bd316607d67acaabe1c340c9eca2db45"
+    "mtime": 1795452191.3383524,
+    "ast_hash": "2e238c815483f9127ed1c0f8c337a5ba",
+    "semantic_hash": "2e238c815483f9127ed1c0f8c337a5ba"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/printer.ts": {
-    "mtime": 1785684423.498111,
-    "ast_hash": "b3a5ba12030ec6f5d3a4cb009dcc3b1c",
-    "semantic_hash": "b3a5ba12030ec6f5d3a4cb009dcc3b1c"
+    "mtime": 1794274192.8547664,
+    "ast_hash": "0e5c9b45dc214e58e80ce2dc7beb2650",
+    "semantic_hash": "0e5c9b45dc214e58e80ce2dc7beb2650"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/sse.ts": {
     "mtime": 1785509927.2103693,
@@ -215,9 +215,9 @@
     "semantic_hash": "fab84f993164a1512f04ca410e4b5ba9"
   },
   "/Users/mauriciopesantezg/restaurant-pos/package.json": {
-    "mtime": 1785771761.9490213,
-    "ast_hash": "17187ab404545720688a7b093409f545",
-    "semantic_hash": "17187ab404545720688a7b093409f545"
+    "mtime": 1795453846.6707392,
+    "ast_hash": "92bf1f8be4a05664e3412aad538bfad1",
+    "semantic_hash": "92bf1f8be4a05664e3412aad538bfad1"
   },
   "/Users/mauriciopesantezg/restaurant-pos/postcss.config.mjs": {
     "mtime": 1785509927.2127688,
@@ -235,7 +235,7 @@
     "semantic_hash": "ea57c13a34537c21224c3e3045d26411"
   },
   "/Users/mauriciopesantezg/restaurant-pos/prisma/update-admin.ts": {
-    "mtime": 1785509928.214345,
+    "mtime": 1785509928.214344,
     "ast_hash": "0d03cf82311d4f7190522420821544ad",
     "semantic_hash": "0d03cf82311d4f7190522420821544ad"
   },
@@ -245,14 +245,14 @@
     "semantic_hash": "8cac17b8a9bbdb538396266d72766d78"
   },
   "/Users/mauriciopesantezg/restaurant-pos/tsconfig.json": {
-    "mtime": 1785631178.3771505,
+    "mtime": 1793826670.6637816,
     "ast_hash": "64679d70e48bf795853c630a9685afcb",
     "semantic_hash": "64679d70e48bf795853c630a9685afcb"
   },
   "/Users/mauriciopesantezg/restaurant-pos/types/orden.ts": {
-    "mtime": 1785685828.1793957,
-    "ast_hash": "ab48a4ee5352affb258f91811f2baf10",
-    "semantic_hash": "ab48a4ee5352affb258f91811f2baf10"
+    "mtime": 1794274191.864376,
+    "ast_hash": "aca4a3429bcc2c5103166e90c06eebf0",
+    "semantic_hash": "aca4a3429bcc2c5103166e90c06eebf0"
   },
   "/Users/mauriciopesantezg/restaurant-pos/types/stock.ts": {
     "mtime": 1785509927.2173862,
@@ -285,9 +285,9 @@
     "semantic_hash": "7532fafe0788df4bc8014c892341c6d3"
   },
   "/Users/mauriciopesantezg/restaurant-pos/amplify.yml": {
-    "mtime": 1785631178.3188374,
-    "ast_hash": "004cff6fb121a0fd6df2f33a79f1fdd8",
-    "semantic_hash": "004cff6fb121a0fd6df2f33a79f1fdd8"
+    "mtime": 1794067646.192294,
+    "ast_hash": "ae113b1fe514c8df405c08b2e4954042",
+    "semantic_hash": "ae113b1fe514c8df405c08b2e4954042"
   },
   "/Users/mauriciopesantezg/restaurant-pos/public/file.svg": {
     "mtime": 1785509927.2149017,
@@ -315,27 +315,27 @@
     "semantic_hash": "a2760511c65806022ad20adf74370ff3"
   },
   "/Users/mauriciopesantezg/restaurant-pos/.claude/launch.json": {
-    "mtime": 1785631178.317515,
+    "mtime": 1795461776.6420906,
     "ast_hash": "60e9a686c04e104b76fa5a557f24c5b0",
     "semantic_hash": "60e9a686c04e104b76fa5a557f24c5b0"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/admin/usuarios/page.tsx": {
-    "mtime": 1785771761.9203227,
+    "mtime": 1785771762.920321,
     "ast_hash": "8e4a4d663bd99db9aeaa6f2692a9bc91",
     "semantic_hash": "8e4a4d663bd99db9aeaa6f2692a9bc91"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/print-agent/claim/route.ts": {
-    "mtime": 1785631179.336717,
-    "ast_hash": "326727e73681042bcff9fcea8857f802",
-    "semantic_hash": "326727e73681042bcff9fcea8857f802"
+    "mtime": 1793455755.9090893,
+    "ast_hash": "aeefe7ab0466ee766fee20046ccb74b9",
+    "semantic_hash": "aeefe7ab0466ee766fee20046ccb74b9"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/print-agent/heartbeat/route.ts": {
-    "mtime": 1785631179.337046,
+    "mtime": 1785631179.337044,
     "ast_hash": "5c58cfbb7cc53655c626976bda51e002",
     "semantic_hash": "5c58cfbb7cc53655c626976bda51e002"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/print-agent/jobs/[id]/complete/route.ts": {
-    "mtime": 1785631179.337472,
+    "mtime": 1785631179.337471,
     "ast_hash": "d9dac1f9200172f36f4093136ece3e67",
     "semantic_hash": "d9dac1f9200172f36f4093136ece3e67"
   },
@@ -345,29 +345,29 @@
     "semantic_hash": "e4eae8af86f0246c1cde6e86e77c2e89"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/productos/[id]/route.ts": {
-    "mtime": 1785631179.338402,
-    "ast_hash": "732a782dca5d45975fda3343d43ba80a",
-    "semantic_hash": "732a782dca5d45975fda3343d43ba80a"
+    "mtime": 1793802853.4754393,
+    "ast_hash": "854ea91007b4f924d8de034a9fbae0ed",
+    "semantic_hash": "854ea91007b4f924d8de034a9fbae0ed"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/admin/FormularioProducto.tsx": {
-    "mtime": 1785631179.343113,
-    "ast_hash": "403d850950a631536465004765b9ada0",
-    "semantic_hash": "403d850950a631536465004765b9ada0"
+    "mtime": 1793826491.6071842,
+    "ast_hash": "dd3f987660fefc954a8cf2b98c43535b",
+    "semantic_hash": "dd3f987660fefc954a8cf2b98c43535b"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/admin/FormularioUsuario.tsx": {
-    "mtime": 1785631179.343582,
+    "mtime": 1785631179.34358,
     "ast_hash": "14d6d41e06218f6bda346531e3f85694",
     "semantic_hash": "14d6d41e06218f6bda346531e3f85694"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/admin/GestionMenu.tsx": {
-    "mtime": 1785631179.34395,
-    "ast_hash": "31a9360f9d9628ab10706f005bd5bf7c",
-    "semantic_hash": "31a9360f9d9628ab10706f005bd5bf7c"
+    "mtime": 1795441976.683523,
+    "ast_hash": "33640573bbf88e3c8eb47948b1f206c5",
+    "semantic_hash": "33640573bbf88e3c8eb47948b1f206c5"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/admin/GestionStock.tsx": {
-    "mtime": 1785631179.344323,
-    "ast_hash": "6806494a94c36a3d7e52924fb3223cae",
-    "semantic_hash": "6806494a94c36a3d7e52924fb3223cae"
+    "mtime": 1795441976.683951,
+    "ast_hash": "cd8fb0ce5c904f301f10c15aef15710a",
+    "semantic_hash": "cd8fb0ce5c904f301f10c15aef15710a"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/admin/ModalFormulario.tsx": {
     "mtime": 1785771761.9310136,
@@ -375,19 +375,19 @@
     "semantic_hash": "8ce77c448b17012f7f62b4797706882c"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/admin-validaciones.test.ts": {
-    "mtime": 1785631179.357413,
-    "ast_hash": "86c8731335c4941f727161dc33e4265b",
-    "semantic_hash": "86c8731335c4941f727161dc33e4265b"
+    "mtime": 1793803804.5848823,
+    "ast_hash": "63f7914e2bfa1bd04d695b60435b2b33",
+    "semantic_hash": "63f7914e2bfa1bd04d695b60435b2b33"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/admin-validaciones.ts": {
-    "mtime": 1785631178.3577876,
-    "ast_hash": "a4dc08dd4409d9dc9d2e40c12bafdeb9",
-    "semantic_hash": "a4dc08dd4409d9dc9d2e40c12bafdeb9"
+    "mtime": 1793802852.4752991,
+    "ast_hash": "2d3fe299dfaa8169c32314c37b3be2ac",
+    "semantic_hash": "2d3fe299dfaa8169c32314c37b3be2ac"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/cuadre.test.ts": {
-    "mtime": 1785685829.175115,
-    "ast_hash": "1d9a7c69addedcd423adf4462b255325",
-    "semantic_hash": "1d9a7c69addedcd423adf4462b255325"
+    "mtime": 1795441976.6918106,
+    "ast_hash": "64d90bbb1da3d78e70d7e423d39a5c9d",
+    "semantic_hash": "64d90bbb1da3d78e70d7e423d39a5c9d"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/daily-order-number.test.ts": {
     "mtime": 1785631179.358374,
@@ -400,22 +400,22 @@
     "semantic_hash": "7db01419d534c0030f355387ff2820c1"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/print-agent-auth.ts": {
-    "mtime": 1785631178.3593674,
-    "ast_hash": "d7a6962c58828cb4851e7135be0dd388",
-    "semantic_hash": "d7a6962c58828cb4851e7135be0dd388"
+    "mtime": 1793984486.8494613,
+    "ast_hash": "1fcb7ca0face818a91cd022fe826c159",
+    "semantic_hash": "1fcb7ca0face818a91cd022fe826c159"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/print-agent-jobs.ts": {
-    "mtime": 1785631178.3597562,
-    "ast_hash": "e077b24225d9cbaae6d2a7acd568fa20",
-    "semantic_hash": "e077b24225d9cbaae6d2a7acd568fa20"
+    "mtime": 1793826840.2239056,
+    "ast_hash": "fe4fec98aac9d970f17d76c1cd10852b",
+    "semantic_hash": "fe4fec98aac9d970f17d76c1cd10852b"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/print-agent.test.ts": {
-    "mtime": 1785631179.360088,
-    "ast_hash": "3529fd2ee3ab65c630efc223958f2c53",
-    "semantic_hash": "3529fd2ee3ab65c630efc223958f2c53"
+    "mtime": 1793803184.2815084,
+    "ast_hash": "5da1dc0346a861aea9ca57963d8e7fd5",
+    "semantic_hash": "5da1dc0346a861aea9ca57963d8e7fd5"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/print-config.test.ts": {
-    "mtime": 1785631179.36042,
+    "mtime": 1785631179.360419,
     "ast_hash": "1a92fe3c32ff3e204f6a93b1101be7aa",
     "semantic_hash": "1a92fe3c32ff3e204f6a93b1101be7aa"
   },
@@ -425,24 +425,24 @@
     "semantic_hash": "b506cfee6f5f608438d6d7f8a4a23a8d"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/print-jobs.test.ts": {
-    "mtime": 1785684423.497479,
+    "mtime": 1785684423.497478,
     "ast_hash": "94b77f8c5c4721443b34e1841b6a7daa",
     "semantic_hash": "94b77f8c5c4721443b34e1841b6a7daa"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/print-jobs.ts": {
-    "mtime": 1785684422.497743,
-    "ast_hash": "04d0544a9e79991bd7643081ac7b1609",
-    "semantic_hash": "04d0544a9e79991bd7643081ac7b1609"
+    "mtime": 1794274191.8542998,
+    "ast_hash": "50c46488cc26c53e352141adb1e82f40",
+    "semantic_hash": "50c46488cc26c53e352141adb1e82f40"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/printer.test.ts": {
-    "mtime": 1785631179.361807,
-    "ast_hash": "acb00619c6b80af179bbb68e3d2690db",
-    "semantic_hash": "acb00619c6b80af179bbb68e3d2690db"
+    "mtime": 1794173675.2509546,
+    "ast_hash": "0fa04169e96f0e8e6e5e205fa1f0fb82",
+    "semantic_hash": "0fa04169e96f0e8e6e5e205fa1f0fb82"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent-python/agent.py": {
-    "mtime": 1785684422.499953,
-    "ast_hash": "1c80c1bf5e9f9afc351a5d200084f5aa",
-    "semantic_hash": "1c80c1bf5e9f9afc351a5d200084f5aa"
+    "mtime": 1794175754.229003,
+    "ast_hash": "74e5d112c69d17be1596292a4703f6c3",
+    "semantic_hash": "74e5d112c69d17be1596292a4703f6c3"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent-python/scripts/install-ubuntu.sh": {
     "mtime": 1785631178.3660734,
@@ -450,9 +450,9 @@
     "semantic_hash": "6e97f2f660e6391097a3f50997e785cc"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent-python/test_agent.py": {
-    "mtime": 1785684422.5003343,
-    "ast_hash": "8341ed740b014d10870e6a0b7d110b57",
-    "semantic_hash": "8341ed740b014d10870e6a0b7d110b57"
+    "mtime": 1794175754.229535,
+    "ast_hash": "556e6062c983bffb9de69b708bd11e09",
+    "semantic_hash": "556e6062c983bffb9de69b708bd11e09"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/package.json": {
     "mtime": 1785631178.3684554,
@@ -465,9 +465,9 @@
     "semantic_hash": "193d6c55d827cf46316483fb4840189e"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/src/api-client.ts": {
-    "mtime": 1785631178.369015,
-    "ast_hash": "8ba92c2677814dab1a45492d5bb28a3b",
-    "semantic_hash": "8ba92c2677814dab1a45492d5bb28a3b"
+    "mtime": 1793802929.181743,
+    "ast_hash": "407dc3d270fe4779ec9fbce86b7b9bcd",
+    "semantic_hash": "407dc3d270fe4779ec9fbce86b7b9bcd"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/src/config.ts": {
     "mtime": 1785631178.369355,
@@ -485,7 +485,7 @@
     "semantic_hash": "3cdc396bfc9ab2a2aa28056f854e6397"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/src/logger.ts": {
-    "mtime": 1785631179.37042,
+    "mtime": 1785631179.370419,
     "ast_hash": "00140fbe4eeb0be688baa5688ebae59e",
     "semantic_hash": "00140fbe4eeb0be688baa5688ebae59e"
   },
@@ -495,14 +495,14 @@
     "semantic_hash": "4cd3aa266dc19ceb2057ec2549518d1e"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/src/printer.test.ts": {
-    "mtime": 1785684423.500669,
-    "ast_hash": "c807b7718bee48c7eb003a9bde3f0f60",
-    "semantic_hash": "c807b7718bee48c7eb003a9bde3f0f60"
+    "mtime": 1794173675.269706,
+    "ast_hash": "a52baf7b64cbf95fbdda7f9c05fe52ef",
+    "semantic_hash": "a52baf7b64cbf95fbdda7f9c05fe52ef"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/src/printer.ts": {
-    "mtime": 1785684423.500994,
-    "ast_hash": "8e1a45eb134db2b3eb76786fb4726416",
-    "semantic_hash": "8e1a45eb134db2b3eb76786fb4726416"
+    "mtime": 1794173675.2709267,
+    "ast_hash": "74c78e3b5a2ea7aa9d63712291c20a7a",
+    "semantic_hash": "74c78e3b5a2ea7aa9d63712291c20a7a"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/src/schedule.test.ts": {
     "mtime": 1785631179.371819,
@@ -515,14 +515,14 @@
     "semantic_hash": "166c20b91cd1406320b05f52a5d3279c"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/src/types.ts": {
-    "mtime": 1785684422.5012965,
-    "ast_hash": "a1d46357c088c890a095347dce66808d",
-    "semantic_hash": "a1d46357c088c890a095347dce66808d"
+    "mtime": 1794173674.271845,
+    "ast_hash": "9cf15b00669ac57612bbd4603a154d86",
+    "semantic_hash": "9cf15b00669ac57612bbd4603a154d86"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/src/worker.ts": {
-    "mtime": 1785631178.3726535,
-    "ast_hash": "d8a63449fadc5141ee07754d8edde7b0",
-    "semantic_hash": "d8a63449fadc5141ee07754d8edde7b0"
+    "mtime": 1793455754.9084666,
+    "ast_hash": "44ace67f7df61d5a7026f243823dc860",
+    "semantic_hash": "44ace67f7df61d5a7026f243823dc860"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/tsconfig.json": {
     "mtime": 1785631178.3730056,
@@ -565,9 +565,9 @@
     "semantic_hash": "db07197d04401600aae08b3821fe701e"
   },
   "/Users/mauriciopesantezg/restaurant-pos/types/cuadre.ts": {
-    "mtime": 1785685828.1785407,
-    "ast_hash": "100f0d9d046ba4ca8dda0782f436d934",
-    "semantic_hash": "100f0d9d046ba4ca8dda0782f436d934"
+    "mtime": 1795441975.6968937,
+    "ast_hash": "5f02ffa4346a2bbf0015b1d5d1b3c0dd",
+    "semantic_hash": "5f02ffa4346a2bbf0015b1d5d1b3c0dd"
   },
   "/Users/mauriciopesantezg/restaurant-pos/types/usuario.ts": {
     "mtime": 1785631178.3782325,
@@ -625,9 +625,9 @@
     "semantic_hash": "db63227569f95e6be810c58b41d78d51"
   },
   "/Users/mauriciopesantezg/restaurant-pos/public/plantilla-impresiones.html": {
-    "mtime": 1785631178.3765655,
-    "ast_hash": "253808aae0c1b150cb577a9535377a6d",
-    "semantic_hash": "253808aae0c1b150cb577a9535377a6d"
+    "mtime": 1793454969.4515476,
+    "ast_hash": "7ab2988bb84d607d3cf5f7263493d3ae",
+    "semantic_hash": "7ab2988bb84d607d3cf5f7263493d3ae"
   },
   "/Users/mauriciopesantezg/restaurant-pos/print-agent/assets/logo-camarones-louisiana.png": {
     "mtime": 1785631178.3679175,
@@ -650,94 +650,94 @@
     "semantic_hash": "995e2029bdbb729d2a996026905abe22"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/cobros/[token]/route.ts": {
-    "mtime": 1785684423.487609,
-    "ast_hash": "d2f7176f4f6d3da7766ef1d331ec69c4",
-    "semantic_hash": "d2f7176f4f6d3da7766ef1d331ec69c4"
+    "mtime": 1786246936.101232,
+    "ast_hash": "100fd354f9e30c4f404ded70dbbb6836",
+    "semantic_hash": "100fd354f9e30c4f404ded70dbbb6836"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/retiros/[id]/anular/route.ts": {
-    "mtime": 1785685829.172003,
-    "ast_hash": "771a47746a871d8d140fe7043e02326e",
-    "semantic_hash": "771a47746a871d8d140fe7043e02326e"
+    "mtime": 1793802863.9213376,
+    "ast_hash": "230f07902ed780c37be526aee6bcdb5b",
+    "semantic_hash": "230f07902ed780c37be526aee6bcdb5b"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/api/retiros/route.ts": {
-    "mtime": 1785685829.172534,
-    "ast_hash": "49d02ef91b7d7c9185408fde884f88c9",
-    "semantic_hash": "49d02ef91b7d7c9185408fde884f88c9"
+    "mtime": 1793802896.1821167,
+    "ast_hash": "4f9577e457215f16152a670820784c5d",
+    "semantic_hash": "4f9577e457215f16152a670820784c5d"
   },
   "/Users/mauriciopesantezg/restaurant-pos/app/ordenes/cobrar/[token]/page.tsx": {
-    "mtime": 1785684422.4941597,
-    "ast_hash": "e3765c46ac610961cca8930b7fa93666",
-    "semantic_hash": "e3765c46ac610961cca8930b7fa93666"
+    "mtime": 1794173674.2259688,
+    "ast_hash": "9749d9073ed1bd92e834e876a88f0f64",
+    "semantic_hash": "9749d9073ed1bd92e834e876a88f0f64"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/cobros/CobrarOrdenClient.tsx": {
-    "mtime": 1785684422.4946406,
-    "ast_hash": "d82edf29741d4629108c702eaae575c1",
-    "semantic_hash": "d82edf29741d4629108c702eaae575c1"
+    "mtime": 1794274191.8460472,
+    "ast_hash": "fa3a29324d542504a51b3428fdc5ddd7",
+    "semantic_hash": "fa3a29324d542504a51b3428fdc5ddd7"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/mesero/RetiroCaja.tsx": {
-    "mtime": 1785685829.173913,
-    "ast_hash": "b89df38e171604ea1ef8def3d0c79b4f",
-    "semantic_hash": "b89df38e171604ea1ef8def3d0c79b4f"
+    "mtime": 1793455847.589229,
+    "ast_hash": "a270f5a29d6c7865216b77ae422f60ef",
+    "semantic_hash": "a270f5a29d6c7865216b77ae422f60ef"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/shell/AppShell.tsx": {
-    "mtime": 1785771761.9369538,
-    "ast_hash": "c7a04479a100e4491447611d8f8345ee",
-    "semantic_hash": "c7a04479a100e4491447611d8f8345ee"
+    "mtime": 1795441975.687279,
+    "ast_hash": "66d03da0d181e0170986a227cbd2ab60",
+    "semantic_hash": "66d03da0d181e0170986a227cbd2ab60"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/shell/BarraInferior.tsx": {
-    "mtime": 1785771761.9414392,
-    "ast_hash": "7b0a2fa15ba57aef9a12463e3555ebb8",
-    "semantic_hash": "7b0a2fa15ba57aef9a12463e3555ebb8"
+    "mtime": 1795441975.687604,
+    "ast_hash": "de311e077b781c92d9e33d5fd2ee67f8",
+    "semantic_hash": "de311e077b781c92d9e33d5fd2ee67f8"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/shell/DrawerNav.tsx": {
-    "mtime": 1785771761.9419272,
-    "ast_hash": "2261a9a8ecf2c31f94342f1af683aaa6",
-    "semantic_hash": "2261a9a8ecf2c31f94342f1af683aaa6"
+    "mtime": 1795441975.6879835,
+    "ast_hash": "82717965056e9fe7cc6564f92c9cbfeb",
+    "semantic_hash": "82717965056e9fe7cc6564f92c9cbfeb"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/shell/ItemNav.tsx": {
-    "mtime": 1785771761.9436817,
-    "ast_hash": "70923fcf5c9210913f5497bea53d2770",
-    "semantic_hash": "70923fcf5c9210913f5497bea53d2770"
+    "mtime": 1795441975.6882572,
+    "ast_hash": "70ce1b1a9ffcb87610b71d28ed9a82e3",
+    "semantic_hash": "70ce1b1a9ffcb87610b71d28ed9a82e3"
   },
   "/Users/mauriciopesantezg/restaurant-pos/components/shell/TopBar.tsx": {
-    "mtime": 1785771761.9447067,
-    "ast_hash": "22facb7a8860e0ef05e23197068d26bc",
-    "semantic_hash": "22facb7a8860e0ef05e23197068d26bc"
+    "mtime": 1795441975.6888628,
+    "ast_hash": "cc014fbf61e53e9b9f32cb97c9f98a55",
+    "semantic_hash": "cc014fbf61e53e9b9f32cb97c9f98a55"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/cuadre-date.ts": {
-    "mtime": 1785684422.4962025,
-    "ast_hash": "689fe9b5edac20efdb349a59c328a560",
-    "semantic_hash": "689fe9b5edac20efdb349a59c328a560"
+    "mtime": 1786246935.1410773,
+    "ast_hash": "861df91d72ec2b55f5f09c4e68e0ac51",
+    "semantic_hash": "861df91d72ec2b55f5f09c4e68e0ac51"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/fecha-ecuador.test.ts": {
-    "mtime": 1785685829.175382,
-    "ast_hash": "051a72df3cb9f54373f7baa774fe212b",
-    "semantic_hash": "051a72df3cb9f54373f7baa774fe212b"
+    "mtime": 1795441976.6921816,
+    "ast_hash": "02540608b2a1ece901fda1b52a9a8f18",
+    "semantic_hash": "02540608b2a1ece901fda1b52a9a8f18"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/fecha-ecuador.ts": {
-    "mtime": 1785685828.1756175,
-    "ast_hash": "2f70e5ea1f9cc9c8d08d5cd4e2873549",
-    "semantic_hash": "2f70e5ea1f9cc9c8d08d5cd4e2873549"
+    "mtime": 1795441975.692518,
+    "ast_hash": "6d5d963bd55b3ebc5bbef5ac47a1b894",
+    "semantic_hash": "6d5d963bd55b3ebc5bbef5ac47a1b894"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/navegacion.test.ts": {
-    "mtime": 1785771761.947596,
-    "ast_hash": "48dd5d6e1c27af517f96b42e123ac5c4",
-    "semantic_hash": "48dd5d6e1c27af517f96b42e123ac5c4"
+    "mtime": 1795460506.6213846,
+    "ast_hash": "670e1d55731b0d97ada425982db1e44d",
+    "semantic_hash": "670e1d55731b0d97ada425982db1e44d"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/navegacion.ts": {
-    "mtime": 1785771761.9479556,
-    "ast_hash": "746e0471fab14aaa267d6f952d54ad7d",
-    "semantic_hash": "746e0471fab14aaa267d6f952d54ad7d"
+    "mtime": 1795460506.6217413,
+    "ast_hash": "c2c1846683314ecc0cbb30501c54d408",
+    "semantic_hash": "c2c1846683314ecc0cbb30501c54d408"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/order-payment.ts": {
-    "mtime": 1785684422.4970043,
-    "ast_hash": "13151627cd0a3ecd1de585c96d8b4324",
-    "semantic_hash": "13151627cd0a3ecd1de585c96d8b4324"
+    "mtime": 1793803431.2489297,
+    "ast_hash": "4c28d9bade910794da2bc3dfa5e00c93",
+    "semantic_hash": "4c28d9bade910794da2bc3dfa5e00c93"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/payment-link.ts": {
-    "mtime": 1785684422.497173,
-    "ast_hash": "a512c04d56384347288f0221f1ef8656",
-    "semantic_hash": "a512c04d56384347288f0221f1ef8656"
+    "mtime": 1793803046.5674984,
+    "ast_hash": "ba0efecbfd4754a2ce841ec619062d06",
+    "semantic_hash": "ba0efecbfd4754a2ce841ec619062d06"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/retiros-validaciones.test.ts": {
     "mtime": 1785685829.175889,
@@ -750,14 +750,14 @@
     "semantic_hash": "70cb4fdf17ca0efc81a3a63e62b0c7d9"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/retiros.ts": {
-    "mtime": 1785685828.1764777,
-    "ast_hash": "25f8b2bc8f2e0f8af28b981d2858e826",
-    "semantic_hash": "25f8b2bc8f2e0f8af28b981d2858e826"
+    "mtime": 1793455811.857344,
+    "ast_hash": "07519d2d9c3f452f64dc3bb1266e8de2",
+    "semantic_hash": "07519d2d9c3f452f64dc3bb1266e8de2"
   },
   "/Users/mauriciopesantezg/restaurant-pos/lib/session.ts": {
-    "mtime": 1785684422.4984086,
-    "ast_hash": "cb410a042d1259e66ce309a46a4e4826",
-    "semantic_hash": "cb410a042d1259e66ce309a46a4e4826"
+    "mtime": 1795441975.694503,
+    "ast_hash": "76913f865c90644c7ca5fd934d91b496",
+    "semantic_hash": "76913f865c90644c7ca5fd934d91b496"
   },
   "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20260802010000_add_qr_payments_and_sessions/migration.sql": {
     "mtime": 1785684422.501541,
@@ -770,19 +770,19 @@
     "semantic_hash": "291380db440e8f6c75fc2b71375d52d8"
   },
   "/Users/mauriciopesantezg/restaurant-pos/types/cobro.ts": {
-    "mtime": 1785684422.5022926,
-    "ast_hash": "6a0e2d67517c1d9bf643127639bc8eac",
-    "semantic_hash": "6a0e2d67517c1d9bf643127639bc8eac"
+    "mtime": 1794274191.861454,
+    "ast_hash": "b592e637a9df4da8ab1a6e770fed7608",
+    "semantic_hash": "b592e637a9df4da8ab1a6e770fed7608"
   },
   "/Users/mauriciopesantezg/restaurant-pos/types/retiro.ts": {
-    "mtime": 1785685828.17965,
-    "ast_hash": "a45c0deae15467ad28be5e5a43e38463",
-    "semantic_hash": "a45c0deae15467ad28be5e5a43e38463"
+    "mtime": 1793455811.857562,
+    "ast_hash": "691cb5ef36cbb44620be21795512336c",
+    "semantic_hash": "691cb5ef36cbb44620be21795512336c"
   },
   "/Users/mauriciopesantezg/restaurant-pos/docs/COBROS_QR.md": {
-    "mtime": 1785684422.4955332,
-    "ast_hash": "6fd84010aa4ae4bec08e44b82da86ac6",
-    "semantic_hash": "6fd84010aa4ae4bec08e44b82da86ac6"
+    "mtime": 1785987469.560647,
+    "ast_hash": "ed06676c8572db925ede346ad41e8420",
+    "semantic_hash": "ed06676c8572db925ede346ad41e8420"
   },
   "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-08-02-appshell-navegacion-movil.md": {
     "mtime": 1785687383.4345918,
@@ -803,5 +803,1020 @@
     "mtime": 1785684422.4958282,
     "ast_hash": "4eb81b1620ccd972ec5af554cb2993b8",
     "semantic_hash": "4eb81b1620ccd972ec5af554cb2993b8"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/admin/empleados/page.tsx": {
+    "mtime": 1793802873.377501,
+    "ast_hash": "667dcb73277533bee34bdf0fd3f150f0",
+    "semantic_hash": "667dcb73277533bee34bdf0fd3f150f0"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/consumos-empleados/regularizacion/route.ts": {
+    "mtime": 1793826652.2474833,
+    "ast_hash": "682f118401031b6fb3762ea56837d3a6",
+    "semantic_hash": "682f118401031b6fb3762ea56837d3a6"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/ordenes/[id]/comprobante/route.ts": {
+    "mtime": 1786246936.0998852,
+    "ast_hash": "a14ebda0e5898f1439dac44482129c0f",
+    "semantic_hash": "a14ebda0e5898f1439dac44482129c0f"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/ordenes/[id]/corregir-cobro/route.ts": {
+    "mtime": 1795447491.5376222,
+    "ast_hash": "3e51048be319b7f78fde1c7a88c96bfa",
+    "semantic_hash": "3e51048be319b7f78fde1c7a88c96bfa"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/ordenes/[id]/metodo-pago/route.ts": {
+    "mtime": 1794175755.2274168,
+    "ast_hash": "6ecc864e39202f04f80f431a2f22adbf",
+    "semantic_hash": "6ecc864e39202f04f80f431a2f22adbf"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/ordenes/[id]/revision/route.ts": {
+    "mtime": 1795462492.7398152,
+    "ast_hash": "6b44190c15f8ea04039b0a63c0e6f0c5",
+    "semantic_hash": "6b44190c15f8ea04039b0a63c0e6f0c5"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/ordenes/por-cobrar/route.ts": {
+    "mtime": 1794259650.5610478,
+    "ast_hash": "e3a81bc84a4523ac0ec67f2ca07f0b86",
+    "semantic_hash": "e3a81bc84a4523ac0ec67f2ca07f0b86"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/reportes/revision/route.ts": {
+    "mtime": 1795461197.867404,
+    "ast_hash": "bb205a700772ae8d537816d1bcc5d381",
+    "semantic_hash": "bb205a700772ae8d537816d1bcc5d381"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/admin/whatsapp/route.ts": {
+    "mtime": 1794066309.043497,
+    "ast_hash": "1a8d00ad54af54ae716e2a8449c4bed4",
+    "semantic_hash": "1a8d00ad54af54ae716e2a8449c4bed4"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/caja/corte/[id]/anular/route.ts": {
+    "mtime": 1795447634.6134274,
+    "ast_hash": "2549aea264b4d3fad866241929ca792a",
+    "semantic_hash": "2549aea264b4d3fad866241929ca792a"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/caja/corte/route.ts": {
+    "mtime": 1795447634.6127987,
+    "ast_hash": "f8960db2178b57ca407423645d885df5",
+    "semantic_hash": "f8960db2178b57ca407423645d885df5"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/caja/ordenes/route.ts": {
+    "mtime": 1795447596.4081888,
+    "ast_hash": "8be96dc59cc99cd1f86a2b030df2a23a",
+    "semantic_hash": "8be96dc59cc99cd1f86a2b030df2a23a"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/caja/route.ts": {
+    "mtime": 1795441976.681321,
+    "ast_hash": "adafaa76a72d48a63da86e446979418f",
+    "semantic_hash": "adafaa76a72d48a63da86e446979418f"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/cobros/[token]/comprobante/route.ts": {
+    "mtime": 1793803047.56767,
+    "ast_hash": "4cd8a7c323bf138789e7c800dc6b6145",
+    "semantic_hash": "4cd8a7c323bf138789e7c800dc6b6145"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/consumos-empleados/[id]/anular/route.ts": {
+    "mtime": 1793802915.3907504,
+    "ast_hash": "8ad6c3cfbdb01d6bb8c08e2f59b601ab",
+    "semantic_hash": "8ad6c3cfbdb01d6bb8c08e2f59b601ab"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/consumos-empleados/[id]/corregir/route.ts": {
+    "mtime": 1793802915.3905256,
+    "ast_hash": "89032dacf93e5a39c54baf5fa062d6fc",
+    "semantic_hash": "89032dacf93e5a39c54baf5fa062d6fc"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/consumos-empleados/[id]/entregar/route.ts": {
+    "mtime": 1793802915.3906503,
+    "ast_hash": "4122743415d9283da79a3ae5178396fd",
+    "semantic_hash": "4122743415d9283da79a3ae5178396fd"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/consumos-empleados/[id]/imprimir/route.ts": {
+    "mtime": 1793803238.931292,
+    "ast_hash": "da7cbea9cedf0da50bdc8095a36f5f30",
+    "semantic_hash": "da7cbea9cedf0da50bdc8095a36f5f30"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/consumos-empleados/action.ts": {
+    "mtime": 1793826522.8385954,
+    "ast_hash": "3b57a945503aef879c962c89ddaebabc",
+    "semantic_hash": "3b57a945503aef879c962c89ddaebabc"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/consumos-empleados/route.ts": {
+    "mtime": 1794274192.8374386,
+    "ast_hash": "c952b0097a2b16f8915b3348078ed58c",
+    "semantic_hash": "c952b0097a2b16f8915b3348078ed58c"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/empleados/[id]/activar/route.ts": {
+    "mtime": 1793803636.5878265,
+    "ast_hash": "8c6574b325c5122431f161c08f6a1404",
+    "semantic_hash": "8c6574b325c5122431f161c08f6a1404"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/empleados/[id]/cuenta/route.ts": {
+    "mtime": 1793803803.5840487,
+    "ast_hash": "59fbe154b06df60c37844fe8d6914ee8",
+    "semantic_hash": "59fbe154b06df60c37844fe8d6914ee8"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/empleados/[id]/liquidaciones/[liquidacionId]/imprimir/route.ts": {
+    "mtime": 1793803239.0159788,
+    "ast_hash": "2ea48ba194f143fc843e87bdac4fee73",
+    "semantic_hash": "2ea48ba194f143fc843e87bdac4fee73"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/empleados/[id]/liquidaciones/[liquidacionId]/revertir/route.ts": {
+    "mtime": 1793804339.5434408,
+    "ast_hash": "17ccd23327c0245499d1604204b1c793",
+    "semantic_hash": "17ccd23327c0245499d1604204b1c793"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/empleados/[id]/liquidaciones/[liquidacionId]/route.ts": {
+    "mtime": 1793802838.236138,
+    "ast_hash": "ae1d8b850e5aaa62372f09a59355542c",
+    "semantic_hash": "ae1d8b850e5aaa62372f09a59355542c"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/empleados/[id]/liquidaciones/route.ts": {
+    "mtime": 1793803305.6359472,
+    "ast_hash": "bf70e792afc0b88ebfd28bb6743ecae2",
+    "semantic_hash": "bf70e792afc0b88ebfd28bb6743ecae2"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/empleados/cuentas/route.ts": {
+    "mtime": 1793803434.9494905,
+    "ast_hash": "dbc4c69dbcfb11e8cfb20405b8cd2df7",
+    "semantic_hash": "dbc4c69dbcfb11e8cfb20405b8cd2df7"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/integraciones/whatsapp/webhook/route.ts": {
+    "mtime": 1793909524.4816918,
+    "ast_hash": "4aee2638e9013b47d24594c71dac7298",
+    "semantic_hash": "4aee2638e9013b47d24594c71dac7298"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/anular/route.ts": {
+    "mtime": 1794274192.8381896,
+    "ast_hash": "e9dd620a0b0b092604ab4e11cb5fe865",
+    "semantic_hash": "e9dd620a0b0b092604ab4e11cb5fe865"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/delivery/route.ts": {
+    "mtime": 1794171447.1423542,
+    "ast_hash": "b48fce72b671f58b6946748af3bddc1b",
+    "semantic_hash": "b48fce72b671f58b6946748af3bddc1b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/descuento/route.ts": {
+    "mtime": 1794274192.8387322,
+    "ast_hash": "0c16fd245f249f57cf88dfa74caa2896",
+    "semantic_hash": "0c16fd245f249f57cf88dfa74caa2896"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/reimprimir/route.ts": {
+    "mtime": 1794164613.9557784,
+    "ast_hash": "4900e11d058b1e4c1e6c1fe70e9ad576",
+    "semantic_hash": "4900e11d058b1e4c1e6c1fe70e9ad576"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/ordenes/[id]/ubicacion/route.ts": {
+    "mtime": 1794069365.836375,
+    "ast_hash": "19668cc57af1124b66c04416cabc24ea",
+    "semantic_hash": "19668cc57af1124b66c04416cabc24ea"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/retiros/[id]/imprimir/route.ts": {
+    "mtime": 1793456232.2057855,
+    "ast_hash": "a6a51447a5ceaa46be107e9a1c8b71a9",
+    "semantic_hash": "a6a51447a5ceaa46be107e9a1c8b71a9"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/whatsapp-agent/salidas/[id]/complete/route.ts": {
+    "mtime": 1793984486.9964566,
+    "ast_hash": "19b81b843a47ba5a3d881a660c6dff57",
+    "semantic_hash": "19b81b843a47ba5a3d881a660c6dff57"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/whatsapp-agent/salidas/[id]/fail/route.ts": {
+    "mtime": 1793984487.2146993,
+    "ast_hash": "880168923282366cae7463ede53e6a08",
+    "semantic_hash": "880168923282366cae7463ede53e6a08"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/api/whatsapp-agent/tick/route.ts": {
+    "mtime": 1793984486.8820477,
+    "ast_hash": "94f7b2b5d33ecaae2a4a13fff2bb67ef",
+    "semantic_hash": "94f7b2b5d33ecaae2a4a13fff2bb67ef"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/consumos-empleados/page.tsx": {
+    "mtime": 1793802873.382301,
+    "ast_hash": "203b93fa9dfadce4d4ad6fd3f9582f17",
+    "semantic_hash": "203b93fa9dfadce4d4ad6fd3f9582f17"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/app/mis-descuentos/page.tsx": {
+    "mtime": 1793802873.3799481,
+    "ast_hash": "f9baf3e13cd4af9acb6626375d084ed0",
+    "semantic_hash": "f9baf3e13cd4af9acb6626375d084ed0"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/AvisoPorCobrar.tsx": {
+    "mtime": 1795441975.6823542,
+    "ast_hash": "a6da3f7aff2166c1a303d7c3a9f06275",
+    "semantic_hash": "a6da3f7aff2166c1a303d7c3a9f06275"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/CierreCaja.tsx": {
+    "mtime": 1795447706.665113,
+    "ast_hash": "c736d604503a980f6a5b3e2d60c3c4ef",
+    "semantic_hash": "c736d604503a980f6a5b3e2d60c3c4ef"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/FilaAtencion.tsx": {
+    "mtime": 1795441975.6830165,
+    "ast_hash": "1b3eb83815affe78d8f4d5f11a348a3c",
+    "semantic_hash": "1b3eb83815affe78d8f4d5f11a348a3c"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/OrdenesDia.tsx": {
+    "mtime": 1795453238.9422476,
+    "ast_hash": "ea3722fc94d9fac91d0ae3ec78f9002a",
+    "semantic_hash": "ea3722fc94d9fac91d0ae3ec78f9002a"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/ResumenDia.tsx": {
+    "mtime": 1795441976.6847136,
+    "ast_hash": "ab5aac104242ddb5ba617bfe012f1e74",
+    "semantic_hash": "ab5aac104242ddb5ba617bfe012f1e74"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/RevisionWhatsapp.tsx": {
+    "mtime": 1795441975.6850636,
+    "ast_hash": "ba751f43865667be5d66d4ba57d8faf2",
+    "semantic_hash": "ba751f43865667be5d66d4ba57d8faf2"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/orden-admin.ts": {
+    "mtime": 1795452450.1208565,
+    "ast_hash": "cec7757c9fcf10dde88a0c9656475239",
+    "semantic_hash": "cec7757c9fcf10dde88a0c9656475239"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/reportes/BitacoraErrores.tsx": {
+    "mtime": 1795461197.869207,
+    "ast_hash": "ecf7610f425b385ebefddf3ec651333b",
+    "semantic_hash": "ecf7610f425b385ebefddf3ec651333b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/FaltoProducto.tsx": {
+    "mtime": 1795454005.7165277,
+    "ast_hash": "289810d078292d1695293ba3d28d1ff1",
+    "semantic_hash": "289810d078292d1695293ba3d28d1ff1"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/Linea.tsx": {
+    "mtime": 1795453974.211461,
+    "ast_hash": "2e0947a37119540f18377373a6accbf1",
+    "semantic_hash": "2e0947a37119540f18377373a6accbf1"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/LineaTotal.tsx": {
+    "mtime": 1795461197.8602803,
+    "ast_hash": "b8977e473e0b57329081029e28e67e1b",
+    "semantic_hash": "b8977e473e0b57329081029e28e67e1b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/OrdenEnRevision.tsx": {
+    "mtime": 1795462190.207564,
+    "ast_hash": "d7a6e96c6538c5369e1354392ee10248",
+    "semantic_hash": "d7a6e96c6538c5369e1354392ee10248"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/PieRevision.tsx": {
+    "mtime": 1795461197.8606102,
+    "ast_hash": "33974d790165cef5f0b07708aff2156a",
+    "semantic_hash": "33974d790165cef5f0b07708aff2156a"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/RevisionOrdenes.tsx": {
+    "mtime": 1795462190.2073188,
+    "ast_hash": "ab4aaea44c025fbbe55629a0bfae88ac",
+    "semantic_hash": "ab4aaea44c025fbbe55629a0bfae88ac"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/cola-guardado.test.ts": {
+    "mtime": 1795461159.7601547,
+    "ast_hash": "99d1d08ddf0ce8de1945b33cd3ae3a46",
+    "semantic_hash": "99d1d08ddf0ce8de1945b33cd3ae3a46"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/cola-guardado.ts": {
+    "mtime": 1795461197.8599718,
+    "ast_hash": "df115971dfabacc9c258b5c16ec335a1",
+    "semantic_hash": "df115971dfabacc9c258b5c16ec335a1"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/leer-monto.test.ts": {
+    "mtime": 1795453846.633565,
+    "ast_hash": "0ff9797583715df4ac5841e382dd527e",
+    "semantic_hash": "0ff9797583715df4ac5841e382dd527e"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/leer-monto.ts": {
+    "mtime": 1795453883.8459308,
+    "ast_hash": "7221a9177300b2946c3b555cc71d162d",
+    "semantic_hash": "7221a9177300b2946c3b555cc71d162d"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/useColasRevision.test.ts": {
+    "mtime": 1795461671.0185997,
+    "ast_hash": "24cc48e9065c333ca809ca6d9bdacacb",
+    "semantic_hash": "24cc48e9065c333ca809ca6d9bdacacb"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/admin/revision/useColasRevision.ts": {
+    "mtime": 1795461717.496617,
+    "ast_hash": "c7c0d0ccb3be55385afd36c238fced06",
+    "semantic_hash": "c7c0d0ccb3be55385afd36c238fced06"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/empleados/ConsumosEmpleados.tsx": {
+    "mtime": 1793826511.4350832,
+    "ast_hash": "6b2ba809ffd1b168134a9d92637ae45a",
+    "semantic_hash": "6b2ba809ffd1b168134a9d92637ae45a"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/empleados/CuentasEmpleados.tsx": {
+    "mtime": 1793826490.6076717,
+    "ast_hash": "aa619d5e01742c4fbbf061f0be4fdd0b",
+    "semantic_hash": "aa619d5e01742c4fbbf061f0be4fdd0b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/empleados/RegularizacionConsumos.tsx": {
+    "mtime": 1793826621.1105173,
+    "ast_hash": "43c2f1e25ab8f0b55b55e65d0f35913e",
+    "semantic_hash": "43c2f1e25ab8f0b55b55e65d0f35913e"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/empleados/envio.test.ts": {
+    "mtime": 1793826483.5871456,
+    "ast_hash": "fce33b07ce3bba45bb275b223a1d8fe4",
+    "semantic_hash": "fce33b07ce3bba45bb275b223a1d8fe4"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/empleados/envio.ts": {
+    "mtime": 1793826521.8443286,
+    "ast_hash": "fc61078d7c9eea61ab9a4ab8e779d570",
+    "semantic_hash": "fc61078d7c9eea61ab9a4ab8e779d570"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/empleados/ui.tsx": {
+    "mtime": 1793803333.2597692,
+    "ast_hash": "60f99091d73ab0423a7c2161f6d3f5ff",
+    "semantic_hash": "60f99091d73ab0423a7c2161f6d3f5ff"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/mesero/CorteTurno.tsx": {
+    "mtime": 1795447706.6636941,
+    "ast_hash": "ba78f111db7e63ef457dbf0e87e7ec89",
+    "semantic_hash": "ba78f111db7e63ef457dbf0e87e7ec89"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/mesero/InicioCaja.tsx": {
+    "mtime": 1795441975.686894,
+    "ast_hash": "4c8292872e50fac17f5c4ec2a4699c8d",
+    "semantic_hash": "4c8292872e50fac17f5c4ec2a4699c8d"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/mesero/OrdenesDelDia.tsx": {
+    "mtime": 1795447706.4620576,
+    "ast_hash": "68c3a44697e7b1a897df459507c634c0",
+    "semantic_hash": "68c3a44697e7b1a897df459507c634c0"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/ordenes/DeliverySolicitado.tsx": {
+    "mtime": 1794171446.143374,
+    "ast_hash": "f754b6ce7b562b3c7f633fbf2dbe31f4",
+    "semantic_hash": "f754b6ce7b562b3c7f633fbf2dbe31f4"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/ordenes/UbicacionEntrega.tsx": {
+    "mtime": 1793908017.175464,
+    "ast_hash": "9fdd580b95abe4cd27b121d9a7f51e5b",
+    "semantic_hash": "9fdd580b95abe4cd27b121d9a7f51e5b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/components/shell/MenuNav.tsx": {
+    "mtime": 1795441975.6885433,
+    "ast_hash": "dae76f9310f65e1221b4a8d072e85f8b",
+    "semantic_hash": "dae76f9310f65e1221b4a8d072e85f8b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/auditoria/2026-10-06/cobertura-api.json": {
+    "mtime": 1791304561.146928,
+    "ast_hash": "0ca915c95e627a434dd58f8b7b4b6a5d",
+    "semantic_hash": "0ca915c95e627a434dd58f8b7b4b6a5d"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/auditoria/2026-10-06/repro-flujos.cjs": {
+    "mtime": 1791304190.7089813,
+    "ast_hash": "a5ef4ec98e405e179bd44357d8708670",
+    "semantic_hash": "a5ef4ec98e405e179bd44357d8708670"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/auditoria/2026-10-06/resultados-reproducciones.json": {
+    "mtime": 1791304563.0803125,
+    "ast_hash": "db1a688834059857b09384f89e82a815",
+    "semantic_hash": "db1a688834059857b09384f89e82a815"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/bitacora-revision.test.ts": {
+    "mtime": 1795462480.8996239,
+    "ast_hash": "cdb3ab953ced8d744737213e9075b48b",
+    "semantic_hash": "cdb3ab953ced8d744737213e9075b48b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/bitacora-revision.ts": {
+    "mtime": 1795462218.9946282,
+    "ast_hash": "09f65a368a7e32a75f3c073208a0de55",
+    "semantic_hash": "09f65a368a7e32a75f3c073208a0de55"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/caja-validaciones.test.ts": {
+    "mtime": 1794177927.0451584,
+    "ast_hash": "a118e12d4ecaea58495761f77da37cc9",
+    "semantic_hash": "a118e12d4ecaea58495761f77da37cc9"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/caja-validaciones.ts": {
+    "mtime": 1794177926.0454001,
+    "ast_hash": "665e91ec46451608e3fa6b7c048e5efb",
+    "semantic_hash": "665e91ec46451608e3fa6b7c048e5efb"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/caja.ts": {
+    "mtime": 1795447595.5841293,
+    "ast_hash": "847a6328ad8ddd2bd3c7fabab2d7c34d",
+    "semantic_hash": "847a6328ad8ddd2bd3c7fabab2d7c34d"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/cambio-metodo-pago-route.test.ts": {
+    "mtime": 1794175755.2284951,
+    "ast_hash": "1e0ccb292f9472d23cb1dd841cec5bdf",
+    "semantic_hash": "1e0ccb292f9472d23cb1dd841cec5bdf"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/cobro.test.ts": {
+    "mtime": 1786246936.1357255,
+    "ast_hash": "706a14a5a40b0503ef4b1d165736c04e",
+    "semantic_hash": "706a14a5a40b0503ef4b1d165736c04e"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/comprobante-cliente.ts": {
+    "mtime": 1795453883.8621194,
+    "ast_hash": "f98097433c1a321a0dc9e2a1ca600755",
+    "semantic_hash": "f98097433c1a321a0dc9e2a1ca600755"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/comprobantes.test.ts": {
+    "mtime": 1785987470.5627701,
+    "ast_hash": "6dcaf6468b94b937c539537a46404f72",
+    "semantic_hash": "6dcaf6468b94b937c539537a46404f72"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/comprobantes.ts": {
+    "mtime": 1785987469.5630708,
+    "ast_hash": "ee3288172045b911c870283d2d9462bb",
+    "semantic_hash": "ee3288172045b911c870283d2d9462bb"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/corregir-cobro-route.test.ts": {
+    "mtime": 1795447546.6566665,
+    "ast_hash": "43291a55218b817f6131d108b0b8336d",
+    "semantic_hash": "43291a55218b817f6131d108b0b8336d"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/corte-turno-route.test.ts": {
+    "mtime": 1795447618.5177686,
+    "ast_hash": "8649cfc233076a2b7528e8797670fd3b",
+    "semantic_hash": "8649cfc233076a2b7528e8797670fd3b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/cuadre-server.ts": {
+    "mtime": 1795447633.6142397,
+    "ast_hash": "116343893ca2cd427c14cb912b631727",
+    "semantic_hash": "116343893ca2cd427c14cb912b631727"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/delivery-location.test.ts": {
+    "mtime": 1793907840.9005952,
+    "ast_hash": "7bd78aa16aa67b009bcfbef331320281",
+    "semantic_hash": "7bd78aa16aa67b009bcfbef331320281"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/delivery-location.ts": {
+    "mtime": 1793908017.1369915,
+    "ast_hash": "209d1bc2e585f21d1cc5f6912fdd4e7f",
+    "semantic_hash": "209d1bc2e585f21d1cc5f6912fdd4e7f"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/edicion-orden-route.test.cjs": {
+    "mtime": 1795449354.953391,
+    "ast_hash": "ab89900c464f754b567313759a23ccd9",
+    "semantic_hash": "ab89900c464f754b567313759a23ccd9"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/edicion-orden.test.ts": {
+    "mtime": 1795449313.0937517,
+    "ast_hash": "d980b09f3c7fa4164e40e61cf2b910c6",
+    "semantic_hash": "d980b09f3c7fa4164e40e61cf2b910c6"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/edicion-orden.ts": {
+    "mtime": 1795449312.8238702,
+    "ast_hash": "39bcd4a65c6334c08f4c543790dc16be",
+    "semantic_hash": "39bcd4a65c6334c08f4c543790dc16be"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-account-routes.test.cjs": {
+    "mtime": 1793804077.8569524,
+    "ast_hash": "5d42ae57987e19ec2b46ef8cec1ff0dd",
+    "semantic_hash": "5d42ae57987e19ec2b46ef8cec1ff0dd"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-account-validation.test.ts": {
+    "mtime": 1793803410.7218554,
+    "ast_hash": "88639341136593b870feff9513ba201f",
+    "semantic_hash": "88639341136593b870feff9513ba201f"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-account-validation.ts": {
+    "mtime": 1793803409.721391,
+    "ast_hash": "01040b29e0f76efa1a9d3884c7d1915f",
+    "semantic_hash": "01040b29e0f76efa1a9d3884c7d1915f"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-account.test.ts": {
+    "mtime": 1793803902.9121711,
+    "ast_hash": "6f1f07104f055561658dd15bead25de3",
+    "semantic_hash": "6f1f07104f055561658dd15bead25de3"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-account.ts": {
+    "mtime": 1793803901.9118369,
+    "ast_hash": "94280e970883dc0d2875ae5d63595cb8",
+    "semantic_hash": "94280e970883dc0d2875ae5d63595cb8"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-consumption-regularization-route.test.cjs": {
+    "mtime": 1793826412.452894,
+    "ast_hash": "0282b7d87a8397fe9d4be2fcca061ac1",
+    "semantic_hash": "0282b7d87a8397fe9d4be2fcca061ac1"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-consumption-regularization.test.cjs": {
+    "mtime": 1793827103.2120874,
+    "ast_hash": "a4ed3e0077f9fdec5daaf46a8e7e26d5",
+    "semantic_hash": "a4ed3e0077f9fdec5daaf46a8e7e26d5"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-consumption-regularization.ts": {
+    "mtime": 1793827103.2116268,
+    "ast_hash": "ba0a494668d26e38632e66139ffc5d08",
+    "semantic_hash": "ba0a494668d26e38632e66139ffc5d08"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-consumption-route.test.cjs": {
+    "mtime": 1793826472.4939425,
+    "ast_hash": "9a757b2fb9a5030e26bb0eded858be86",
+    "semantic_hash": "9a757b2fb9a5030e26bb0eded858be86"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-consumption-validation.test.ts": {
+    "mtime": 1793826548.8822439,
+    "ast_hash": "7ea0b3bf7d760c35a688f619107825f2",
+    "semantic_hash": "7ea0b3bf7d760c35a688f619107825f2"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-consumption-validation.ts": {
+    "mtime": 1793803064.903309,
+    "ast_hash": "3f30f6b3dd484cb9e31fb0e14fbe7d74",
+    "semantic_hash": "3f30f6b3dd484cb9e31fb0e14fbe7d74"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-consumption.postgres.test.ts": {
+    "mtime": 1793911048.9870808,
+    "ast_hash": "07c118f4de340eb043d1a92788addbc1",
+    "semantic_hash": "07c118f4de340eb043d1a92788addbc1"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-consumption.service.test.cjs": {
+    "mtime": 1793826576.9067721,
+    "ast_hash": "84eb5e44f0e6a573d3a88e4ee3f1b550",
+    "semantic_hash": "84eb5e44f0e6a573d3a88e4ee3f1b550"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-consumption.ts": {
+    "mtime": 1793826521.8382223,
+    "ast_hash": "dfe7faafca2c6257e628f4cf82297814",
+    "semantic_hash": "dfe7faafca2c6257e628f4cf82297814"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-print.test.ts": {
+    "mtime": 1793803432.8788488,
+    "ast_hash": "5572d837369bcf62e9a5a2bba6584c00",
+    "semantic_hash": "5572d837369bcf62e9a5a2bba6584c00"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-print.ts": {
+    "mtime": 1793826834.5178816,
+    "ast_hash": "a91864186fdf10e403f32b0a262528e4",
+    "semantic_hash": "a91864186fdf10e403f32b0a262528e4"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-receipts-server.test.cjs": {
+    "mtime": 1793826540.0117989,
+    "ast_hash": "35e64f96fc92c502c3894558fe7474cf",
+    "semantic_hash": "35e64f96fc92c502c3894558fe7474cf"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-receipts-server.ts": {
+    "mtime": 1793804135.0300899,
+    "ast_hash": "16b75ff09330ac88eb5c28c4cb31c7d5",
+    "semantic_hash": "16b75ff09330ac88eb5c28c4cb31c7d5"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/employee-sales-boundaries.test.cjs": {
+    "mtime": 1794274192.8489752,
+    "ast_hash": "3e0102f0cce59b9752050748bd35cd03",
+    "semantic_hash": "3e0102f0cce59b9752050748bd35cd03"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/espera-moto.test.ts": {
+    "mtime": 1795441966.9329724,
+    "ast_hash": "5670341c1b6c0a864a4d11f854fc3283",
+    "semantic_hash": "5670341c1b6c0a864a4d11f854fc3283"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/espera-moto.ts": {
+    "mtime": 1795441965.9331162,
+    "ast_hash": "cfaacef6baecdbacfb2870db79cfbbc0",
+    "semantic_hash": "cfaacef6baecdbacfb2870db79cfbbc0"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/imagen-cliente.ts": {
+    "mtime": 1785987469.564075,
+    "ast_hash": "c6ad7263f784fc96a47861f1b22bd415",
+    "semantic_hash": "c6ad7263f784fc96a47861f1b22bd415"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/liquidacion-domicilio.test.ts": {
+    "mtime": 1786246936.143555,
+    "ast_hash": "26c12c042b9bda614c07435cb10521a2",
+    "semantic_hash": "26c12c042b9bda614c07435cb10521a2"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/ordenes-anulacion.ts": {
+    "mtime": 1786035885.0931017,
+    "ast_hash": "066f82e071af2f55bd47aafbb3d8fbeb",
+    "semantic_hash": "066f82e071af2f55bd47aafbb3d8fbeb"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/ordenes-mesero.test.ts": {
+    "mtime": 1795447548.163817,
+    "ast_hash": "10b7c76ed3288238163ab1cf5032b288",
+    "semantic_hash": "10b7c76ed3288238163ab1cf5032b288"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/ordenes-mesero.ts": {
+    "mtime": 1795447617.5174096,
+    "ast_hash": "c75995585d4d133edd7a01c4d11fa181",
+    "semantic_hash": "c75995585d4d133edd7a01c4d11fa181"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/order-creation.test.ts": {
+    "mtime": 1794274192.8492866,
+    "ast_hash": "5d473145aed45c0d6ce4e583b8154318",
+    "semantic_hash": "5d473145aed45c0d6ce4e583b8154318"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/order-creation.ts": {
+    "mtime": 1794274192.8495898,
+    "ast_hash": "522c8d7ed499ae3ce0e344f751f48cc7",
+    "semantic_hash": "522c8d7ed499ae3ce0e344f751f48cc7"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/order-delivery-routes.test.ts": {
+    "mtime": 1794171447.1439407,
+    "ast_hash": "219814814d9f3ebceadefc6e3bfd3ccf",
+    "semantic_hash": "219814814d9f3ebceadefc6e3bfd3ccf"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/order-payment-validaciones.test.ts": {
+    "mtime": 1786246936.1442466,
+    "ast_hash": "d6d726222148f2afa4fc3ee2d99d21c3",
+    "semantic_hash": "d6d726222148f2afa4fc3ee2d99d21c3"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/order-payment-validaciones.ts": {
+    "mtime": 1786246935.1501198,
+    "ast_hash": "4229ca4f97aa5b6df0bae25a46b1c164",
+    "semantic_hash": "4229ca4f97aa5b6df0bae25a46b1c164"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/payment-link.test.ts": {
+    "mtime": 1786246936.1751611,
+    "ast_hash": "2bfa626d394d41158c39fcb29ef41bee",
+    "semantic_hash": "2bfa626d394d41158c39fcb29ef41bee"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/product-select.ts": {
+    "mtime": 1793803430.246811,
+    "ast_hash": "7ac5019a8a50a737ec7191fbae9fbe93",
+    "semantic_hash": "7ac5019a8a50a737ec7191fbae9fbe93"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/resumen-cierre.test.ts": {
+    "mtime": 1795447618.5181062,
+    "ast_hash": "2598d2492c21c087ea3a07a4a4d60f1d",
+    "semantic_hash": "2598d2492c21c087ea3a07a4a4d60f1d"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/resumen-cierre.ts": {
+    "mtime": 1795447633.6145372,
+    "ast_hash": "8326c2f65f09593275b8f161d9270716",
+    "semantic_hash": "8326c2f65f09593275b8f161d9270716"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/revision-route.test.ts": {
+    "mtime": 1795462480.8998039,
+    "ast_hash": "b47e477f6430b3250b7de97e0d0900c9",
+    "semantic_hash": "b47e477f6430b3250b7de97e0d0900c9"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/storage.ts": {
+    "mtime": 1794154855.6590693,
+    "ast_hash": "3fb6330880cb71f719e6d894395d64ae",
+    "semantic_hash": "3fb6330880cb71f719e6d894395d64ae"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-agente.ts": {
+    "mtime": 1794067786.8478017,
+    "ast_hash": "9a760d66b6f006203960d6d41151f710",
+    "semantic_hash": "9a760d66b6f006203960d6d41151f710"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-ingreso.test.ts": {
+    "mtime": 1795464626.4883642,
+    "ast_hash": "f952a522b5797ec4f58c1955b7156345",
+    "semantic_hash": "f952a522b5797ec4f58c1955b7156345"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-ingreso.ts": {
+    "mtime": 1795464665.2291272,
+    "ast_hash": "7a1bbb36ae5daceae9b90da9c44046c7",
+    "semantic_hash": "7a1bbb36ae5daceae9b90da9c44046c7"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-mensajes.test.ts": {
+    "mtime": 1795441966.9337897,
+    "ast_hash": "eec348912bef9293eaad128222b63352",
+    "semantic_hash": "eec348912bef9293eaad128222b63352"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-mensajes.ts": {
+    "mtime": 1795441975.6948905,
+    "ast_hash": "735852b1f4b25b6a92cf7b9517370cf2",
+    "semantic_hash": "735852b1f4b25b6a92cf7b9517370cf2"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-orden.postgres.test.ts": {
+    "mtime": 1795441966.9344764,
+    "ast_hash": "326cccba1528c1dc4e51084f55e0fd9b",
+    "semantic_hash": "326cccba1528c1dc4e51084f55e0fd9b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-pedido.test.ts": {
+    "mtime": 1795464626.4568422,
+    "ast_hash": "f7caccabdfbd352899fba7e00a2ca610",
+    "semantic_hash": "f7caccabdfbd352899fba7e00a2ca610"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-pedido.ts": {
+    "mtime": 1795464676.5562377,
+    "ast_hash": "6393027a69cab3b7a1a0e86ffb577c71",
+    "semantic_hash": "6393027a69cab3b7a1a0e86ffb577c71"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-salidas.ts": {
+    "mtime": 1795441976.6952612,
+    "ast_hash": "0d1b8970c535502122c56429396aee67",
+    "semantic_hash": "0d1b8970c535502122c56429396aee67"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-webhook.test.ts": {
+    "mtime": 1794067647.2016618,
+    "ast_hash": "dba58b167e6bfddf38eb8ccfa238ea9f",
+    "semantic_hash": "dba58b167e6bfddf38eb8ccfa238ea9f"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/whatsapp-webhook.ts": {
+    "mtime": 1794067646.1881413,
+    "ast_hash": "dce45b5e46c7dc0f2d1191dca182f5ff",
+    "semantic_hash": "dce45b5e46c7dc0f2d1191dca182f5ff"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/withdrawal-print.test.ts": {
+    "mtime": 1793803684.2486951,
+    "ast_hash": "0cc1d800abac6cfdb12315d13522f34d",
+    "semantic_hash": "0cc1d800abac6cfdb12315d13522f34d"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/lib/withdrawal-print.ts": {
+    "mtime": 1793456049.995563,
+    "ast_hash": "a753e1ddfd3ebc32c46b68baf8da31f0",
+    "semantic_hash": "a753e1ddfd3ebc32c46b68baf8da31f0"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20260805000000_add_anulacion_orden/migration.sql": {
+    "mtime": 1786035618.153309,
+    "ast_hash": "76ba2d77b587aaa70fd4d939bcef8fbd",
+    "semantic_hash": "76ba2d77b587aaa70fd4d939bcef8fbd"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20260805000000_pagos_multiples/migration.sql": {
+    "mtime": 1786246935.185324,
+    "ast_hash": "f47b4c6624d5ed84bca6ca22f24f0b67",
+    "semantic_hash": "f47b4c6624d5ed84bca6ca22f24f0b67"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20260809000000_add_sesion_caja/migration.sql": {
+    "mtime": 1786247596.0644476,
+    "ast_hash": "d8fc5cae054164f33885a60aabeabd3f",
+    "semantic_hash": "d8fc5cae054164f33885a60aabeabd3f"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20261031000000_add_withdrawal_print_jobs/migration.sql": {
+    "mtime": 1793455699.5133781,
+    "ast_hash": "78b33676e1ebea2afc0b8f6c13c63c83",
+    "semantic_hash": "78b33676e1ebea2afc0b8f6c13c63c83"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20261104000000_employee_accounts/migration.sql": {
+    "mtime": 1793804578.9958613,
+    "ast_hash": "28bbabf1cc3b1639a610d8ec296e8382",
+    "semantic_hash": "28bbabf1cc3b1639a610d8ec296e8382"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20261105000000_whatsapp_orders/migration.sql": {
+    "mtime": 1793907866.0112586,
+    "ast_hash": "f5950b4b44b88ea97d4eaca276e702e0",
+    "semantic_hash": "f5950b4b44b88ea97d4eaca276e702e0"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20261107000000_whatsapp_revision/migration.sql": {
+    "mtime": 1794066232.268803,
+    "ast_hash": "66179f690a20a020399e85b44af94edf",
+    "semantic_hash": "66179f690a20a020399e85b44af94edf"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20261108000000_order_discount/migration.sql": {
+    "mtime": 1794173674.2723145,
+    "ast_hash": "60f637a148cd2ec77b44c87815f7de76",
+    "semantic_hash": "60f637a148cd2ec77b44c87815f7de76"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20261109000000_corte_turno/migration.sql": {
+    "mtime": 1794177926.0463634,
+    "ast_hash": "809cf31b9e93a795a272d50fe997f7af",
+    "semantic_hash": "809cf31b9e93a795a272d50fe997f7af"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20261122000000_anular_corte_turno/migration.sql": {
+    "mtime": 1795441975.695831,
+    "ast_hash": "9df83cb158200bd321c798bc97efcf92",
+    "semantic_hash": "9df83cb158200bd321c798bc97efcf92"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20261123000000_ordenes_habilitadas/migration.sql": {
+    "mtime": 1795447595.2945619,
+    "ast_hash": "461b9ac8e1744520b11439169e468f3c",
+    "semantic_hash": "461b9ac8e1744520b11439169e468f3c"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/prisma/migrations/20261124000000_revision_orden/migration.sql": {
+    "mtime": 1795452191.346111,
+    "ast_hash": "2a30c8f3201fc659ce49d989afdf8e74",
+    "semantic_hash": "2a30c8f3201fc659ce49d989afdf8e74"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/scripts/consultar-ordenes-por-item.ts": {
+    "mtime": 1786649021.089382,
+    "ast_hash": "765ea87c1a3d9af380eb146eaa348618",
+    "semantic_hash": "765ea87c1a3d9af380eb146eaa348618"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/types/caja.ts": {
+    "mtime": 1795447595.5842378,
+    "ast_hash": "fe6d6e36bc67139a326f02da1879e585",
+    "semantic_hash": "fe6d6e36bc67139a326f02da1879e585"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/types/cobro.test.ts": {
+    "mtime": 1794274192.8566034,
+    "ast_hash": "e40dc14fce0ec7be17905e929e7c4b6e",
+    "semantic_hash": "e40dc14fce0ec7be17905e929e7c4b6e"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/types/revision.test.ts": {
+    "mtime": 1795462629.815331,
+    "ast_hash": "1d2106203b6e295c479922b607c52496",
+    "semantic_hash": "1d2106203b6e295c479922b607c52496"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/types/revision.ts": {
+    "mtime": 1795462631.0009933,
+    "ast_hash": "5456001553a1a2bae65e4cee5d6ea2ff",
+    "semantic_hash": "5456001553a1a2bae65e4cee5d6ea2ff"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/whatsapp-agent/agente.mjs": {
+    "mtime": 1793984572.9044003,
+    "ast_hash": "ec976788dd4659eff03ef9da1d00ceaa",
+    "semantic_hash": "ec976788dd4659eff03ef9da1d00ceaa"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/whatsapp-agent/agente.test.mjs": {
+    "mtime": 1794068843.5193565,
+    "ast_hash": "7aa600b495374009be5c751753ed79be",
+    "semantic_hash": "7aa600b495374009be5c751753ed79be"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/whatsapp-agent/openwa.mjs": {
+    "mtime": 1794068844.293486,
+    "ast_hash": "2f34c9609a85a45064c1cf3a671499ed",
+    "semantic_hash": "2f34c9609a85a45064c1cf3a671499ed"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/.kiro/skills/graphify/SKILL.md": {
+    "mtime": 1785772786.5353243,
+    "ast_hash": "3d92d652ba3e4bba18e83a7e68d5b596",
+    "semantic_hash": "3d92d652ba3e4bba18e83a7e68d5b596"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/COMPROBANTES_RETIROS.md": {
+    "mtime": 1793456302.972031,
+    "ast_hash": "745d8f5f9c8a7a960aa5cb3d09a5628c",
+    "semantic_hash": "745d8f5f9c8a7a960aa5cb3d09a5628c"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/COMPROBANTES_STORAGE.md": {
+    "mtime": 1785987469.56094,
+    "ast_hash": "3c7d7709adb1b60da6dcc4ddcd2bb47f",
+    "semantic_hash": "3c7d7709adb1b60da6dcc4ddcd2bb47f"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/EMPLEADOS.md": {
+    "mtime": 1793827154.6042924,
+    "ast_hash": "95c31711e571d9539649d6e7288a8c0b",
+    "semantic_hash": "95c31711e571d9539649d6e7288a8c0b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/PLAN_CHECKLIST_COMANDAS.md": {
+    "mtime": 1793454969.3543656,
+    "ast_hash": "a51ced6c14440a6802f76f6d15e4a511",
+    "semantic_hash": "a51ced6c14440a6802f76f6d15e4a511"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/auditoria/2026-10-06/AUDITORIA.md": {
+    "mtime": 1791304618.6694832,
+    "ast_hash": "08d1de0295b6cb82a0a34035bef1fa94",
+    "semantic_hash": "08d1de0295b6cb82a0a34035bef1fa94"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-08-03-comprobantes-s3.md": {
+    "mtime": 1785987469.561736,
+    "ast_hash": "8d715b5086bc036c2e73732ac68f5a13",
+    "semantic_hash": "8d715b5086bc036c2e73732ac68f5a13"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-08-03-sesion-larga-y-login-con-hash.md": {
+    "mtime": 1785796791.7720952,
+    "ast_hash": "34b90e468d682ae2306a781579e6b6f4",
+    "semantic_hash": "34b90e468d682ae2306a781579e6b6f4"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-08-05-cobro-mixto-multipago.md": {
+    "mtime": 1786246935.1332254,
+    "ast_hash": "b34c6ea412ef8ca7b6009544887aef7b",
+    "semantic_hash": "b34c6ea412ef8ca7b6009544887aef7b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-11-03-cuentas-empleados.md": {
+    "mtime": 1793804765.3752267,
+    "ast_hash": "c4344d16035b3f68d515aa430c778657",
+    "semantic_hash": "c4344d16035b3f68d515aa430c778657"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-11-04-whatsapp-openwa.md": {
+    "mtime": 1794070345.5179868,
+    "ast_hash": "13ba0642d31fc545bcfa51d48b29b910",
+    "semantic_hash": "13ba0642d31fc545bcfa51d48b29b910"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-11-16-espera-moto-por-carga.md": {
+    "mtime": 1795441965.932649,
+    "ast_hash": "2419b20b0d87cccde161c7a96aed92b2",
+    "semantic_hash": "2419b20b0d87cccde161c7a96aed92b2"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-11-22-corte-ciego-y-resumen-cierre.md": {
+    "mtime": 1795441975.6891973,
+    "ast_hash": "75a8617cecbdad8294c36af4a4678213",
+    "semantic_hash": "75a8617cecbdad8294c36af4a4678213"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-11-23-ordenes-del-dia-para-cierre.md": {
+    "mtime": 1795447899.7485235,
+    "ast_hash": "95d5a0934c4b9a1b2f8736d6bb440940",
+    "semantic_hash": "95d5a0934c4b9a1b2f8736d6bb440940"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/plans/2026-11-23-revision-ordenes.md": {
+    "mtime": 1795451777.242559,
+    "ast_hash": "e6308b94c96cc5a03f23b9e7e2a6bc8b",
+    "semantic_hash": "e6308b94c96cc5a03f23b9e7e2a6bc8b"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/specs/2026-08-03-comprobantes-s3-design.md": {
+    "mtime": 1785800009.239142,
+    "ast_hash": "db5fd4504123b4ceeb176ae0d3b8c3d3",
+    "semantic_hash": "db5fd4504123b4ceeb176ae0d3b8c3d3"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/specs/2026-08-05-cobro-mixto-multipago-design.md": {
+    "mtime": 1786246935.1349869,
+    "ast_hash": "4b121506901354f27fac4186be20f3e0",
+    "semantic_hash": "4b121506901354f27fac4186be20f3e0"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/specs/2026-11-16-espera-moto-por-carga-design.md": {
+    "mtime": 1795441965.932822,
+    "ast_hash": "d8355d86ad30c8b747acbf37db478f84",
+    "semantic_hash": "d8355d86ad30c8b747acbf37db478f84"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/specs/2026-11-22-admin-tres-pestanas-design.md": {
+    "mtime": 1795441975.6896734,
+    "ast_hash": "9e085fa29e88f988f05ada67837b6166",
+    "semantic_hash": "9e085fa29e88f988f05ada67837b6166"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/specs/2026-11-22-corte-ciego-y-resumen-cierre-design.md": {
+    "mtime": 1795441975.6900866,
+    "ast_hash": "9091be20a1155f668f93fa194db6a1fc",
+    "semantic_hash": "9091be20a1155f668f93fa194db6a1fc"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/specs/2026-11-23-editar-orden-dos-pasos-design.md": {
+    "mtime": 1795449257.3670652,
+    "ast_hash": "8dd12cbe4fca51d404dce52853c83db9",
+    "semantic_hash": "8dd12cbe4fca51d404dce52853c83db9"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/specs/2026-11-23-ordenes-del-dia-para-cierre-design.md": {
+    "mtime": 1795447422.4523168,
+    "ast_hash": "4bba1b299adf0c8f70afa311cb9f3f8d",
+    "semantic_hash": "4bba1b299adf0c8f70afa311cb9f3f8d"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/docs/superpowers/specs/2026-11-23-revision-ordenes-design.md": {
+    "mtime": 1795462483.1811128,
+    "ast_hash": "d5c608714954e90e928cb1c9c59323a0",
+    "semantic_hash": "d5c608714954e90e928cb1c9c59323a0"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/graphify-out/memory/query_20260809_040511_vamos_a_implementar_una_nueva_funcionalidad__neces.md": {
+    "mtime": 1786248311.1351604,
+    "ast_hash": "3a5109b40db740b290ecc8cedceaa4af",
+    "semantic_hash": "3a5109b40db740b290ecc8cedceaa4af"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/public/plantilla-retiros.html": {
+    "mtime": 1793456074.0274658,
+    "ast_hash": "852c8eb8d2c79850ae66a68765436b47",
+    "semantic_hash": "852c8eb8d2c79850ae66a68765436b47"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/reports/Integraci\u00f3n facturaci\u00f3n electr\u00f3nica SRI.md": {
+    "mtime": 1793763564.8521,
+    "ast_hash": "4bfcea00536250fc55d622340a30d632",
+    "semantic_hash": "4bfcea00536250fc55d622340a30d632"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/research_notes/Integraci\u00f3n facturaci\u00f3n electr\u00f3nica SRI/ficha_tecnica_web_services.md": {
+    "mtime": 1793761163.5823426,
+    "ast_hash": "1fe4dfad0928cc27092225a0283e3c84",
+    "semantic_hash": "1fe4dfad0928cc27092225a0283e3c84"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/research_notes/Integraci\u00f3n facturaci\u00f3n electr\u00f3nica SRI/implementacion_practica.md": {
+    "mtime": 1793761326.90856,
+    "ast_hash": "0389c1aa255f2a44ef4d04084ccddb59",
+    "semantic_hash": "0389c1aa255f2a44ef4d04084ccddb59"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/research_notes/Integraci\u00f3n facturaci\u00f3n electr\u00f3nica SRI/normativa_y_tramites.md": {
+    "mtime": 1793761262.4939737,
+    "ast_hash": "08c6ba7b7586f40d32224f15d462c12d",
+    "semantic_hash": "08c6ba7b7586f40d32224f15d462c12d"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/research_notes/Integraci\u00f3n facturaci\u00f3n electr\u00f3nica SRI/reglas_tributarias_restaurante.md": {
+    "mtime": 1793761437.1111977,
+    "ast_hash": "c0f9a94e42c7d1ee7c5f2b079d5a16ac",
+    "semantic_hash": "c0f9a94e42c7d1ee7c5f2b079d5a16ac"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/research_notes/Integraci\u00f3n facturaci\u00f3n electr\u00f3nica SRI/xml_y_firma.md": {
+    "mtime": 1793761540.526858,
+    "ast_hash": "aff820b38e1edc7265c943617064d091",
+    "semantic_hash": "aff820b38e1edc7265c943617064d091"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/specs/001-simplificar-consumos-empleados/checklists/requirements.md": {
+    "mtime": 1793810027.9445648,
+    "ast_hash": "14fea315edad887ea7274ac0898252d0",
+    "semantic_hash": "14fea315edad887ea7274ac0898252d0"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/specs/001-simplificar-consumos-empleados/contracts/consumos.md": {
+    "mtime": 1793824960.9672477,
+    "ast_hash": "ebc20bc8309eb8dee8c733ae5f9ebb18",
+    "semantic_hash": "ebc20bc8309eb8dee8c733ae5f9ebb18"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/specs/001-simplificar-consumos-empleados/data-model.md": {
+    "mtime": 1793824960.967063,
+    "ast_hash": "5c462440065ef4af5da0ce2bf12fba20",
+    "semantic_hash": "5c462440065ef4af5da0ce2bf12fba20"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/specs/001-simplificar-consumos-empleados/plan.md": {
+    "mtime": 1793825053.7329044,
+    "ast_hash": "47e18c8b35a714d5c1837dbe680765cf",
+    "semantic_hash": "47e18c8b35a714d5c1837dbe680765cf"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/specs/001-simplificar-consumos-empleados/quickstart.md": {
+    "mtime": 1793827362.027298,
+    "ast_hash": "0541e06de100f6a5fd6c7ca191216631",
+    "semantic_hash": "0541e06de100f6a5fd6c7ca191216631"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/specs/001-simplificar-consumos-empleados/research.md": {
+    "mtime": 1793824960.9668603,
+    "ast_hash": "84b230dc94759a039190f5b36e331406",
+    "semantic_hash": "84b230dc94759a039190f5b36e331406"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/specs/001-simplificar-consumos-empleados/spec.md": {
+    "mtime": 1793810434.0558734,
+    "ast_hash": "de45889dbee87bed996d7af5210af0dd",
+    "semantic_hash": "de45889dbee87bed996d7af5210af0dd"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/specs/001-simplificar-consumos-empleados/tasks.md": {
+    "mtime": 1793827362.0280213,
+    "ast_hash": "15a4c90137b13ab074b30fb6263667b2",
+    "semantic_hash": "15a4c90137b13ab074b30fb6263667b2"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/whatsapp-agent/README.md": {
+    "mtime": 1795464653.7398067,
+    "ast_hash": "c102f4a1e1abc8bc48d24621eb2228b4",
+    "semantic_hash": "c102f4a1e1abc8bc48d24621eb2228b4"
+  },
+  "/Users/mauriciopesantezg/restaurant-pos/whatsapp-agent/docker-compose.yml": {
+    "mtime": 1794429063.7838557,
+    "ast_hash": "84a0ad3c964e4b4e4ac8b66c2f56835f",
+    "semantic_hash": "84a0ad3c964e4b4e4ac8b66c2f56835f"
   }
 }
