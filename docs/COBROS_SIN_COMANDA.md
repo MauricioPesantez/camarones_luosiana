@@ -2,9 +2,9 @@
 
 El mesero entra a **Por cobrar**, localiza el pedido y pulsa **Cobrar**. El enlace abre el formulario existente; no hace falta escanear ni reimprimir el QR.
 
-La lista incluye las órdenes creadas hoy, desde la medianoche de Guayaquil, que tienen saldo pendiente. Incluye mesas y pedidos para llevar propios, además de domicilios en efectivo de cualquier creador. No incluye órdenes anuladas, canceladas, pendientes de aprobación, consumos de empleados ni domicilios por transferencia. Una orden de hoy que vuelve a tener saldo tras agregar productos reaparece aunque conserve el estado operativo `cobrada`.
+La lista incluye las órdenes creadas hoy, desde la medianoche de Guayaquil, que tienen saldo pendiente. El mesero ve sus mesas, los pedidos para llevar creados por Digital y los domicilios en efectivo de cualquier creador. No incluye órdenes anuladas, canceladas, pendientes de aprobación, consumos de empleados ni domicilios por transferencia. Una orden de hoy que vuelve a tener saldo tras agregar productos reaparece aunque conserve el estado operativo `cobrada`.
 
-La consulta SQL, el saldo, la liquidación del envío y los permisos se resuelven en el servidor. El mesero puede cobrar un domicilio compartido pero solo editar productos de sus propias órdenes. La caja debe estar abierta para cobrar. Esta vista no muestra el esperado de caja ni reemplaza la revisión de cierre habilitada por el administrador.
+La consulta SQL, el saldo, la liquidación del envío y los permisos se resuelven en el servidor. El mesero puede cobrar las órdenes compartidas. La edición de productos se limita a sus propias órdenes. La caja debe estar abierta para cobrar. Esta vista no muestra el esperado de caja ni reemplaza la revisión de cierre habilitada por el administrador.
 
 ## Flujo y contratos
 

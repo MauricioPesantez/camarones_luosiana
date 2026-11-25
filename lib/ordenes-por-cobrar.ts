@@ -22,13 +22,14 @@ export function alcancePorCobrar(
     },
     OR: [
       {
-        tipoOrden: { in: ["local", "para_llevar"] },
+        tipoOrden: "local",
         OR: [
           { creadorId: usuario.id },
           { creadorId: null, mesero: usuario.nombre },
         ],
       },
       { tipoOrden: "domicilio", metodoPagoPrevisto: "efectivo" },
+      { tipoOrden: "para_llevar", creadorRol: "digital" },
     ],
   };
 }

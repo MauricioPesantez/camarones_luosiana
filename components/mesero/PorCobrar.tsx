@@ -144,8 +144,8 @@ export default function PorCobrar({
         </button>
       </div>
       <p className="text-sm text-slate-600">
-        Tus mesas y pedidos para llevar, junto con los domicilios en efectivo.
-        Puedes cobrar desde aquí aunque no se haya impreso la comanda.
+        Tus mesas, los pedidos para llevar y los domicilios en efectivo. Puedes
+        cobrar desde aquí aunque no se haya impreso la comanda.
       </p>
       {error && (
         <p
