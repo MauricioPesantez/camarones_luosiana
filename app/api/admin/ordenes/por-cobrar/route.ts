@@ -86,7 +86,7 @@ export async function POST(request: Request) {
         sessionId: config.sessionId,
         tipo: 'RECORDATORIO_COBRO',
         destino: config.grupoChatId,
-        texto: textoOrdenesPorCobrar(ordenes),
+        texto: textoOrdenesPorCobrar(ordenes, ahora),
         clave: `por-cobrar:${ahora.getTime()}`,
       },
     });

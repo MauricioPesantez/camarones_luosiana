@@ -6,6 +6,7 @@ import {
   obtenerCostoEnvio,
   obtenerEtiquetaNivelPicante,
 } from '../types/orden';
+import { formatearTiempoTranscurrido } from './tiempo-transcurrido';
 
 /** Datos ya guardados: el mensaje refleja la orden, no el texto recibido. */
 export interface OrdenPublicable {
@@ -250,6 +251,7 @@ export function textoOrdenesSinUbicacion(ordenes: Encabezado[]): string {
 
 export type OrdenPorCobrar = Encabezado & Pick<OrdenPublicable, 'tipoOrden' | 'nombreCliente' | 'telefonoCliente'> & {
   numeroMesa: number | null;
+  createdAt: Date;
 };
 
 function lugar(orden: OrdenPorCobrar): string {
@@ -259,10 +261,10 @@ function lugar(orden: OrdenPorCobrar): string {
 }
 
 /** Lo pide el admin a mano al cierre: el grupo cobra y cierra lo que siga abierto. */
-export function textoOrdenesPorCobrar(ordenes: OrdenPorCobrar[]): string {
+export function textoOrdenesPorCobrar(ordenes: OrdenPorCobrar[], ahora: Date): string {
   return [
     '⏰ ÓRDENES SIN COBRAR:',
-    ...ordenes.map((orden) => `🧾 ${numero(orden)} · ${lugar(orden)}`),
+    ...ordenes.map((orden) => `🧾 ${numero(orden)} · ${lugar(orden)} · creada hace ${formatearTiempoTranscurrido(orden.createdAt, ahora)}`),
     '🙏 Por favor cobren y cierren estas órdenes en el POS. ✅',
   ].join('\n');
 }
