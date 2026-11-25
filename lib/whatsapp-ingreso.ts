@@ -102,7 +102,11 @@ function aplicarEleccion(pedido: PedidoWhatsapp, dudas: DudaProducto[], numeros:
 
 function buscarOrdenDelCliente(tx: Prisma.TransactionClient, pedido: PedidoWhatsapp, desde: Date) {
   const cliente: Prisma.OrdenWhereInput = pedido.telefono
-    ? { telefonoCliente: { in: [pedido.telefono, `0${pedido.telefono.slice(4)}`] } }
+    ? { telefonoCliente: {
+      in: pedido.telefono.startsWith('+593')
+        ? [pedido.telefono, `0${pedido.telefono.slice(4)}`]
+        : [pedido.telefono],
+    } }
     : { nombreCliente: { equals: pedido.cliente ?? '', mode: 'insensitive' } };
   return tx.orden.findFirst({
     where: {

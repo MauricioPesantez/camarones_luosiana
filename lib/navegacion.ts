@@ -90,8 +90,8 @@ const NAV_POR_ROL: Record<Rol, SeccionNav[]> = {
         },
         {
           id: "ordenes",
-          label: "Mis órdenes",
-          labelCorto: "Órdenes",
+          label: "Por cobrar",
+          labelCorto: "Por cobrar",
           emoji: "📋",
           href: "/mesero?vista=ordenes",
           enBarraInferior: true,

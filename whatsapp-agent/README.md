@@ -14,6 +14,7 @@ Número del local ◀── confirmación o error ───────┘
 
 - **OpenWA** mantiene vinculado el número ejecutor y entrega cada mensaje al POS.
 - **POS** valida el pedido y crea la orden, la impresión y los mensajes de salida en una sola operación.
+- **Teléfono del cliente:** Ecuador conserva `0990000000`, `593990000000` y `+593 99 000 0000`. Para otros países, escribe `+` y el código de país, por ejemplo `+57 300 123 4567` o `+1 (202) 555-0123` (8 a 15 dígitos en total). Se permiten espacios, puntos, guiones y paréntesis; se guarda el número con `+` y sin separadores. Esta validación comprueba el formato, no que el número exista o tenga WhatsApp.
 - **Agente** consulta el POS cada 5 a 60 s y envía esos mensajes. Si el envío falla, reintenta con la misma clave para no duplicar. Si no sabe si el mensaje salió, no lo reenvía: lo deja en revisión.
 - **Aviso de moto:** al vencer la espera (`moto N`, o 10 minutos sin esa línea), el POS pide la moto en el grupo Motos con cliente, teléfono, ubicación y monto a cobrar. Cuando el agente lo envía, la orden queda como "Delivery pedido".
 

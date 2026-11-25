@@ -81,6 +81,22 @@ for (const tel of ['099 000 0000', '099.000.0000', '+593 099 000 0000', '\u202a+
   assert.equal(pedidoDe(`Domicilio\n${tel}\ncombo simple natural\nefectivo $2`).telefono, '+593990000000', tel);
 }
 
+// Otros países requieren + y conservan su código; solo se valida el formato.
+for (const [tel, esperado] of [
+  ['+57 300 123 4567', '+573001234567'],
+  ['+1 (202) 555-0123', '+12025550123'],
+  ['\u202a+34 612.345.678\u202c', '+34612345678'],
+  ['+12345678', '+12345678'],
+  ['+123456789012345', '+123456789012345'],
+]) {
+  const pedido = pedidoDe(`Domicilio\nCliente Extranjero\n${tel}\ncombo simple natural\nefectivo $2`);
+  assert.equal(pedido.telefono, esperado, tel);
+  assert.equal(pedido.cliente, 'Cliente Extranjero');
+}
+for (const tel of ['573001234567', '+0123456789', '+1234567', '+1234567890123456', '+5931234567']) {
+  assert.match(erroresDe(`Domicilio\n${tel}\ncombo simple natural\nefectivo $2`), /Teléfono no válido/, tel);
+}
+
 // Caracteres invisibles o saltos de línea raros no rompen el tipo de pedido.
 for (const [nombre, texto] of [
   ['espacio de ancho cero', `Domiclio\u200b\n${TEL}\ncombo simple natural\nefectivo $2`],
@@ -269,6 +285,11 @@ const hash = hashPedido(pedidoDe(base));
 assert.match(hash, /^[0-9a-f]{64}$/);
 assert.equal(hashPedido(pedidoDe(base.toUpperCase().replace('X', 'x'))), hash);
 assert.equal(hashPedido(pedidoDe(base.replace('+593 99 000 0000', '0990000000'))), hash);
+assert.equal(
+  hashPedido(pedidoDe(base.replace(TEL, '+1 (202) 555-0123'))),
+  hashPedido(pedidoDe(base.replace(TEL, '+12025550123'))),
+);
+assert.notEqual(hashPedido(pedidoDe(base.replace(TEL, '+573001234567'))), hash);
 assert.equal(hashPedido(pedidoDe(`Domicilio\n1 cangrejo\n${TEL}\nefectivo $2\ncombo simple natural`)), hash);
 for (const [de, a] of [
   ['1 cangrejo', '2 cangrejos'], ['natural', 'leve'], ['efectivo $2', 'efectivo $3'], ['efectivo $2', 'trans $2'],
