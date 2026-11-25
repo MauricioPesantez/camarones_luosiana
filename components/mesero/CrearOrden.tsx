@@ -27,6 +27,7 @@ interface ItemCarrito {
 
 import { useAuth } from "@/lib/auth";
 import {
+  MAX_ESPERA_MOTO_MIN,
   MetodoPago,
   NIVELES_PICANTE,
   NivelPicante,
@@ -38,6 +39,7 @@ import {
   calcularRecargoEnvases,
   esCategoriaCombo,
   esDescuentoSolicitado,
+  esEsperaMotoValida,
   etiquetaDescuento,
 } from "@/types/orden";
 
@@ -58,6 +60,7 @@ export default function CrearOrden() {
   const [ubicacionUrl, setUbicacionUrl] = useState("");
   const [referenciaEntrega, setReferenciaEntrega] = useState("");
   const [costoEnvio, setCostoEnvio] = useState("");
+  const [esperaMoto, setEsperaMoto] = useState("");
   // Solo domicilio: define si al motorizado se le cobra o se le entrega dinero.
   const [metodoPagoPrevisto, setMetodoPagoPrevisto] = useState<MetodoPago | "">(
     "",
@@ -368,6 +371,8 @@ export default function CrearOrden() {
   const calcularCostoEnvio = () =>
     tipoOrden === "domicilio" ? parseFloat(costoEnvio) || 0 : 0;
 
+  const esperaMotoMin = esperaMoto.trim() ? Number(esperaMoto) : undefined;
+
   const puedeDescontar = ROLES_DESCUENTO.includes(usuario?.rol ?? "");
   const descuentoEscrito = {
     tipo: tipoDescuento,
@@ -457,6 +462,12 @@ export default function CrearOrden() {
       (!costoEnvio || parseFloat(costoEnvio) < 0)
     )
       return falta("costo-envio", "Ingresa el costo de envío");
+    if (
+      tipoOrden === "domicilio" &&
+      esperaMotoMin !== undefined &&
+      (!esEsperaMotoValida(esperaMotoMin) || !/^\d+$/.test(esperaMoto.trim()))
+    )
+      return falta("espera-moto", `Ingresa un número entero de 0 a ${MAX_ESPERA_MOTO_MIN} minutos`);
     if (tipoOrden === "domicilio" && !metodoPagoPrevisto)
       return falta("metodo-pago", "Selecciona la modalidad de pago");
     if (
@@ -512,6 +523,7 @@ export default function CrearOrden() {
             tipoOrden === "domicilio" ? referenciaEntrega : undefined,
           costoEnvio:
             tipoOrden === "domicilio" ? parseFloat(costoEnvio) : undefined,
+          esperaMotoMin: tipoOrden === "domicilio" ? esperaMotoMin : undefined,
           metodoPagoPrevisto:
             tipoOrden === "domicilio" ? metodoPagoPrevisto : undefined,
           transferenciaConfirmada:
@@ -555,6 +567,7 @@ export default function CrearOrden() {
         setUbicacionUrl("");
         setReferenciaEntrega("");
         setCostoEnvio("");
+        setEsperaMoto("");
         setMetodoPagoPrevisto("");
         setTransferenciaConfirmada(false);
         setObservaciones("");
@@ -611,7 +624,7 @@ export default function CrearOrden() {
     errorActual?.campo === campo ? " border-red-500 ring-2 ring-red-200" : "";
   const mensajeError = (campo: string) =>
     errorActual?.campo === campo ? (
-      <p role="alert" className="mt-1 text-sm font-semibold text-red-600">
+      <p id={`${campo}-error`} role="alert" className="mt-1 text-sm font-semibold text-red-600">
         {errorActual.mensaje}
       </p>
     ) : null;
@@ -854,6 +867,28 @@ export default function CrearOrden() {
                     className="w-full border rounded-lg px-4 py-2 text-black"
                     placeholder="Ej: casa azul, junto a la farmacia"
                   />
+                </div>
+                <div className="col-span-2">
+                  <label htmlFor="espera-moto" className="block text-sm font-medium mb-2 text-gray-800">
+                    Pedir moto en (minutos)
+                  </label>
+                  <input
+                    id="espera-moto"
+                    name="esperaMotoMin"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]+"
+                    value={esperaMoto}
+                    onChange={(e) => setEsperaMoto(e.target.value)}
+                    aria-invalid={errorActual?.campo === "espera-moto"}
+                    aria-describedby={errorActual?.campo === "espera-moto" ? "espera-moto-ayuda espera-moto-error" : "espera-moto-ayuda"}
+                    className={`w-full border rounded-lg px-4 py-2 text-black${claseError("espera-moto")}`}
+                    placeholder="Automático"
+                  />
+                  <p id="espera-moto-ayuda" className="mt-1 text-xs text-gray-600">
+                    Déjalo vacío para calcular la espera según la cocina. Usa 0 para pedirla enseguida.
+                  </p>
+                  {mensajeError("espera-moto")}
                 </div>
               </div>
             )}

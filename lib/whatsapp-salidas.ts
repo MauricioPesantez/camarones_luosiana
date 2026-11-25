@@ -13,6 +13,7 @@ import {
 } from '@/lib/whatsapp-mensajes';
 import type { PedidoWhatsapp } from '@/lib/whatsapp-pedido';
 import { ConfiguracionWhatsapp, leerConfiguracion } from '@/lib/whatsapp-webhook';
+import { esEsperaMotoValida } from '@/types/orden';
 
 const ESPERA_DELIVERY_MIN = 10;
 const SIN_SALIR = ['PENDIENTE', 'REINTENTO'];
@@ -80,7 +81,7 @@ async function entradaDeOrden(tx: Prisma.TransactionClient, ordenId: string) {
   return { entrada, config };
 }
 
-/** Solo órdenes nacidas por WhatsApp: una orden manual no genera salidas. */
+/** Al aprobar, la espera empieza desde que la orden entra a cocina. */
 export async function registrarAprobacionWhatsapp(
   tx: Prisma.TransactionClient,
   orden: OrdenConId,
@@ -88,7 +89,22 @@ export async function registrarAprobacionWhatsapp(
   ahora: Date,
 ): Promise<void> {
   const origen = await entradaDeOrden(tx, orden.id);
-  if (!origen) return;
+  if (!origen) {
+    if (orden.tipoOrden !== 'domicilio') return;
+    const creacion = await tx.historialOrden.findFirst({
+      where: { ordenId: orden.id, tipoAccion: 'orden_creada_pendiente_stock' },
+      select: { datosDespues: true },
+    });
+    // Las órdenes del POS que solicitan moto guardan null para la espera automática.
+    const datos = creacion?.datosDespues;
+    if (datos && typeof datos === 'object' && !Array.isArray(datos)) {
+      const espera = datos.esperaMotoMin;
+      if (espera === null || esEsperaMotoValida(espera)) {
+        await programarMotoDesdePos(tx, orden, ahora, espera);
+      }
+    }
+    return;
+  }
 
   const { entrada, config } = origen;
   // La línea moto del pedido sigue vigente aunque la aprobación llegue después.
@@ -254,6 +270,19 @@ export function leerAvisoMoto(db: Pick<Prisma.TransactionClient, 'whatsappSalida
   });
 }
 
+export async function programarMotoDesdePos(
+  tx: Prisma.TransactionClient,
+  orden: OrdenConId,
+  ahora: Date,
+  esperaMotoMin: number | null,
+): Promise<void> {
+  const config = leerConfiguracion(process.env);
+  if (!config?.habilitado) return;
+  const espera = await resolverEsperaMoto(tx, orden, ahora, esperaMotoMin);
+  const disponibleAt = avisoDeDelivery(orden, ahora, espera?.minutos);
+  if (disponibleAt) await programarAvisoMoto(tx, orden, disponibleAt, config);
+}
+
 /**
  * Pide la moto a una hora (ahora o más tarde): mueve o crea el aviso a Motos.
  * Uno ya enviado o en envío no se toca; al enviarse, el agente marca la orden.
@@ -262,8 +291,8 @@ export async function programarAvisoMoto(
   tx: Prisma.TransactionClient,
   orden: PedidoMoto & { id: string },
   disponibleAt: Date,
+  config = leerConfiguracion(process.env),
 ): Promise<ResultadoProgramarMoto> {
-  const config = leerConfiguracion(process.env);
   if (!config) return 'sin_configuracion';
 
   const clave = `recordatorio:${orden.id}`;

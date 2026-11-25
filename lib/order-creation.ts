@@ -7,6 +7,7 @@ import { PUBLIC_PRODUCT_SELECT } from '@/lib/product-select';
 import { ItemSinStock } from '@/types/stock';
 import {
   CrearOrdenRequest,
+  MAX_ESPERA_MOTO_MIN,
   MetodoPago,
   RECARGO_RECIPIENTES,
   TipoOrden,
@@ -15,6 +16,7 @@ import {
   calcularRecargoEnvases,
   esCategoriaCombo,
   esDescuentoSolicitado,
+  esEsperaMotoValida,
   esMetodoPago,
   esNivelPicante,
   etiquetaDescuento,
@@ -34,6 +36,7 @@ import { bloquearCajaAbierta, exigirCajaAbierta } from '@/lib/caja';
 import { ROL_ABRE_CAJA } from '@/types/caja';
 import { UbicacionInvalidaError, parsearUbicacionEntrega } from '@/lib/delivery-location';
 import { appendEmployeeMovement, lockEmployeeAccount } from '@/lib/employee-account';
+import { programarMotoDesdePos } from '@/lib/whatsapp-salidas';
 
 export const ORDEN_INCLUDE = {
   items: {
@@ -340,7 +343,11 @@ export async function prepararOrden(
 }
 
 /** Orden, stock, historial y trabajo de impresion se confirman juntos en `tx`. */
-export async function registrarOrden(tx: Prisma.TransactionClient, preparada: OrdenPreparada) {
+export async function registrarOrden(
+  tx: Prisma.TransactionClient,
+  preparada: OrdenPreparada,
+  esperaMotoPos?: number | null,
+) {
   const {
     actor: creador,
     body,
@@ -491,6 +498,7 @@ export async function registrarOrden(tx: Prisma.TransactionClient, preparada: Or
         descuentoSolicitado: descuentoSolicitado ? { ...descuentoSolicitado } : null,
         recargo: Number(recargo),
         costoEnvio: Number(costoEnvio),
+        ...(esperaMotoPos !== undefined ? { esperaMotoMin: esperaMotoPos } : {}),
         metodoPagoPrevisto,
         total: Number(totalFinal),
         tiempoEstimado,
@@ -674,8 +682,18 @@ export async function crearOrden(
   body: CrearOrdenRequest,
   requestUrl: string,
 ) {
+  const esperaMotoPos = body.tipoOrden === 'domicilio' ? body.esperaMotoMin ?? null : undefined;
+  if (esperaMotoPos != null && !esEsperaMotoValida(esperaMotoPos)) {
+    throw new OrdenInvalidaError(`La espera para pedir moto debe ser un número entero de 0 a ${MAX_ESPERA_MOTO_MIN} minutos`);
+  }
   const preparada = await prepararOrden(actor, body, requestUrl);
-  const registrada = await prisma.$transaction((tx) => registrarOrden(tx, preparada));
+  const registrada = await prisma.$transaction(async (tx) => {
+    const resultado = await registrarOrden(tx, preparada, esperaMotoPos);
+    if (esperaMotoPos !== undefined && resultado.orden.estado === 'pendiente') {
+      await programarMotoDesdePos(tx, resultado.orden, resultado.orden.createdAt, esperaMotoPos);
+    }
+    return resultado;
+  });
   const efectos = await ejecutarEfectosPosteriores(preparada, registrada);
   const {
     recargo,

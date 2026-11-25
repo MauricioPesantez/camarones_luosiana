@@ -3,10 +3,12 @@ import { createHash } from 'node:crypto';
 import { normalizarUbicacionUrl } from './delivery-location';
 import {
   DescuentoSolicitado,
+  MAX_ESPERA_MOTO_MIN,
   NIVELES_PICANTE,
   NivelPicante,
   esCategoriaCombo,
   esDescuentoSolicitado,
+  esEsperaMotoValida,
 } from '../types/orden';
 
 const MAX_TEXTO = 4000;
@@ -15,7 +17,6 @@ const MAX_CANTIDAD = 99;
 const MAX_CLIENTE = 100;
 const MAX_OBSERVACIONES = 500;
 const MAX_ENVIO = 999.99;
-const MAX_ESPERA_MOTO = 120;
 const MAX_OPCIONES = 4;
 
 export interface ItemPedido {
@@ -279,7 +280,7 @@ export function interpretarPedido(texto: string): ResultadoPedido {
     const motoLinea = normalPrincipal.match(MOTO);
     if (motoLinea) {
       esperaMotoMin = Number(motoLinea[1]);
-      if (esperaMotoMin > MAX_ESPERA_MOTO) errores.push(`Moto: máximo ${MAX_ESPERA_MOTO} minutos`);
+      if (!esEsperaMotoValida(esperaMotoMin)) errores.push(`Moto: máximo ${MAX_ESPERA_MOTO_MIN} minutos`);
       ultimoEsProducto = false;
       continue;
     }

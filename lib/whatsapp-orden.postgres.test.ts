@@ -20,6 +20,7 @@ import * as productSelect from './product-select';
 import * as webhook from './whatsapp-webhook';
 import * as cajaTypes from '../types/caja';
 import * as cobroTypes from '../types/cobro';
+import * as employeeAccount from './employee-account';
 import * as ordenTypes from '../types/orden';
 
 const testUrl = process.env.EMPLOYEE_TEST_DATABASE_URL;
@@ -69,15 +70,16 @@ const deps: Record<string, unknown> = {
   '@/lib/sse': { notificarClientes: (evento: string) => { eventos.push(evento); } },
   '@/lib/print-jobs': printJobs, '@/lib/print-config': printConfig, '@/lib/daily-order-number': dailyNumber,
   '@/lib/payment-link': load('lib/payment-link.ts', {}), '@/lib/espera-moto': load('lib/espera-moto.ts', {}),
+  '@/lib/employee-account': employeeAccount,
   '@/lib/delivery-location': location,
   '@/lib/caja': { bloquearCajaAbierta: async () => {}, exigirCajaAbierta: async () => {} },
   '@/types/caja': cajaTypes, '@/types/cobro': cobroTypes, '@/types/orden': ordenTypes,
   '@/lib/whatsapp-mensajes': mensajes, '@/lib/whatsapp-pedido': pedido, '@/lib/whatsapp-webhook': webhook,
 };
-const creacion = load<typeof import('./order-creation')>('lib/order-creation.ts', deps);
-deps['@/lib/order-creation'] = creacion;
 const salidas = load<typeof import('./whatsapp-salidas')>('lib/whatsapp-salidas.ts', deps);
 deps['@/lib/whatsapp-salidas'] = salidas;
+const creacion = load<typeof import('./order-creation')>('lib/order-creation.ts', deps);
+deps['@/lib/order-creation'] = creacion;
 const ingreso = load<typeof import('./whatsapp-ingreso')>('lib/whatsapp-ingreso.ts', deps);
 const config = webhook.leerConfiguracion(process.env)!;
 const admin = { id: 'admin', nombre: 'Admin', rol: 'admin' };
@@ -360,15 +362,23 @@ async function pruebas() {
   assert.ok(rechazo.every((s) => s.tipo === 'RESPUESTA_EMPLEADO'));
   assert.equal((await prisma.cobro.findFirstOrThrow()).estado, 'REEMBOLSO_PENDIENTE');
 
-  // Una orden manual aprobada no genera salidas de WhatsApp.
+  // El domicilio del POS conserva la espera hasta aprobarse y avisa solamente a Motos.
   await reiniciar(0);
   const manual = await creacion.crearOrden(actor, {
     tipoOrden: 'domicilio', telefonoCliente: '0990000000', costoEnvio: 1, metodoPagoPrevisto: 'efectivo',
-    solicitarAprobacion: true, mesero: 'x',
+    solicitarAprobacion: true, esperaMotoMin: 25, mesero: 'x',
     items: [{ productoId: combo.id, cantidad: 1, precioUnitario: 0, nivelPicante: 'natural' }],
   }, 'http://test.invalid/api');
-  assert.equal((await pedirRuta(aprobar, { ordenId: manual.orden.id })).status, 200);
   assert.equal(await prisma.whatsappSalida.count(), 0);
+  const aprobacionManual = Date.now();
+  assert.equal((await pedirRuta(aprobar, { ordenId: manual.orden.id })).status, 200);
+  assert.equal((await pedirRuta(aprobar, { ordenId: manual.orden.id })).status, 400);
+  const [avisoManual] = await salidasDe(manual.orden.id);
+  assert.equal(await prisma.whatsappSalida.count(), 1);
+  assert.equal(avisoManual.tipo, 'RECORDATORIO_DELIVERY');
+  assert.equal(avisoManual.destino, 'motos@g.us');
+  assert.ok(avisoManual.disponibleAt.getTime() >= aprobacionManual + 25 * 60_000);
+  assert.ok(avisoManual.disponibleAt.getTime() <= Date.now() + 25 * 60_000);
 
   // Agente: reserva atómica, token por intento y recuperación.
   await reiniciar();

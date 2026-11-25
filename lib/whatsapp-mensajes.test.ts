@@ -113,17 +113,20 @@ Pago: efectivo`);
 assert.equal(textoAnulacion(orden), 'ANULADA orden #42 · 04/11/2026\nNo preparar ni enviar.');
 assert.match(textoOrdenesSinUbicacion([orden, { ...orden, numeroDiario: 43 }]), /2 órdenes.*#42, #43.*POS/);
 
-console.log('whatsapp-mensajes tests: ok');
-
 {
+  const ahora = new Date('2026-11-09T20:00:00Z');
   const base = { fechaNumeroDiario: '2026-11-09', nombreCliente: null, telefonoCliente: null, numeroMesa: null };
   assert.equal(textoOrdenesPorCobrar([
-    { ...base, numeroDiario: 7, tipoOrden: 'local', numeroMesa: 3 },
-    { ...base, numeroDiario: 9, tipoOrden: 'para_llevar', nombreCliente: 'Ana', telefonoCliente: '0987654321' },
-    { ...base, numeroDiario: 10, tipoOrden: 'domicilio', telefonoCliente: '0987654321' },
-  ]), `⏰ ÓRDENES SIN COBRAR:
-🧾 #7 · 🍽️ Mesa 3
-🧾 #9 · 🥡 Para llevar · Ana · 0987654321
-🧾 #10 · 🛵 Domicilio · 0987654321
+    { ...base, numeroDiario: 7, tipoOrden: 'local', numeroMesa: 3, createdAt: new Date('2026-11-09T18:35:00Z') },
+    { ...base, numeroDiario: 8, tipoOrden: 'local', numeroMesa: 4, createdAt: new Date('2026-11-09T19:00:00Z') },
+    { ...base, numeroDiario: 9, tipoOrden: 'para_llevar', nombreCliente: 'Ana', telefonoCliente: '0987654321', createdAt: new Date('2026-11-09T19:40:30Z') },
+    { ...base, numeroDiario: 10, tipoOrden: 'domicilio', telefonoCliente: '0987654321', createdAt: new Date('2026-11-09T19:59:30Z') },
+  ], ahora), `⏰ ÓRDENES SIN COBRAR:
+🧾 #7 · 🍽️ Mesa 3 · creada hace 1 h 25 min
+🧾 #8 · 🍽️ Mesa 4 · creada hace 1 h
+🧾 #9 · 🥡 Para llevar · Ana · 0987654321 · creada hace 19 min
+🧾 #10 · 🛵 Domicilio · 0987654321 · creada hace menos de 1 min
 🙏 Por favor cobren y cierren estas órdenes en el POS. ✅`);
 }
+
+console.log('whatsapp-mensajes tests: ok');
