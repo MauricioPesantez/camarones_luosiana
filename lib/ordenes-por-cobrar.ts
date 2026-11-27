@@ -6,7 +6,7 @@ import { canUserModifyOrder } from "./order-payment";
 import { sePuedeEditar } from "./edicion-orden";
 import { paymentBlockReason } from "./payment-policy";
 import { presentarCobro } from "./presentacion-cobro";
-import { obtenerFechaEcuador } from "./fecha-ecuador";
+import { obtenerFechaEcuador, obtenerRangoEcuador } from "./fecha-ecuador";
 import type { OrdenesPorCobrar } from "../types/por-cobrar";
 
 export function alcancePorCobrar(
@@ -22,13 +22,14 @@ export function alcancePorCobrar(
     },
     OR: [
       {
-        tipoOrden: { in: ["local", "para_llevar"] },
+        tipoOrden: "local",
         OR: [
           { creadorId: usuario.id },
           { creadorId: null, mesero: usuario.nombre },
         ],
       },
       { tipoOrden: "domicilio", metodoPagoPrevisto: "efectivo" },
+      { tipoOrden: "para_llevar", creadorRol: "digital" },
     ],
   };
 }
@@ -57,7 +58,13 @@ export async function listarPorCobrar(
   usuario: AuthenticatedUser,
   cursor: ReturnType<typeof leerCursor>,
 ): Promise<OrdenesPorCobrar> {
-  const where = alcancePorCobrar(usuario);
+  const ahora = new Date();
+  const fecha = obtenerFechaEcuador(ahora);
+  const { inicio, fin } = obtenerRangoEcuador(fecha)!;
+  const where: Prisma.OrdenWhereInput = {
+    ...alcancePorCobrar(usuario),
+    createdAt: { gte: inicio, lt: fin },
+  };
   return prisma.$transaction(
     async (tx) => {
       const [totalPendientes, filas, caja] = await Promise.all([
@@ -111,7 +118,7 @@ export async function listarPorCobrar(
           take: 51,
         }),
         tx.sesionCaja.findUnique({
-          where: { fecha: obtenerFechaEcuador() },
+          where: { fecha },
           select: { estado: true },
         }),
       ]);
@@ -119,7 +126,7 @@ export async function listarPorCobrar(
       const ultima = pagina.at(-1);
       return {
         totalPendientes,
-        consultadoAt: new Date().toISOString(),
+        consultadoAt: ahora.toISOString(),
         siguienteCursor:
           filas.length > 50 && ultima
             ? Buffer.from(
