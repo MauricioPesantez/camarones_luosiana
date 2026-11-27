@@ -29,6 +29,7 @@ const TIPOS: Record<string, string> = {
   ACTUALIZACION_GRUPO: "Cambio al grupo",
   RECORDATORIO_DELIVERY: "Aviso de delivery",
   RECORDATORIO_COBRO: "Aviso de órdenes sin cobrar",
+  COBRO_TRANSFERENCIA: "Cobro por transferencia",
   RESUMEN_CIERRE: "Resumen del cierre de caja",
 };
 

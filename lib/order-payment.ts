@@ -13,8 +13,10 @@ import {
   derivarClaveIdempotencia,
   validarActoDeCobro,
 } from '@/lib/order-payment-validaciones';
-import { objectExists } from '@/lib/storage';
+import { getSignedReadUrl, objectExists } from '@/lib/storage';
 import { canCollectPayments, type AuthenticatedUser } from '@/lib/session';
+import { dinero } from '@/lib/whatsapp-mensajes';
+import { leerConfiguracion } from '@/lib/whatsapp-webhook';
 import {
   aCentavos,
   aDolares,
@@ -33,6 +35,7 @@ export class PaymentForbiddenError extends Error {}
 const ORDER_WITH_ITEMS = {
   items: { include: { producto: { select: PUBLIC_PRODUCT_SELECT } } },
 } satisfies Prisma.OrdenInclude;
+const VIGENCIA_COMPROBANTE_WHATSAPP_SEGUNDOS = 24 * 60 * 60;
 
 // El cobro no depende de quién creó la orden: cualquier rol habilitado para cobrar
 // puede cerrar el pago de cualquier orden (turnos, relevos, caja compartida).
@@ -199,6 +202,15 @@ export async function collectOrderPayment(input: {
   // el historial: usa el valor ya resuelto arriba, asi que una caida del storage
   // tambien cae en este camino.
   const sinComprobante = Boolean(parteTransferencia) && !comprobanteKey;
+  const whatsapp = parteTransferencia ? leerConfiguracion(process.env) : null;
+  let enlaceComprobante: string | null = null;
+  if (whatsapp?.habilitado && comprobanteKey) {
+    try {
+      enlaceComprobante = await getSignedReadUrl(comprobanteKey, VIGENCIA_COMPROBANTE_WHATSAPP_SEGUNDOS);
+    } catch (error) {
+      console.error('No se pudo firmar el enlace de WhatsApp para el comprobante:', error instanceof Error ? error.name : 'desconocido');
+    }
+  }
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -231,7 +243,7 @@ export async function collectOrderPayment(input: {
       }
 
       for (const parte of input.partes) {
-        await tx.cobro.create({
+        const cobro = await tx.cobro.create({
           data: {
             ordenId: input.orderId,
             metodoPago: parte.metodoPago,
@@ -250,7 +262,25 @@ export async function collectOrderPayment(input: {
             comprobanteTransferenciaKey:
               parte.metodoPago === 'transferencia' ? comprobanteKey : null,
           },
+          select: { id: true, monto: true },
         });
+
+        if (whatsapp?.habilitado && parte.metodoPago === 'transferencia') {
+          await tx.whatsappSalida.create({
+            data: {
+              sessionId: whatsapp.sessionId,
+              ordenId: input.orderId,
+              tipo: 'COBRO_TRANSFERENCIA',
+              destino: whatsapp.grupoChatId,
+              clave: `transferencia:${cobro.id}`,
+              texto: [
+                `Transferencia confirmada · Orden #${existing.numeroDiario ?? existing.id.slice(-6)}`,
+                `Monto transferido: ${dinero(cobro.monto)}`,
+                enlaceComprobante ?? (comprobanteKey ? 'Comprobante disponible en el POS' : 'Sin comprobante adjunto'),
+              ].join('\n'),
+            },
+          });
+        }
       }
 
       // `Orden.metodoPago` es dato de presentacion: resume TODOS los pagos de la

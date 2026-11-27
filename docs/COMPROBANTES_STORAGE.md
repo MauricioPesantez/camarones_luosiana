@@ -21,9 +21,8 @@ comprobante.
 
 ## Configuración del bucket
 
-- **Acceso público bloqueado.** El navegador nunca habla directo con el bucket:
-  la subida pasa por el servidor y la lectura usa URLs firmadas. No hace falta
-  configurar CORS.
+- **Acceso público bloqueado.** La subida pasa por el servidor y el navegador
+  abre una URL firmada para leer la foto. No hace falta configurar CORS.
 - **Cifrado en reposo.** Contra AWS la aplicación envía
   `ServerSideEncryption: AES256`. R2 y MinIO cifran por su cuenta y rechazan o
   ignoran esa cabecera, así que solo se envía cuando `S3_ENDPOINT` está vacío.
@@ -82,6 +81,18 @@ La subida ocurre antes de la transacción de cobro. Si el cobro falla después p
 conflicto, o si quien cobra reintenta con otra foto, el objeto ya escrito queda
 sin referencia en la base. El lifecycle de 30 días los elimina; no hay proceso
 de limpieza propio.
+
+## Aviso de transferencia en WhatsApp
+
+Al confirmar un cobro en la pantalla del POS, con WhatsApp habilitado, se guarda
+un aviso para `WHATSAPP_GROUP_CHAT_ID` en la misma transacción del pago. El agente
+lo envía con el número de la orden y el importe de la transferencia, incluso si
+el resto del pago fue en efectivo. Reintentar la confirmación no genera otro aviso.
+
+Si se guardó la foto, el mensaje incluye un enlace de lectura firmado que dura
+24 horas desde el cobro. Cualquiera con el enlace puede abrirlo durante ese plazo.
+Si no se adjuntó una foto, el aviso lo indica. Si falla la firma, la foto sigue
+disponible para el administrador en el POS según la retención del bucket.
 
 ## Desarrollo local
 
